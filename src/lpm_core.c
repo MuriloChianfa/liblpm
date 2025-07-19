@@ -228,14 +228,6 @@ static inline void lpm_bitmap_set(uint32_t *bitmap, uint8_t index)
     bitmap[word] |= (1U << bit);
 }
 
-/* Clear a bit in the bitmap */
-static inline void lpm_bitmap_clear(uint32_t *bitmap, uint8_t index)
-{
-    uint32_t word = index / 32;
-    uint32_t bit = index % 32;
-    bitmap[word] &= ~(1U << bit);
-}
-
 /* Add a prefix to the trie with user data */
 int lpm_add_prefix(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, void *user_data)
 {
@@ -571,8 +563,13 @@ void lpm_print_stats(const lpm_trie_t *trie)
     printf("LPM Trie Statistics:\n");
     printf("  Max depth: %u\n", trie->max_depth);
     printf("  Stride bits: %u\n", trie->stride_bits);
+#ifdef LPM_X86_ARCH
     printf("  Number of prefixes: %lu\n", trie->num_prefixes);
     printf("  Number of nodes: %lu\n", trie->num_nodes);
+#elif
+    printf("  Number of prefixes: %llu\n", trie->num_prefixes);
+    printf("  Number of nodes: %llu\n", trie->num_nodes);
+#endif
     printf("  CPU features: 0x%08x\n", trie->cpu_features);
     
     /* Print detected features */

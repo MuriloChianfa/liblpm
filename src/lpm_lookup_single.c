@@ -17,13 +17,6 @@ uint32_t lpm_bitmap_get_branchless(const uint32_t *bitmap, uint8_t index)
     return (bitmap[word] >> bit) & 1;
 }
 
-/* Branchless next hop selection */
-static inline uint32_t lpm_select_next_hop(uint32_t current, uint32_t candidate, uint32_t valid)
-{
-    /* If valid is 1, return candidate; if valid is 0, return current */
-    return (candidate & -valid) | (current & ~(-valid));
-}
-
 /* Optimized generic single lookup with aggressive prefetching */
 uint32_t lpm_lookup_single_optimized(const struct lpm_trie *trie, const uint8_t *addr)
 {

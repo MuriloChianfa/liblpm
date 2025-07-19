@@ -13,9 +13,6 @@ static void test_lookup_all_basic(void)
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     assert(trie != NULL);
     
-    printf("CPU features: 0x%08x\n", trie->cpu_features);
-    printf("lookup_all function: %p\n", trie->lookup_all);
-    
     /* Add overlapping prefixes */
     const uint8_t prefix1[4] = {10, 0, 0, 0};       // 10.0.0.0/8
     const uint8_t prefix2[4] = {10, 1, 0, 0};       // 10.1.0.0/16
@@ -30,7 +27,6 @@ static void test_lookup_all_basic(void)
     
     /* Debug: Check what's in the root node */
     printf("Root node valid_bitmap[0] = 0x%08x\n", trie->root->valid_bitmap[0]);
-    printf("Root node prefix_info[10] = %p\n", trie->root->prefix_info[10]);
     if (trie->root->prefix_info[10]) {
         printf("  prefix_len = %u, user_data = %lu\n", 
                trie->root->prefix_info[10]->prefix_len, 

@@ -17,6 +17,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -O3")
 set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
 
+# Warning suppressions for test code
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-variable -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-sign-compare -Wno-address-of-packed-member")
+endif()
+
 # CPU feature detection
 include(CheckCCompilerFlag)
 
@@ -24,16 +29,30 @@ include(CheckCCompilerFlag)
 function(check_cpu_feature flag define)
     check_c_compiler_flag(${flag} COMPILER_SUPPORTS_${define})
     if(COMPILER_SUPPORTS_${define})
+        # Only add the flag if the compiler supports it
         set(CPU_FEATURE_FLAGS "${CPU_FEATURE_FLAGS} ${flag}" PARENT_SCOPE)
         add_compile_definitions(${define}=1)
     endif()
 endfunction()
 
-# Check for various CPU features
+# Function to check if CPU supports a feature at runtime
+function(check_cpu_supports_feature feature_name)
+    # This is a simplified check - in practice you'd want more sophisticated detection
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        # For x86_64, we'll be conservative and only enable basic features
+        # Advanced features should be detected at runtime
+        set(CPU_SUPPORTS_${feature_name} TRUE PARENT_SCOPE)
+    else()
+        set(CPU_SUPPORTS_${feature_name} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+
+# Runtime CPU feature detection approach
+# We'll compile all SIMD code but use runtime detection to select the best implementation
 if(ENABLE_NATIVE_ARCH)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 else()
-    # Check individual features
+    # Enable SIMD features that are safe for the target CPU
     check_cpu_feature("-msse" "LPM_HAVE_SSE")
     check_cpu_feature("-msse2" "LPM_HAVE_SSE2")
     check_cpu_feature("-msse3" "LPM_HAVE_SSE3")
@@ -41,11 +60,16 @@ else()
     check_cpu_feature("-msse4.1" "LPM_HAVE_SSE4_1")
     check_cpu_feature("-msse4.2" "LPM_HAVE_SSE4_2")
     check_cpu_feature("-mavx" "LPM_HAVE_AVX")
-    check_cpu_feature("-mavx2" "LPM_HAVE_AVX2")
-    check_cpu_feature("-mavx512f" "LPM_HAVE_AVX512F")
-    check_cpu_feature("-mavx512vl" "LPM_HAVE_AVX512VL")
-    check_cpu_feature("-mavx512dq" "LPM_HAVE_AVX512DQ")
-    check_cpu_feature("-mavx512bw" "LPM_HAVE_AVX512BW")
+
+    # Disable AVX2 and AVX512 for compatibility with older CPUs
+    # These will be detected at runtime but not compiled in
+
+    # check_cpu_feature("-mavx2" "LPM_HAVE_AVX2")
+    # check_cpu_feature("-mavx512f" "LPM_HAVE_AVX512F")
+    # check_cpu_feature("-mavx512vl" "LPM_HAVE_AVX512VL")
+    # check_cpu_feature("-mavx512dq" "LPM_HAVE_AVX512DQ")
+    # check_cpu_feature("-mavx512bw" "LPM_HAVE_AVX512BW")
+
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CPU_FEATURE_FLAGS}")
 endif()
 

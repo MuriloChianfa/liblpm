@@ -1,7 +1,11 @@
+#include <stdint.h>
 #include <string.h>
-#include <stdlib.h>
 #include <immintrin.h>
 #include "../include/lpm.h"
+
+#ifdef LPM_X86_ARCH
+#include <cpuid.h>
+#endif
 
 /* Helper macros for SIMD gather operations */
 #ifdef LPM_HAVE_AVX2
@@ -27,23 +31,24 @@ void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t **addrs
 #ifdef LPM_HAVE_SSE2
 /* SSE2 batch lookup - process 4 addresses at a time */
 void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
-                           uint32_t *next_hops, size_t count)
+                          uint32_t *next_hops, size_t count)
 {
     size_t i = 0;
     
     /* Process 4 addresses at a time */
     for (; i + 3 < count; i += 4) {
-        const lpm_node_t *nodes[4] = {
-            trie->root, trie->root, trie->root, trie->root
-        };
+        const lpm_node_t *nodes[4];
+        for (int j = 0; j < 4; j++) {
+            nodes[j] = trie->root;
+        }
+
         __m128i next_hop_vec = _mm_set1_epi32(LPM_INVALID_NEXT_HOP);
         uint8_t depth = 0;
         
         /* Prefetch all 4 addresses */
-        _mm_prefetch((const char*)addrs[i], _MM_HINT_T0);
-        _mm_prefetch((const char*)addrs[i+1], _MM_HINT_T0);
-        _mm_prefetch((const char*)addrs[i+2], _MM_HINT_T0);
-        _mm_prefetch((const char*)addrs[i+3], _MM_HINT_T0);
+        for (int j = 0; j < 4; j++) {
+            _mm_prefetch((const char*)addrs[i+j], _MM_HINT_T0);
+        }
         
         while (depth < trie->max_depth) {
             uint8_t byte_index = depth >> 3;
@@ -56,13 +61,14 @@ void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs,
                 addrs[i+3][byte_index]
             );
             
-            /* Process each address */
+            /* Extract indices */
             uint32_t idx[4];
             _mm_storeu_si128((__m128i*)idx, indices);
             
             __m128i valid_mask = _mm_setzero_si128();
             __m128i new_hops = _mm_setzero_si128();
             
+            /* Process each node */
             for (int j = 0; j < 4; j++) {
                 if (nodes[j]) {
                     /* Prefetch child node */
@@ -76,9 +82,23 @@ void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs,
                     uint32_t valid = (nodes[j]->valid_bitmap[word] >> bit) & 1;
                     
                     if (valid && nodes[j]->prefix_info[idx[j]]) {
-                        valid_mask = _mm_insert_epi32(valid_mask, -1, j);
                         uint32_t next_hop = (uint32_t)(uintptr_t)nodes[j]->prefix_info[idx[j]]->user_data;
-                        new_hops = _mm_insert_epi32(new_hops, next_hop, j);
+
+                        /* Use conditional operations instead of insert */
+                        __m128i hop_val = _mm_set1_epi32(next_hop);
+
+                        /* Create position-specific masks */
+                        __m128i pos_mask;
+                        switch (j) {
+                            case 0: pos_mask = _mm_setr_epi32(-1, 0, 0, 0); break;
+                            case 1: pos_mask = _mm_setr_epi32(0, -1, 0, 0); break;
+                            case 2: pos_mask = _mm_setr_epi32(0, 0, -1, 0); break;
+                            case 3: pos_mask = _mm_setr_epi32(0, 0, 0, -1); break;
+                            default: pos_mask = _mm_setzero_si128(); break;
+                        }
+
+                        valid_mask = _mm_or_si128(valid_mask, pos_mask);
+                        new_hops = _mm_or_si128(new_hops, _mm_and_si128(hop_val, pos_mask));
                     }
                     
                     nodes[j] = nodes[j]->children[idx[j]];
@@ -117,15 +137,22 @@ void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs,
 void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
                           uint32_t *next_hops, size_t count)
 {
+    /* Runtime safety check */
+    if (!(trie->cpu_features & LPM_CPU_AVX2)) {
+        /* Fallback to SSE2 if AVX2 not available */
+        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+        return;
+    }
+
     size_t i = 0;
-    
+
     /* Process 8 addresses at a time */
     for (; i + 7 < count; i += 8) {
         const lpm_node_t *nodes[8];
         for (int j = 0; j < 8; j++) {
             nodes[j] = trie->root;
         }
-        
+
         __m256i next_hop_vec = _mm256_set1_epi32(LPM_INVALID_NEXT_HOP);
         uint8_t depth = 0;
         
@@ -171,9 +198,27 @@ void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs,
                     uint32_t valid = (nodes[j]->valid_bitmap[word] >> bit) & 1;
                     
                     if (valid && nodes[j]->prefix_info[idx[j]]) {
-                        valid_mask = _mm256_insert_epi32(valid_mask, -1, j);
                         uint32_t next_hop = (uint32_t)(uintptr_t)nodes[j]->prefix_info[idx[j]]->user_data;
-                        new_hops = _mm256_insert_epi32(new_hops, next_hop, j);
+
+                        /* Use conditional operations instead of insert */
+                        __m256i hop_val = _mm256_set1_epi32(next_hop);
+
+                        /* Create position-specific masks */
+                        __m256i pos_mask;
+                        switch (j) {
+                            case 0: pos_mask = _mm256_setr_epi32(-1, 0, 0, 0, 0, 0, 0, 0); break;
+                            case 1: pos_mask = _mm256_setr_epi32(0, -1, 0, 0, 0, 0, 0, 0); break;
+                            case 2: pos_mask = _mm256_setr_epi32(0, 0, -1, 0, 0, 0, 0, 0); break;
+                            case 3: pos_mask = _mm256_setr_epi32(0, 0, 0, -1, 0, 0, 0, 0); break;
+                            case 4: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, -1, 0, 0, 0); break;
+                            case 5: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, 0, -1, 0, 0); break;
+                            case 6: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, 0, 0, -1, 0); break;
+                            case 7: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, 0, 0, 0, -1); break;
+                            default: pos_mask = _mm256_setzero_si256(); break;
+                        }
+
+                        valid_mask = _mm256_or_si256(valid_mask, pos_mask);
+                        new_hops = _mm256_or_si256(new_hops, _mm256_and_si256(hop_val, pos_mask));
                     }
                     
                     nodes[j] = nodes[j]->children[idx[j]];
@@ -208,6 +253,18 @@ void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs,
 void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
                             uint32_t *next_hops, size_t count)
 {
+    /* Runtime safety check */
+    if (!(trie->cpu_features & LPM_CPU_AVX512F)) {
+        /* Fallback to AVX2 if AVX512 not available */
+        if (trie->cpu_features & LPM_CPU_AVX2) {
+            lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
+            return;
+        }
+
+        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+        return;
+    }
+
     size_t i = 0;
     
     /* Process 16 addresses at a time */
@@ -348,24 +405,39 @@ void lpm_lookup_batch_ipv6(const lpm_trie_t *trie, const uint8_t (*addrs)[16],
 /* Function to select the best batch lookup implementation based on CPU features */
 void lpm_select_batch_lookup_function(lpm_trie_t *trie)
 {
+    /* Always start with the safest fallback */
+    trie->lookup_batch = lpm_lookup_batch_generic;
+
 #ifdef LPM_HAVE_AVX512F
     if (trie->cpu_features & LPM_CPU_AVX512F) {
-        trie->lookup_batch = lpm_lookup_batch_avx512;
-        return;
+        /* Additional runtime check for AVX512 */
+        unsigned int eax, ebx, ecx, edx;
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 16))) {
+            trie->lookup_batch = lpm_lookup_batch_avx512;
+            return;
+        }
     }
 #endif
 
 #ifdef LPM_HAVE_AVX2
     if (trie->cpu_features & LPM_CPU_AVX2) {
-        trie->lookup_batch = lpm_lookup_batch_avx2;
-        return;
+        /* Additional runtime check for AVX2 */
+        unsigned int eax, ebx, ecx, edx;
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 5))) {
+            trie->lookup_batch = lpm_lookup_batch_avx2;
+            return;
+        }
     }
 #endif
 
 #ifdef LPM_HAVE_SSE2
     if (trie->cpu_features & LPM_CPU_SSE2) {
-        trie->lookup_batch = lpm_lookup_batch_sse2;
-        return;
+        /* Additional runtime check for SSE2 */
+        unsigned int eax, ebx, ecx, edx;
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) && (edx & (1 << 26))) {
+            trie->lookup_batch = lpm_lookup_batch_sse2;
+            return;
+        }
     }
 #endif
 

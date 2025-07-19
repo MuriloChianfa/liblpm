@@ -1,6 +1,11 @@
+#include <stdint.h>
 #include <string.h>
 #include <immintrin.h>
 #include "../include/lpm.h"
+
+#ifdef LPM_X86_ARCH
+#include <cpuid.h>
+#endif
 
 /* Branchless bitmap check */
 uint32_t lpm_bitmap_get_branchless(const uint32_t *bitmap, uint8_t index)
@@ -114,47 +119,43 @@ uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr
 #endif
 
 #ifdef LPM_HAVE_AVX2
-/* AVX2 optimized lookup - uses advanced bit manipulation */
+/* AVX2 optimized lookup - uses 256-bit vectors for better throughput */
 uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
+    /* Runtime safety check */
+    if (!(trie->cpu_features & LPM_CPU_AVX2)) {
+        /* Fallback to SSE2 if AVX2 not available */
+        return lpm_lookup_single_sse2(trie, addr);
+    }
+
     const lpm_node_t *node = trie->root;
     uint32_t next_hop = LPM_INVALID_NEXT_HOP;
     uint8_t depth = 0;
     
-    /* Prefetch multiple cache lines ahead */
+    /* Prefetch with AVX2 */
     _mm_prefetch((const char*)addr, _MM_HINT_T0);
-    _mm_prefetch((const char*)(addr + 8), _MM_HINT_T1);
     
     while (node && depth < trie->max_depth) {
         uint8_t byte_index = depth >> 3;
         uint8_t index = addr[byte_index];
         
-        /* Aggressive prefetching for next two levels */
+        /* Prefetch next level */
         if (node->children[index]) {
             _mm_prefetch((const char*)node->children[index], _MM_HINT_T0);
             _mm_prefetch((const char*)&node->children[index]->valid_bitmap[0], _MM_HINT_T0);
-            _mm_prefetch((const char*)&node->children[index]->prefix_info[0], _MM_HINT_T0);
-            
-            /* Prefetch potential grandchild */
-            if (depth + LPM_STRIDE_BITS < trie->max_depth && byte_index + 1 < 16) {
-                uint8_t next_index = addr[byte_index + 1];
-                if (node->children[index]->children[next_index]) {
-                    _mm_prefetch((const char*)node->children[index]->children[next_index], _MM_HINT_T1);
-                }
-            }
         }
         
-        /* Branchless validity check and update */
+        /* Check validity */
         uint32_t valid = lpm_bitmap_get_branchless(node->valid_bitmap, index);
         
-        /* AVX2 conditional move */
+        /* AVX2 blend operation for branchless update */
         if (valid && node->prefix_info[index]) {
             uint32_t new_hop = (uint32_t)(uintptr_t)node->prefix_info[index]->user_data;
             __m256i current_hop = _mm256_set1_epi32(next_hop);
             __m256i candidate_hop = _mm256_set1_epi32(new_hop);
-            __m256i mask = _mm256_set1_epi32(-1);  /* Always update when valid */
+            __m256i mask = _mm256_set1_epi32(-1);
             __m256i result = _mm256_blendv_epi8(current_hop, candidate_hop, mask);
-            next_hop = _mm256_extract_epi32(result, 0);
+            next_hop = _mm256_cvtsi256_si32(result);
         }
         
         node = node->children[index];
@@ -169,6 +170,16 @@ uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr
 /* AVX512 optimized lookup - uses mask registers for branchless operations */
 uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr)
 {
+    /* Runtime safety check */
+    if (!(trie->cpu_features & LPM_CPU_AVX512F)) {
+        /* Fallback to AVX2 if AVX512 not available */
+        if (trie->cpu_features & LPM_CPU_AVX2) {
+            return lpm_lookup_single_avx2(trie, addr);
+        }
+
+        return lpm_lookup_single_sse2(trie, addr);
+    }
+
     const lpm_node_t *node = trie->root;
     uint32_t next_hop = LPM_INVALID_NEXT_HOP;
     uint8_t depth = 0;
@@ -332,24 +343,39 @@ uint32_t lpm_lookup_ipv6_optimized(const struct lpm_trie *trie, const uint8_t ad
 /* Function to select the best single lookup implementation based on CPU features */
 void lpm_select_single_lookup_function(lpm_trie_t *trie)
 {
+    /* Always start with the safest fallback */
+    trie->lookup_single = lpm_lookup_single_optimized;
+
 #ifdef LPM_HAVE_AVX512F
     if (trie->cpu_features & LPM_CPU_AVX512F) {
-        trie->lookup_single = lpm_lookup_single_avx512;
-        return;
+        /* Additional runtime check for AVX512 */
+        unsigned int eax, ebx, ecx, edx;
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 16))) {
+            trie->lookup_single = lpm_lookup_single_avx512;
+            return;
+        }
     }
 #endif
 
 #ifdef LPM_HAVE_AVX2
     if (trie->cpu_features & LPM_CPU_AVX2) {
-        trie->lookup_single = lpm_lookup_single_avx2;
-        return;
+        /* Additional runtime check for AVX2 */
+        unsigned int eax, ebx, ecx, edx;
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 5))) {
+            trie->lookup_single = lpm_lookup_single_avx2;
+            return;
+        }
     }
 #endif
 
 #ifdef LPM_HAVE_SSE2
     if (trie->cpu_features & LPM_CPU_SSE2) {
-        trie->lookup_single = lpm_lookup_single_sse2;
-        return;
+        /* Additional runtime check for SSE2 */
+        unsigned int eax, ebx, ecx, edx;
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) && (edx & (1 << 26))) {
+            trie->lookup_single = lpm_lookup_single_sse2;
+            return;
+        }
     }
 #endif
 

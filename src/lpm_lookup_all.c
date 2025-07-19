@@ -232,25 +232,25 @@ void lpm_select_lookup_all_function(lpm_trie_t *trie)
 {
 #ifdef LPM_HAVE_AVX512F
     if (trie->cpu_features & LPM_CPU_AVX512F) {
-        trie->lookup_all = (void*)lpm_lookup_all_avx512;
+        trie->lookup_all = lpm_lookup_all_avx512;
         return;
     }
 #endif
 
 #ifdef LPM_HAVE_AVX2
     if (trie->cpu_features & LPM_CPU_AVX2) {
-        trie->lookup_all = (void*)lpm_lookup_all_avx2;
+        trie->lookup_all = lpm_lookup_all_avx2;
         return;
     }
 #endif
 
 #ifdef LPM_HAVE_SSE2
     if (trie->cpu_features & LPM_CPU_SSE2) {
-        trie->lookup_all = (void*)lpm_lookup_all_sse2;
+        trie->lookup_all = lpm_lookup_all_sse2;
         return;
     }
 #endif
 
     /* Default to optimized generic implementation */
-    trie->lookup_all = (void*)lpm_lookup_all_optimized;
+    trie->lookup_all = lpm_lookup_all_optimized;
 } 

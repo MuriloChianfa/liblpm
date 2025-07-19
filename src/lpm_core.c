@@ -45,8 +45,27 @@ uint32_t lpm_detect_cpu_features(void)
         if (ebx & (1U << 30)) features |= LPM_CPU_AVX512BW;
         if (ebx & (1U << 31)) features |= LPM_CPU_AVX512VL;
     }
+
+    /* Additional safety checks for AVX2 and AVX512 */
+    /* Check if OS supports AVX2 (XSAVE and YMM state) */
+    if (features & LPM_CPU_AVX2) {
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+            if (!(ecx & (1 << 27))) { /* XSAVE not supported */
+                features &= ~LPM_CPU_AVX2;
+            }
+        }
+    }
+
+    /* Check if OS supports AVX512 (XSAVE and ZMM state) */
+    if (features & LPM_CPU_AVX512F) {
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+            if (!(ecx & (1 << 27))) { /* XSAVE not supported */
+                features &= ~(LPM_CPU_AVX512F | LPM_CPU_AVX512VL | LPM_CPU_AVX512DQ | LPM_CPU_AVX512BW);
+            }
+        }
+    }
 #endif
-    
+
     return features;
 }
 

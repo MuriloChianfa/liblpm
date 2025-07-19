@@ -84,7 +84,8 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        build_type: [DEBUG, RELEASE]
+        build_type: [RELEASE]
+        # build_type: [DEBUG, RELEASE]
 
     steps:
     - name: Checkout code

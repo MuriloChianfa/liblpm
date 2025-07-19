@@ -94,7 +94,7 @@ static int parse_fuzz_input(const uint8_t *data, size_t size,
 }
 
 /* Test trie consistency */
-static int test_trie_consistency(lpm_trie_t *trie, const uint8_t *addrs, 
+static int test_trie_consistency(const lpm_trie_t *trie, const uint8_t *addrs, 
                                 const uint32_t *expected_results, size_t num_lookups) {
     for (size_t i = 0; i < num_lookups; i++) {
         uint32_t result = lpm_lookup(trie, addrs + i * 16);
@@ -121,16 +121,13 @@ static int test_memory_safety(const uint8_t *data, size_t size) {
     /* Test basic operations */
     ret = test_trie_consistency(trie, addrs, expected_results, num_lookups);
     
-    /* Test lookup_all */
+    /* Test lookup_all and batch operations */
     if (num_lookups > 0) {
         lpm_result_t *result = lpm_lookup_all(trie, addrs);
         if (result) {
             lpm_result_destroy(result);
         }
-    }
-    
-    /* Test batch operations */
-    if (num_lookups > 0) {
+
         const uint8_t **addr_ptrs = malloc(num_lookups * sizeof(uint8_t*));
         uint32_t *batch_results = malloc(num_lookups * sizeof(uint32_t));
         
@@ -160,29 +157,29 @@ static int test_edge_cases(void) {
     if (!trie) return -1;
     
     /* Test 1: Empty trie */
-    uint8_t addr[] = {192, 168, 0, 1};
+    const uint8_t addr[] = {192, 168, 0, 1};
     uint32_t result = lpm_lookup(trie, addr);
     assert(result == LPM_INVALID_NEXT_HOP);
     
     /* Test 2: Single prefix */
-    uint8_t prefix[] = {192, 168, 0, 0};
+    const uint8_t prefix[] = {192, 168, 0, 0};
     assert(lpm_add(trie, prefix, 16, 1) == 0);
     result = lpm_lookup(trie, addr);
     assert(result == 1);
     
     /* Test 3: Overlapping prefixes */
-    uint8_t prefix2[] = {192, 168, 0, 0};
+    const uint8_t prefix2[] = {192, 168, 0, 0};
     assert(lpm_add(trie, prefix2, 24, 2) == 0);
     result = lpm_lookup(trie, addr);
     assert(result == 2);  /* More specific match */
     
     /* Test 4: Exact match */
-    uint8_t addr2[] = {192, 168, 0, 0};
+    const uint8_t addr2[] = {192, 168, 0, 0};
     result = lpm_lookup(trie, addr2);
     assert(result == 2);
     
     /* Test 5: No match */
-    uint8_t addr3[] = {10, 0, 0, 1};
+    const uint8_t addr3[] = {10, 0, 0, 1};
     result = lpm_lookup(trie, addr3);
     assert(result == LPM_INVALID_NEXT_HOP);
     
@@ -196,10 +193,10 @@ static int test_ipv6_edge_cases(void) {
     if (!trie) return -1;
     
     /* Test IPv6 prefix */
-    uint8_t prefix[16] = {0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
-                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t addr[16] = {0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
-                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+    const uint8_t prefix[16] = {0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    const uint8_t addr[16] = {0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
     
     assert(lpm_add(trie, prefix, 64, 1) == 0);
     uint32_t result = lpm_lookup(trie, addr);
@@ -217,13 +214,13 @@ static int test_custom_allocator_edge_cases(void) {
     
     /* Add many prefixes to test memory management */
     for (int i = 0; i < 100; i++) {
-        uint8_t prefix[4] = {192, 168, i, 0};
+        const uint8_t prefix[4] = {192, 168, i, 0};
         assert(lpm_add(trie, prefix, 24, i) == 0);
     }
     
     /* Test lookups */
     for (int i = 0; i < 100; i++) {
-        uint8_t addr[4] = {192, 168, i, 1};
+        const uint8_t addr[4] = {192, 168, i, 1};
         uint32_t result = lpm_lookup(trie, addr);
         assert(result == i);
     }
@@ -233,7 +230,7 @@ static int test_custom_allocator_edge_cases(void) {
 }
 
 /* Main function for AFL-style fuzzing */
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
     /* Test edge cases first */
     if (test_edge_cases() != 0) {
         fprintf(stderr, "Edge cases test failed\n");
@@ -269,14 +266,14 @@ int main(int argc, char *argv[]) {
             *(uint32_t*)(test_data + data_size) = i;  /* next hop */
             data_size += 4;
             
-            uint8_t prefix[4] = {192, 168, i, 0};
+            const uint8_t prefix[4] = {192, 168, i, 0};
             memcpy(test_data + data_size, prefix, 3);  /* Only 3 bytes for /24 */
             data_size += 3;
         }
         
         /* Add some lookups */
         for (int i = 0; i < 5; i++) {
-            uint8_t addr[16] = {192, 168, i, 1};
+            const uint8_t addr[16] = {192, 168, i, 1};
             memcpy(test_data + data_size, addr, 16);
             data_size += 16;
             *(uint32_t*)(test_data + data_size) = i;

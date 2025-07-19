@@ -14,10 +14,10 @@ static void test_ipv4_basic(void)
     assert(trie != NULL);
     
     /* Add some test prefixes */
-    uint8_t prefix1[4] = {192, 168, 0, 0};    // 192.168.0.0/16
-    uint8_t prefix2[4] = {192, 168, 1, 0};    // 192.168.1.0/24
-    uint8_t prefix3[4] = {10, 0, 0, 0};       // 10.0.0.0/8
-    uint8_t prefix4[4] = {172, 16, 0, 0};     // 172.16.0.0/12
+    const uint8_t prefix1[4] = {192, 168, 0, 0};    // 192.168.0.0/16
+    const uint8_t prefix2[4] = {192, 168, 1, 0};    // 192.168.1.0/24
+    const uint8_t prefix3[4] = {10, 0, 0, 0};       // 10.0.0.0/8
+    const uint8_t prefix4[4] = {172, 16, 0, 0};     // 172.16.0.0/12
     
     assert(lpm_add(trie, prefix1, 16, 100) == 0);
     assert(lpm_add(trie, prefix2, 24, 200) == 0);
@@ -25,11 +25,11 @@ static void test_ipv4_basic(void)
     assert(lpm_add(trie, prefix4, 12, 400) == 0);
     
     /* Test lookups */
-    uint8_t test1[4] = {192, 168, 1, 1};      // Should match 192.168.1.0/24 -> 200
-    uint8_t test2[4] = {192, 168, 2, 1};      // Should match 192.168.0.0/16 -> 100
-    uint8_t test3[4] = {10, 1, 2, 3};         // Should match 10.0.0.0/8 -> 300
-    uint8_t test4[4] = {172, 16, 5, 10};      // Should match 172.16.0.0/12 -> 400
-    uint8_t test5[4] = {8, 8, 8, 8};          // Should not match -> INVALID
+    const uint8_t test1[4] = {192, 168, 1, 1};      // Should match 192.168.1.0/24 -> 200
+    const uint8_t test2[4] = {192, 168, 2, 1};      // Should match 192.168.0.0/16 -> 100
+    const uint8_t test3[4] = {10, 1, 2, 3};         // Should match 10.0.0.0/8 -> 300
+    const uint8_t test4[4] = {172, 16, 5, 10};      // Should match 172.16.0.0/12 -> 400
+    const uint8_t test5[4] = {8, 8, 8, 8};          // Should not match -> INVALID
     
     assert(lpm_lookup(trie, test1) == 200);
     assert(lpm_lookup(trie, test2) == 100);
@@ -54,19 +54,19 @@ static void test_ipv6_basic(void)
     assert(trie != NULL);
     
     /* Add some test prefixes */
-    uint8_t prefix1[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8::/32
-    uint8_t prefix2[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8:0:1::/64
-    uint8_t prefix3[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};       // fe80::/10
+    const uint8_t prefix1[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8::/32
+    const uint8_t prefix2[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8:0:1::/64
+    const uint8_t prefix3[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};       // fe80::/10
     
     assert(lpm_add(trie, prefix1, 32, 100) == 0);
     assert(lpm_add(trie, prefix2, 64, 200) == 0);
     assert(lpm_add(trie, prefix3, 10, 300) == 0);
     
     /* Test lookups */
-    uint8_t test1[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1}; // Should match /64 -> 200
-    uint8_t test2[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1}; // Should match /32 -> 100
-    uint8_t test3[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};       // Should match /10 -> 300
-    uint8_t test4[16] = {0x30, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};       // Should not match
+    const uint8_t test1[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1}; // Should match /64 -> 200
+    const uint8_t test2[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1}; // Should match /32 -> 100
+    const uint8_t test3[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};       // Should match /10 -> 300
+    const uint8_t test4[16] = {0x30, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};       // Should not match
     
     assert(lpm_lookup_ipv6(trie, test1) == 200);
     assert(lpm_lookup_ipv6(trie, test2) == 100);
@@ -86,9 +86,9 @@ static void test_batch_lookup(void)
     assert(trie != NULL);
     
     /* Add prefixes */
-    uint8_t prefix1[4] = {10, 0, 0, 0};
-    uint8_t prefix2[4] = {10, 1, 0, 0};
-    uint8_t prefix3[4] = {10, 2, 0, 0};
+    const uint8_t prefix1[4] = {10, 0, 0, 0};
+    const uint8_t prefix2[4] = {10, 1, 0, 0};
+    const uint8_t prefix3[4] = {10, 2, 0, 0};
     
     assert(lpm_add(trie, prefix1, 8, 100) == 0);
     assert(lpm_add(trie, prefix2, 16, 200) == 0);
@@ -96,7 +96,7 @@ static void test_batch_lookup(void)
     
     /* Prepare batch of addresses */
     const int batch_size = 8;
-    uint8_t addrs[8][4] = {
+    const uint8_t addrs[8][4] = {
         {10, 0, 0, 1},    // -> 100
         {10, 1, 0, 1},    // -> 200
         {10, 2, 0, 1},    // -> 300
@@ -113,7 +113,7 @@ static void test_batch_lookup(void)
     }
     
     uint32_t next_hops[8];
-    uint32_t expected[8] = {100, 200, 300, 100, LPM_INVALID_NEXT_HOP, 200, 300, LPM_INVALID_NEXT_HOP};
+    const uint32_t expected[8] = {100, 200, 300, 100, LPM_INVALID_NEXT_HOP, 200, 300, LPM_INVALID_NEXT_HOP};
     
     lpm_lookup_batch(trie, addr_ptrs, next_hops, batch_size);
     
@@ -127,11 +127,11 @@ static void test_batch_lookup(void)
     }
     
     /* Test IPv4 batch lookup */
-    uint32_t ipv4_addrs[4] = {
-        (10 << 24) | (0 << 16) | (0 << 8) | 1,  // 10.0.0.1
-        (10 << 24) | (1 << 16) | (0 << 8) | 1,  // 10.1.0.1
-        (10 << 24) | (2 << 16) | (0 << 8) | 1,  // 10.2.0.1
-        (11 << 24) | (0 << 16) | (0 << 8) | 1   // 11.0.0.1
+    const uint32_t ipv4_addrs[4] = {
+        (10 << 24) | 1,              // 10.0.0.1
+        (10 << 24) | (1 << 16) | 1,  // 10.1.0.1
+        (10 << 24) | (2 << 16) | 1,  // 10.2.0.1
+        (11 << 24) | 1               // 11.0.0.1
     };
     
     uint32_t ipv4_next_hops[4];
@@ -154,10 +154,10 @@ static void test_overlapping_prefixes(void)
     assert(trie != NULL);
     
     /* Add overlapping prefixes */
-    uint8_t prefix1[4] = {10, 0, 0, 0};       // 10.0.0.0/8
-    uint8_t prefix2[4] = {10, 1, 0, 0};       // 10.1.0.0/16
-    uint8_t prefix3[4] = {10, 1, 2, 0};       // 10.1.2.0/24
-    uint8_t prefix4[4] = {10, 1, 2, 3};       // 10.1.2.3/32
+    const uint8_t prefix1[4] = {10, 0, 0, 0};       // 10.0.0.0/8
+    const uint8_t prefix2[4] = {10, 1, 0, 0};       // 10.1.0.0/16
+    const uint8_t prefix3[4] = {10, 1, 2, 0};       // 10.1.2.0/24
+    const uint8_t prefix4[4] = {10, 1, 2, 3};       // 10.1.2.3/32
     
     assert(lpm_add(trie, prefix1, 8, 100) == 0);
     assert(lpm_add(trie, prefix2, 16, 200) == 0);
@@ -165,10 +165,10 @@ static void test_overlapping_prefixes(void)
     assert(lpm_add(trie, prefix4, 32, 400) == 0);
     
     /* Test longest prefix matching */
-    uint8_t test1[4] = {10, 1, 2, 3};         // Should match /32 -> 400
-    uint8_t test2[4] = {10, 1, 2, 4};         // Should match /24 -> 300
-    uint8_t test3[4] = {10, 1, 3, 1};         // Should match /16 -> 200
-    uint8_t test4[4] = {10, 2, 0, 0};         // Should match /8 -> 100
+    const uint8_t test1[4] = {10, 1, 2, 3};         // Should match /32 -> 400
+    const uint8_t test2[4] = {10, 1, 2, 4};         // Should match /24 -> 300
+    const uint8_t test3[4] = {10, 1, 3, 1};         // Should match /16 -> 200
+    const uint8_t test4[4] = {10, 2, 0, 0};         // Should match /8 -> 100
     
     assert(lpm_lookup(trie, test1) == 400);
     assert(lpm_lookup(trie, test2) == 300);

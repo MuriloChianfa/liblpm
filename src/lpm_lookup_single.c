@@ -293,7 +293,7 @@ uint32_t lpm_lookup_ipv6_optimized(const struct lpm_trie *trie, const uint8_t ad
         /* Prefetch next two levels */
         if (node->children[index]) {
             __builtin_prefetch(node->children[index], 0, 3);
-            if (i + 1 < 16 && node->children[index]) {
+            if (i + 1 < 4 && node->children[index]) {
                 uint8_t next_index = addr_bytes[i + 1];
                 __builtin_prefetch(&node->children[index]->children[next_index], 0, 2);
             }

@@ -65,3 +65,4 @@ fuzz_results
 build_afl.sh
 tests/dict.txt
 continuous_fuzz.sh
+cppcheck_output/

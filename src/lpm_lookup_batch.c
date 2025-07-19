@@ -234,8 +234,6 @@ void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs,
                 idx[j] = addrs[i+j][byte_index];
             }
             
-            __m512i indices = _mm512_loadu_si512((__m512i*)idx);
-            
             __mmask16 valid_mask = 0;
             __m512i new_hops = _mm512_setzero_si512();
             __mmask16 active_mask = 0;

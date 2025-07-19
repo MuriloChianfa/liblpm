@@ -17,10 +17,10 @@ static void test_lookup_all_basic(void)
     printf("lookup_all function: %p\n", trie->lookup_all);
     
     /* Add overlapping prefixes */
-    uint8_t prefix1[4] = {10, 0, 0, 0};       // 10.0.0.0/8
-    uint8_t prefix2[4] = {10, 1, 0, 0};       // 10.1.0.0/16
-    uint8_t prefix3[4] = {10, 1, 2, 0};       // 10.1.2.0/24
-    uint8_t prefix4[4] = {10, 1, 2, 3};       // 10.1.2.3/32
+    const uint8_t prefix1[4] = {10, 0, 0, 0};       // 10.0.0.0/8
+    const uint8_t prefix2[4] = {10, 1, 0, 0};       // 10.1.0.0/16
+    const uint8_t prefix3[4] = {10, 1, 2, 0};       // 10.1.2.0/24
+    const uint8_t prefix4[4] = {10, 1, 2, 3};       // 10.1.2.3/32
     
     printf("Adding prefixes...\n");
     assert(lpm_add_prefix(trie, prefix1, 8, (void*)100) == 0);
@@ -38,11 +38,11 @@ static void test_lookup_all_basic(void)
     }
     
     /* Test lookups - should return all matching prefixes */
-    uint8_t test1[4] = {10, 1, 2, 3};         // Should match all 4 prefixes
-    uint8_t test2[4] = {10, 1, 2, 4};         // Should match 3 prefixes (not /32)
-    uint8_t test3[4] = {10, 1, 3, 1};         // Should match 2 prefixes (/8, /16)
-    uint8_t test4[4] = {10, 2, 0, 0};         // Should match 1 prefix (/8)
-    uint8_t test5[4] = {192, 168, 1, 1};      // Should match 0 prefixes
+    const uint8_t test1[4] = {10, 1, 2, 3};         // Should match all 4 prefixes
+    const uint8_t test2[4] = {10, 1, 2, 4};         // Should match 3 prefixes (not /32)
+    const uint8_t test3[4] = {10, 1, 3, 1};         // Should match 2 prefixes (/8, /16)
+    const uint8_t test4[4] = {10, 2, 0, 0};         // Should match 1 prefix (/8)
+    const uint8_t test5[4] = {192, 168, 1, 1};      // Should match 0 prefixes
     
     /* Test 10.1.2.3 - should match all 4 */
     printf("Testing 10.1.2.3...\n");
@@ -104,16 +104,16 @@ static void test_lookup_all_ipv6(void)
     assert(trie != NULL);
     
     /* Add overlapping IPv6 prefixes */
-    uint8_t prefix1[16] = {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001::/16
-    uint8_t prefix2[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8::/32
-    uint8_t prefix3[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8:0:1::/64
+    const uint8_t prefix1[16] = {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001::/16
+    const uint8_t prefix2[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8::/32
+    const uint8_t prefix3[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0}; // 2001:db8:0:1::/64
     
     assert(lpm_add_prefix(trie, prefix1, 16, (void*)100) == 0);
     assert(lpm_add_prefix(trie, prefix2, 32, (void*)200) == 0);
     assert(lpm_add_prefix(trie, prefix3, 64, (void*)300) == 0);
     
     /* Test address that matches all 3 prefixes */
-    uint8_t test[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1};
+    const uint8_t test[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1};
     
     lpm_result_t *result = lpm_lookup_all_ipv6(trie, test);
     assert(result != NULL);
@@ -138,9 +138,9 @@ static void test_lookup_all_batch(void)
     assert(trie != NULL);
     
     /* Add some prefixes */
-    uint8_t prefix1[4] = {10, 0, 0, 0};
-    uint8_t prefix2[4] = {10, 1, 0, 0};
-    uint8_t prefix3[4] = {192, 168, 0, 0};
+    const uint8_t prefix1[4] = {10, 0, 0, 0};
+    const uint8_t prefix2[4] = {10, 1, 0, 0};
+    const uint8_t prefix3[4] = {192, 168, 0, 0};
     
     assert(lpm_add_prefix(trie, prefix1, 8, (void*)100) == 0);
     assert(lpm_add_prefix(trie, prefix2, 16, (void*)200) == 0);
@@ -148,7 +148,7 @@ static void test_lookup_all_batch(void)
     
     /* Prepare batch of addresses */
     const int batch_size = 4;
-    uint8_t addrs[4][4] = {
+    const uint8_t addrs[4][4] = {
         {10, 0, 0, 1},      // Matches prefix1
         {10, 1, 0, 1},      // Matches prefix1 and prefix2
         {192, 168, 1, 1},   // Matches prefix3
@@ -191,7 +191,7 @@ static void test_large_scale(void)
     
     /* Add many overlapping prefixes */
     for (int i = 0; i < 100; i++) {
-        uint8_t prefix[4] = {10, (uint8_t)(i / 10), (uint8_t)(i % 10), 0};
+        const uint8_t prefix[4] = {10, (uint8_t)(i / 10), (uint8_t)(i % 10), 0};
         
         /* Add multiple prefix lengths for each base */
         lpm_add_prefix(trie, prefix, 8, (void*)(uintptr_t)(i * 10 + 1));
@@ -200,7 +200,7 @@ static void test_large_scale(void)
     }
     
     /* Test lookup on an address with many matches */
-    uint8_t test[4] = {10, 5, 5, 1};
+    const uint8_t test[4] = {10, 5, 5, 1};
     lpm_result_t *result = lpm_lookup_all(trie, test);
     assert(result != NULL);
     

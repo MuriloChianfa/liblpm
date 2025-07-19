@@ -99,18 +99,18 @@ static void test_bitmap_edge_cases(void) {
     assert(trie != NULL);
     
     /* Test prefixes at stride boundaries */
-    uint8_t prefix1[] = {0x00, 0x00, 0x00, 0x00};
-    uint8_t prefix2[] = {0xFF, 0xFF, 0xFF, 0xFF};
-    uint8_t prefix3[] = {0x80, 0x00, 0x00, 0x00};
+    const uint8_t prefix1[] = {0x00, 0x00, 0x00, 0x00};
+    const uint8_t prefix2[] = {0xFF, 0xFF, 0xFF, 0xFF};
+    const uint8_t prefix3[] = {0x80, 0x00, 0x00, 0x00};
     
     assert(lpm_add(trie, prefix1, 8, 1) == 0);
     assert(lpm_add(trie, prefix2, 16, 2) == 0);
     assert(lpm_add(trie, prefix3, 24, 3) == 0);
     
     /* Test lookups */
-    uint8_t addr1[] = {0x00, 0x00, 0x00, 0x00};
-    uint8_t addr2[] = {0xFF, 0xFF, 0xFF, 0xFF};
-    uint8_t addr3[] = {0x80, 0x00, 0x00, 0x00};
+    const uint8_t addr1[] = {0x00, 0x00, 0x00, 0x00};
+    const uint8_t addr2[] = {0xFF, 0xFF, 0xFF, 0xFF};
+    const uint8_t addr3[] = {0x80, 0x00, 0x00, 0x00};
     
     uint32_t result1 = lpm_lookup(trie, addr1);
     uint32_t result2 = lpm_lookup(trie, addr2);
@@ -132,18 +132,18 @@ static void test_overlapping_prefixes(void) {
     assert(trie != NULL);
     
     /* Add overlapping prefixes */
-    uint8_t prefix1[] = {192, 168, 0, 0};
-    uint8_t prefix2[] = {192, 168, 1, 0};
-    uint8_t prefix3[] = {192, 168, 0, 1};
+    const uint8_t prefix1[] = {192, 168, 0, 0};
+    const uint8_t prefix2[] = {192, 168, 1, 0};
+    const uint8_t prefix3[] = {192, 168, 0, 1};
     
     assert(lpm_add(trie, prefix1, 16, 1) == 0);
     assert(lpm_add(trie, prefix2, 24, 2) == 0);
     assert(lpm_add(trie, prefix3, 24, 3) == 0);
     
     /* Test lookups with overlapping prefixes */
-    uint8_t addr1[] = {192, 168, 0, 1};
-    uint8_t addr2[] = {192, 168, 1, 1};
-    uint8_t addr3[] = {192, 168, 0, 2};
+    const uint8_t addr1[] = {192, 168, 0, 1};
+    const uint8_t addr2[] = {192, 168, 1, 1};
+    const uint8_t addr3[] = {192, 168, 0, 2};
     
     uint32_t result1 = lpm_lookup(trie, addr1);
     uint32_t result2 = lpm_lookup(trie, addr2);
@@ -166,16 +166,16 @@ static void test_lookup_all_fuzz(void) {
     assert(trie != NULL);
     
     /* Add multiple prefixes that could match the same address */
-    uint8_t prefix1[] = {192, 168, 0, 0};
-    uint8_t prefix2[] = {192, 168, 0, 0};
-    uint8_t prefix3[] = {192, 168, 0, 0};
+    const uint8_t prefix1[] = {192, 168, 0, 0};
+    const uint8_t prefix2[] = {192, 168, 0, 0};
+    const uint8_t prefix3[] = {192, 168, 0, 0};
     
     assert(lpm_add_prefix(trie, prefix1, 8, (void*)1) == 0);
     assert(lpm_add_prefix(trie, prefix2, 16, (void*)2) == 0);
     assert(lpm_add_prefix(trie, prefix3, 24, (void*)3) == 0);
     
     /* Test lookup_all */
-    uint8_t addr[] = {192, 168, 0, 1};
+    const uint8_t addr[] = {192, 168, 0, 1};
     lpm_result_t *result = lpm_lookup_all(trie, addr);
     assert(result != NULL);
     assert(result->count == 3);

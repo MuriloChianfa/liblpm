@@ -36,4 +36,11 @@ set_tests_properties(fuzz_tests PROPERTIES
 set_tests_properties(fuzz_advanced_tests PROPERTIES
     TIMEOUT 120
     LABELS "fuzz"
+)
+
+# Add cppcheck test
+add_test(NAME cppcheck_tests COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test_cppcheck.sh)
+set_tests_properties(cppcheck_tests PROPERTIES
+    TIMEOUT 300
+    LABELS "static_analysis"
 ) 

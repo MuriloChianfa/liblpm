@@ -39,11 +39,11 @@ uint32_t lpm_detect_cpu_features(void)
     
     /* Check extended features */
     if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
-        if (ebx & (1 << 5))  features |= LPM_CPU_AVX2;
-        if (ebx & (1 << 16)) features |= LPM_CPU_AVX512F;
-        if (ebx & (1 << 17)) features |= LPM_CPU_AVX512DQ;
-        if (ebx & (1 << 30)) features |= LPM_CPU_AVX512BW;
-        if (ebx & (1 << 31)) features |= LPM_CPU_AVX512VL;
+        if (ebx & (1U << 5))  features |= LPM_CPU_AVX2;
+        if (ebx & (1U << 16)) features |= LPM_CPU_AVX512F;
+        if (ebx & (1U << 17)) features |= LPM_CPU_AVX512DQ;
+        if (ebx & (1U << 30)) features |= LPM_CPU_AVX512BW;
+        if (ebx & (1U << 31)) features |= LPM_CPU_AVX512VL;
     }
 #endif
     

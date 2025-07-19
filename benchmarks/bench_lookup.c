@@ -28,7 +28,7 @@ static void generate_random_ipv6(uint8_t addr[16])
 }
 
 /* Measure time difference in microseconds */
-static double time_diff_us(struct timespec *start, struct timespec *end)
+static double time_diff_us(const struct timespec *start, const struct timespec *end)
 {
     return (end->tv_sec - start->tv_sec) * 1000000.0 + 
            (end->tv_nsec - start->tv_nsec) / 1000.0;

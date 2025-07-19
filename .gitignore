@@ -53,3 +53,15 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Artefacts
+build/
+build_afl
+run_fuzz.sh
+fuzz_input
+fuzz_output
+fuzz_output_multicore
+fuzz_results
+build_afl.sh
+tests/dict.txt
+continuous_fuzz.sh

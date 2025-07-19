@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        build_type: [Debug, Release]
+        build_type: [DEBUG, RELEASE]
 
     steps:
     - name: Checkout code

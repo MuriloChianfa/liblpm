@@ -130,7 +130,7 @@ The workflows test various build configurations:
 - **BUILD_TESTS**: Enable/disable test building
 - **BUILD_BENCHMARKS**: Enable/disable benchmark building
 - **ENABLE_NATIVE_ARCH**: Native CPU optimizations
-- **CMAKE_BUILD_TYPE**: Debug vs Release builds
+- **CMAKE_BUILD_TYPE**: DEBUG vs RELEASE builds
 
 ## Artifacts
 
@@ -148,7 +148,7 @@ To run the same tests locally:
 ```bash
 # Basic build and test
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON ..
+cmake -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_TESTS=ON ..
 make -j$(nproc)
 ctest --verbose
 

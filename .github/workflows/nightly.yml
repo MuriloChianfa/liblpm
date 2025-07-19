@@ -72,7 +72,7 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=Debug \
+        cmake -DCMAKE_BUILD_TYPE=DEBUG \
               -DBUILD_TESTS=ON \
               -DBUILD_BENCHMARKS=ON \
               -DENABLE_NATIVE_ARCH=OFF \
@@ -119,7 +119,7 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=Release \
+        cmake -DCMAKE_BUILD_TYPE=RELEASE \
               -DBUILD_TESTS=ON \
               -DBUILD_BENCHMARKS=ON \
               -DENABLE_NATIVE_ARCH=ON \
@@ -212,7 +212,7 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=Debug \
+        cmake -DCMAKE_BUILD_TYPE=DEBUG \
               -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" \
               -DBUILD_TESTS=ON \
               -DBUILD_BENCHMARKS=ON \

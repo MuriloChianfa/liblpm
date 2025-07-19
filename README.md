@@ -1,6 +1,6 @@
-# liblpm - High-Performance Longest Prefix Match Library
+# High-Performance Longest Prefix Match Library
 
-A highly optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv4 and IPv6 addresses. The library uses multi-bit trie with 8-bit stride for optimal performance and supports CPU vectorization features.
+A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv4 and IPv6 addresses. The library uses multi-bit trie with 8-bit stride for optimal performance and supports CPU vectorization.
 
 ## Features
 
@@ -16,14 +16,15 @@ A highly optimized C library for Longest Prefix Match (LPM) lookups supporting b
 
 ### Requirements
 - CMake 3.16+
-- C compiler with C23 support (GCC 11+, Clang 13+)
 - x86-64 processor
+- GCC 11+ or Clang 13+
 
 ### Build
 ```bash
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
+sudo make install
 ```
 
 ### Options
@@ -32,44 +33,24 @@ make -j$(nproc)
 - `BUILD_BENCHMARKS`: Build benchmark programs (default: ON)
 - `ENABLE_NATIVE_ARCH`: Enable native architecture optimizations (default: ON)
 
-### Install
-```bash
-sudo make install
-```
-
 ## Usage
 
 ### Basic Example
 ```c
 #include <lpm.h>
-
 int main() {
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     
+    // 192.168.0.0/16 -> next hop 100
     uint8_t prefix[] = {192, 168, 0, 0};
-    lpm_add(trie, prefix, 16, 100);  // 192.168.0.0/16 -> next hop 100
-    
+    lpm_add(trie, prefix, 16, 100);
+
     uint8_t addr[] = {192, 168, 1, 1};
     uint32_t next_hop = lpm_lookup(trie, addr);
     
     lpm_destroy(trie);
     return 0;
 }
-```
-
-### Batch Lookup
-```c
-const uint8_t *addrs[256];
-uint32_t next_hops[256];
-lpm_lookup_batch(trie, addrs, next_hops, 256);
-```
-
-### IPv6 Support
-```c
-lpm_trie_t *trie = lpm_create(LPM_IPV6_MAX_DEPTH);
-uint8_t prefix[16] = {0x20, 0x01, 0x0d, 0xb8, /* ... */};
-lpm_add(trie, prefix, 32, 100);
-uint32_t next_hop = lpm_lookup_ipv6(trie, addr);
 ```
 
 ## API Reference

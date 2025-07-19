@@ -1,0 +1,76 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Quick build and test for PRs
+  pr-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake cppcheck
+
+    - name: Configure and build
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_TESTS=ON \
+              -DBUILD_BENCHMARKS=ON \
+              -DENABLE_NATIVE_ARCH=OFF \
+              ..
+        make -j$(nproc)
+
+    - name: Run unit tests
+      run: |
+        cd build
+        ctest -L unit --verbose --output-on-failure
+
+    - name: Run static analysis
+      run: |
+        cd build
+        ctest -L static_analysis --verbose --output-on-failure
+
+    - name: Run basic fuzzing tests
+      run: |
+        cd build
+        ctest -L fuzz --verbose --output-on-failure
+
+  # Quick macOS check
+  pr-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        brew install cmake cppcheck
+
+    - name: Configure and build
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_TESTS=ON \
+              -DBUILD_BENCHMARKS=ON \
+              -DENABLE_NATIVE_ARCH=OFF \
+              ..
+        make -j$(sysctl -n hw.ncpu)
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --verbose --output-on-failure 

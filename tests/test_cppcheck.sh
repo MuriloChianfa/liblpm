@@ -27,7 +27,7 @@ print_error() {
 # Check if cppcheck is available
 if ! command -v cppcheck &> /dev/null; then
     print_error "cppcheck is not installed. Please install it first."
-    print_status "On Ubuntu/Debian: sudo apt-get install cppcheck"
+    print_status "On Ubuntu/Debian: sudo apt install cppcheck"
     print_status "On CentOS/RHEL: sudo yum install cppcheck"
     print_status "On macOS: brew install cppcheck"
     exit 1

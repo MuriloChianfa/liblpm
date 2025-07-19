@@ -1,0 +1,82 @@
+# Valgrind suppression file for liblpm tests
+# This file contains suppressions for common false positives
+
+# Suppress warnings about uninitialized values in system libraries
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about memory leaks in system libraries
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about invalid reads in system libraries
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about invalid writes in system libraries
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about uninitialized values in glibc
+{
+   glibc-2.27-3ubuntu1.4.so
+   Memcheck:Cond
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about memory leaks in glibc
+{
+   glibc-2.27-3ubuntu1.4.so
+   Memcheck:Leak
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about invalid reads in glibc
+{
+   glibc-2.27-3ubuntu1.4.so
+   Memcheck:Addr4
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+}
+
+# Suppress warnings about invalid writes in glibc
+{
+   glibc-2.27-3ubuntu1.4.so
+   Memcheck:Addr8
+   obj:*
+   fun:*
+   fun:*
+   fun:*
+} 

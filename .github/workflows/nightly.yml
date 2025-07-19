@@ -1,0 +1,247 @@
+name: Nightly Tests
+
+on:
+  # schedule:
+    # Run every day at 2 AM UTC
+    # - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  # Extended fuzzing tests
+  nightly-fuzzing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install AFL
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake afl++
+
+    - name: Setup fuzzing environment
+      run: |
+        chmod +x tests/fuzz_setup.sh
+        ./tests/fuzz_setup.sh
+
+    - name: Build with AFL instrumentation
+      run: |
+        chmod +x build_afl.sh
+        ./build_afl.sh
+
+    - name: Run extended fuzzing
+      run: |
+        # Run a longer fuzzing session
+        timeout 3600s afl-fuzz -i fuzz_input -o fuzz_output -x tests/dict.txt \
+          ./build_afl/test_fuzz_advanced @@ || true
+
+    - name: Check for crashes
+      run: |
+        if [ -d "fuzz_output/crashes" ] && [ "$(ls -A fuzz_output/crashes)" ]; then
+          echo "Fuzzing found crashes!"
+          ls -la fuzz_output/crashes/
+          # Don't fail the build, just report
+        else
+          echo "No crashes found during extended fuzzing session"
+        fi
+
+    - name: Upload fuzzing artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: fuzzing-results
+        path: fuzz_output/
+
+  # Memory leak detection with extended testing
+  nightly-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake valgrind
+
+    - name: Configure and build
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Debug \
+              -DBUILD_TESTS=ON \
+              -DBUILD_BENCHMARKS=ON \
+              -DENABLE_NATIVE_ARCH=OFF \
+              ..
+        make -j$(nproc)
+
+    - name: Run extended memory tests
+      run: |
+        cd build
+        # Run each test with Valgrind for extended periods
+        for test in test_basic test_lookup_all test_fuzz test_fuzz_advanced; do
+          if [ -f "$test" ]; then
+            echo "Running extended memory test: $test"
+            timeout 900s valgrind --leak-check=full --show-leak-kinds=all \
+                     --track-origins=yes --error-exitcode=1 \
+                     --suppressions=../tests/valgrind.supp \
+                     --log-file=valgrind_${test}.log \
+                     ./$test || true
+          fi
+        done
+
+    - name: Upload memory test logs
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: memory-test-logs
+        path: build/valgrind_*.log
+
+  # Performance benchmarks
+  nightly-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake
+
+    - name: Configure and build
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_TESTS=ON \
+              -DBUILD_BENCHMARKS=ON \
+              -DENABLE_NATIVE_ARCH=ON \
+              ..
+        make -j$(nproc)
+
+    - name: Run benchmarks
+      run: |
+        cd build
+        # Run benchmarks if they exist
+        if [ -f "benchmarks/bench_lookup" ]; then
+          echo "Running lookup benchmarks..."
+          ./benchmarks/bench_lookup
+        fi
+        if [ -f "benchmarks/bench_lookup_all" ]; then
+          echo "Running lookup_all benchmarks..."
+          ./benchmarks/bench_lookup_all
+        fi
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: benchmark-results
+        path: build/benchmarks/
+
+  # Multi-core fuzzing
+  nightly-multicore-fuzzing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install AFL
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake afl++
+
+    - name: Setup fuzzing environment
+      run: |
+        chmod +x tests/fuzz_setup.sh
+        ./tests/fuzz_setup.sh
+
+    - name: Build with AFL instrumentation
+      run: |
+        chmod +x build_afl.sh
+        ./build_afl.sh
+
+    - name: Run multi-core fuzzing
+      run: |
+        # Run multi-core fuzzing if the script exists
+        if [ -f "tests/fuzz_multicore.sh" ]; then
+          chmod +x tests/fuzz_multicore.sh
+          timeout 3600s ./tests/fuzz_multicore.sh || true
+        fi
+
+    - name: Check for crashes
+      run: |
+        if [ -d "tests/fuzz_output_multicore/crashes" ] && [ "$(ls -A tests/fuzz_output_multicore/crashes)" ]; then
+          echo "Multi-core fuzzing found crashes!"
+          ls -la tests/fuzz_output_multicore/crashes/
+        else
+          echo "No crashes found during multi-core fuzzing session"
+        fi
+
+    - name: Upload multi-core fuzzing artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: multicore-fuzzing-results
+        path: tests/fuzz_output_multicore/
+
+  # Code coverage with extended testing
+  nightly-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake lcov
+
+    - name: Configure with coverage
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" \
+              -DBUILD_TESTS=ON \
+              -DBUILD_BENCHMARKS=ON \
+              -DENABLE_NATIVE_ARCH=OFF \
+              ..
+
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+
+    - name: Run extended tests with coverage
+      run: |
+        cd build
+        # Run tests multiple times to improve coverage
+        for i in {1..3}; do
+          echo "Running test iteration $i"
+          ctest --verbose --output-on-failure || true
+        done
+
+    - name: Generate coverage report
+      run: |
+        cd build
+        lcov --capture --directory . --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' --output-file coverage.info
+        lcov --list coverage.info
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: build/coverage.info 

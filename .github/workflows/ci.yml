@@ -111,6 +111,11 @@ jobs:
         cd build
         ctest --verbose --output-on-failure
 
+    - name: Run benchmark tests
+      run: |
+        cd build
+        ctest -L benchmark --verbose --output-on-failure
+
   # Memory leak detection with Valgrind (Linux only)
   test-valgrind:
     runs-on: ubuntu-latest
@@ -218,6 +223,9 @@ jobs:
         if [ "${{ matrix.config.options }}" != "-DBUILD_TESTS=OFF" ]; then
           ctest --verbose --output-on-failure
         fi
+        if [ "${{ matrix.config.options }}" != "-DBUILD_BENCHMARKS=OFF" ]; then
+          ctest -L benchmark --verbose --output-on-failure
+        fi
 
   # Fuzzing with AFL (if available)
   fuzzing:
@@ -293,6 +301,11 @@ jobs:
       run: |
         cd build
         ctest --verbose --output-on-failure
+
+    - name: Run benchmark tests with coverage
+      run: |
+        cd build
+        ctest -L benchmark --verbose --output-on-failure
 
     - name: Generate coverage report
       run: |

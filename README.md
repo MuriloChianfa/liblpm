@@ -23,11 +23,30 @@ A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv
 ## Building
 
 ### Requirements
-- CMake 3.16+
-- x86-64 processor
-- GCC 11+ or Clang 13+
 
-### Build
+<details open>
+  <summary style="font-size: 16px;"><strong>Ubuntu/Debian</strong></summary>
+
+  ```bash
+  apt install build-essential cmake gcc-13 g++-13 libc6-dev clang-13 lldb-18 lld-13 python3 python3-pip afl++ libasan6 libubsan1 cppcheck valgrind gdb strace ltrace
+  ```
+</details>
+<details>
+  <summary style="font-size: 16px;"><strong>CentOS/RHEL/Rocky Linux</strong></summary>
+
+  ```bash
+  yum install cmake3 gcc-c++ libc-devel clang lldb lld python3 python3-pip afl++ libasan libubsan cppcheck valgrind gdb strace ltrace
+  ```
+</details>
+<details>
+  <summary style="font-size: 16px;"><strong>Fedora</strong></summary>
+
+  ```bash
+  dnf install cmake gcc-c++ glibc-devel clang lldb lld python3 python3-pip afl++ libasan libubsan cppcheck valgrind gdb strace ltrace
+  ```
+</details>
+
+### Build & Install
 ```bash
 mkdir build && cd build
 cmake ..
@@ -35,7 +54,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-### Options
+### Build flags
 - `BUILD_SHARED_LIBS`: Build shared libraries (default: ON)
 - `BUILD_TESTS`: Build test programs (default: ON)
 - `BUILD_BENCHMARKS`: Build benchmark programs (default: ON)
@@ -73,6 +92,7 @@ int main() {
 - `lpm_lookup(trie, addr)` - Single address lookup
 - `lpm_lookup_ipv4(trie, addr)` - IPv4-specific lookup
 - `lpm_lookup_ipv6(trie, addr)` - IPv6-specific lookup
+- `lpm_lookup_all(trie, addr)` - Lookup for multiple match
 
 ## Performance benchmarks
 

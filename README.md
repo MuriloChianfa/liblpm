@@ -66,6 +66,25 @@ int main() {
 - `lpm_lookup_ipv4(trie, addr)` - IPv4-specific lookup
 - `lpm_lookup_ipv6(trie, addr)` - IPv6-specific lookup
 
+## Performance benchmarks
+
+| Operation | Protocol | Performance | Latency |
+|-----------|----------|-------------|---------|
+| Single Lookup | IPv4 | 8.91 M lookups/sec | 112 ns |
+| Single Lookup | IPv6 | 11.19 M lookups/sec | 89 ns |
+| lookup_all | IPv4 | 2.60 M lookups/sec | 384 ns |
+| lookup_all | IPv6 | 2.31 M lookups/sec | 432 ns |
+
+<small>
+
+**Time Complexity**: O(k) where k is the prefix length in bits<br>
+**Space Complexity**: O(n × k) where n is number of prefixes, k is average prefix length<br>
+**Lookup Performance**: Constant time per trie level (8-bit stride)<br>
+**Memory Usage IPv4**: - ~4.9 KB per prefix scaling linearly<br>
+**Memory Usage IPv6**: - ~6.1 KB per prefix scaling linearly
+
+</small>
+
 ## Tests and Fuzzing
 
 The library includes some fuzzing tests to ensure robustness and catch edge cases. The fuzzing tests cover memory safety, API robustness, edge cases, and performance under stress.
@@ -80,7 +99,7 @@ ctest --verbose            # Run test suite
 ./run_fuzz.sh              # Run AFL fuzzing
 ```
 
-For detailed information about the fuzzing tests, coverage areas, and advanced fuzzing techniques, see [tests/FUZZING.md](tests/FUZZING.md).
+For detailed information about the fuzzing tests, coverage areas,<br> and advanced fuzzing techniques, see [tests/FUZZING.md](tests/FUZZING.md).
 
 ## License
 

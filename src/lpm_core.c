@@ -566,7 +566,7 @@ void lpm_print_stats(const lpm_trie_t *trie)
 #ifdef LPM_X86_ARCH
     printf("  Number of prefixes: %lu\n", trie->num_prefixes);
     printf("  Number of nodes: %lu\n", trie->num_nodes);
-#elif
+#else
     printf("  Number of prefixes: %llu\n", trie->num_prefixes);
     printf("  Number of nodes: %llu\n", trie->num_nodes);
 #endif

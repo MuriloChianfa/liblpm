@@ -1,0 +1,31 @@
+# Mark shell scripts as vendored to exclude from GitHub language stats
+*.sh linguist-vendored
+
+# Mark CMake files as vendored to exclude from GitHub language stats
+CMakeLists.txt linguist-vendored
+*.cmake linguist-vendored
+
+# Mark build directories as vendored
+build/ linguist-vendored
+cmake-build-*/ linguist-vendored
+
+# Mark generated files as vendored
+*.o linguist-vendored
+*.a linguist-vendored
+*.so linguist-vendored
+*.dylib linguist-vendored
+*.exe linguist-vendored
+
+# Mark test output and coverage files as vendored
+*.gcov linguist-vendored
+*.gcda linguist-vendored
+*.gcno linguist-vendored
+coverage/ linguist-vendored
+
+# Mark documentation and config files as vendored
+*.md linguist-documentation
+*.yml linguist-vendored
+*.yaml linguist-vendored
+*.json linguist-vendored
+*.xml linguist-vendored
+*.txt linguist-vendored 

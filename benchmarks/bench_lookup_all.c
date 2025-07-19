@@ -234,6 +234,78 @@ static void benchmark_ipv6_lookup_all(void)
     lpm_destroy(trie);
 }
 
+static void benchmark_ipv6_batch_lookup_all(void)
+{
+    printf("\n=== IPv6 Batch lookup_all Benchmark ===\n");
+    
+    lpm_trie_t *trie = lpm_create(LPM_IPV6_MAX_DEPTH);
+    assert(trie != NULL);
+    
+    /* Add random prefixes with overlaps */
+    printf("Adding %d random IPv6 prefixes with overlaps...\n", NUM_PREFIXES/2);
+    for (int i = 0; i < NUM_PREFIXES/2; i++) {
+        uint8_t prefix[16];
+        generate_random_ipv6(prefix);
+        
+        /* Create more overlaps */
+        lpm_add_prefix(trie, prefix, 16 + (rand() % 49), (void*)(uintptr_t)i);
+        if (i % 2 == 0) {
+            prefix[15] = 0;
+            lpm_add_prefix(trie, prefix, 64, (void*)(uintptr_t)(i+NUM_PREFIXES/2));
+        }
+    }
+    
+    /* Generate test addresses */
+    int num_batches = (NUM_LOOKUPS/2) / BATCH_SIZE;
+    uint8_t (*test_addrs)[16] = malloc(num_batches * BATCH_SIZE * sizeof(*test_addrs));
+    const uint8_t **addr_ptrs = malloc(BATCH_SIZE * sizeof(uint8_t*));
+    lpm_result_t **results = malloc(BATCH_SIZE * sizeof(lpm_result_t*));
+    
+    for (int i = 0; i < num_batches * BATCH_SIZE; i++) {
+        generate_random_ipv6(test_addrs[i]);
+    }
+    
+    /* Benchmark */
+    struct timespec start, end;
+    uint64_t total_matches = 0;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    
+    for (int batch = 0; batch < num_batches; batch++) {
+        /* Setup pointers for this batch */
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            addr_ptrs[i] = test_addrs[batch * BATCH_SIZE + i];
+        }
+        
+        lpm_lookup_all_batch(trie, addr_ptrs, results, BATCH_SIZE);
+        
+        /* Count matches and free results */
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            total_matches += results[i]->count;
+            lpm_result_destroy(results[i]);
+        }
+    }
+    
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    
+    double elapsed_us = time_diff_us(&start, &end);
+    double total_lookups = num_batches * BATCH_SIZE;
+    double lookups_per_sec = (total_lookups / elapsed_us) * MILLION;
+    double ns_per_lookup = (elapsed_us * 1000) / total_lookups;
+    double avg_matches = (double)total_matches / total_lookups;
+    
+    printf("IPv6 Batch lookup_all performance (batch size %d):\n", BATCH_SIZE);
+    printf("  Total lookups: %.0f\n", total_lookups);
+    printf("  Total time: %.2f ms\n", elapsed_us / 1000);
+    printf("  Lookups/sec: %.2f million\n", lookups_per_sec / MILLION);
+    printf("  Time per lookup: %.2f ns\n", ns_per_lookup);
+    printf("  Average matches per lookup: %.2f\n", avg_matches);
+    
+    free(test_addrs);
+    free(addr_ptrs);
+    free(results);
+    lpm_destroy(trie);
+}
+
 static void benchmark_overlapping_prefixes(void)
 {
     printf("\n=== Overlapping Prefixes Stress Test ===\n");
@@ -304,6 +376,7 @@ int main(void)
     benchmark_ipv4_lookup_all();
     benchmark_ipv4_batch_lookup_all();
     benchmark_ipv6_lookup_all();
+    benchmark_ipv6_batch_lookup_all();
     benchmark_overlapping_prefixes();
     
     printf("\nBenchmark complete!\n");

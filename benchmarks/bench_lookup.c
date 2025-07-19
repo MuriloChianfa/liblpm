@@ -198,6 +198,57 @@ static void benchmark_ipv6_single_lookup(void)
     lpm_destroy(trie);
 }
 
+static void benchmark_ipv6_batch_lookup(void)
+{
+    printf("\n=== IPv6 Batch Lookup Benchmark ===\n");
+    
+    lpm_trie_t *trie = lpm_create(LPM_IPV6_MAX_DEPTH);
+    assert(trie != NULL);
+    
+    /* Add random prefixes */
+    printf("Adding %d random prefixes...\n", NUM_PREFIXES);
+    for (int i = 0; i < NUM_PREFIXES; i++) {
+        uint8_t prefix[16];
+        generate_random_ipv6(prefix);
+        uint8_t prefix_len = 8 + (rand() % 121); // 8 to 128
+        lpm_add(trie, prefix, prefix_len, i);
+    }
+    
+    /* Generate test addresses */
+    int num_batches = NUM_LOOKUPS / BATCH_SIZE;
+    uint8_t (*test_addrs)[16] = malloc(num_batches * BATCH_SIZE * sizeof(*test_addrs));
+    uint32_t *next_hops = malloc(BATCH_SIZE * sizeof(uint32_t));
+    
+    for (int i = 0; i < num_batches * BATCH_SIZE; i++) {
+        generate_random_ipv6(test_addrs[i]);
+    }
+    
+    /* Benchmark */
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    
+    for (int batch = 0; batch < num_batches; batch++) {
+        lpm_lookup_batch_ipv6(trie, &test_addrs[batch * BATCH_SIZE], next_hops, BATCH_SIZE);
+    }
+    
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    
+    double elapsed_us = time_diff_us(&start, &end);
+    double total_lookups = num_batches * BATCH_SIZE;
+    double lookups_per_sec = (total_lookups / elapsed_us) * MILLION;
+    double ns_per_lookup = (elapsed_us * 1000) / total_lookups;
+    
+    printf("Batch lookup performance (batch size %d):\n", BATCH_SIZE);
+    printf("  Total lookups: %.0f\n", total_lookups);
+    printf("  Total time: %.2f ms\n", elapsed_us / 1000);
+    printf("  Lookups/sec: %.2f million\n", lookups_per_sec / MILLION);
+    printf("  Time per lookup: %.2f ns\n", ns_per_lookup);
+    
+    free(test_addrs);
+    free(next_hops);
+    lpm_destroy(trie);
+}
+
 static void benchmark_memory_usage(void)
 {
     printf("\n=== Memory Usage Analysis ===\n");
@@ -250,6 +301,7 @@ int main(void)
     benchmark_ipv4_single_lookup();
     benchmark_ipv4_batch_lookup();
     benchmark_ipv6_single_lookup();
+    benchmark_ipv6_batch_lookup();
     benchmark_memory_usage();
     
     printf("\nBenchmark complete!\n");

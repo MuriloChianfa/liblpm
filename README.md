@@ -96,12 +96,18 @@ int main() {
 
 ## Performance benchmarks
 
+> Simple Github runner, AVX2 enabled, Clang *RELEASE* build
+
 | Operation | Protocol | Performance | Latency |
 |-----------|----------|-------------|---------|
-| Single Lookup | IPv4 | 8.91 M lookups/sec | 112 ns |
-| Single Lookup | IPv6 | 11.19 M lookups/sec | 89 ns |
-| lookup_all | IPv4 | 2.60 M lookups/sec | 384 ns |
-| lookup_all | IPv6 | 2.31 M lookups/sec | 432 ns |
+| Batch Lookup | IPv4 | 71.99M lookups/s | ~13 ns |
+| Batch Lookup | IPv6 | 55.89M lookups/s | ~17 ns |
+| Single Lookup | IPv4 | 54.72M lookups/s | ~18 ns |
+| Single Lookup | IPv6 | 45.51M lookups/s | ~21 ns |
+| All Matches | IPv4 | 8.14M lookups/s | ~122 ns |
+| All Matches | IPv6 | 6.66M lookups/s | ~150 ns |
+| Batch All | IPv4 | 5.75M lookups/s | ~173 ns |
+| Batch All | IPv6 | 5.77M lookups/s | ~173 ns |
 
 <small>
 

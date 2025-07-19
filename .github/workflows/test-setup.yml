@@ -34,4 +34,4 @@ jobs:
     - name: Test basic tests
       run: |
         cd build
-        ctest -L unit --verbose --output-on-failure 
+        ctest -L unit --verbose --output-on-failure

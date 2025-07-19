@@ -151,4 +151,4 @@ if [ $? -eq 0 ]; then
 else
     print_error "cppcheck analysis failed!"
     exit 1
-fi 
+fi

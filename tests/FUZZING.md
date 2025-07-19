@@ -251,4 +251,4 @@ gdb --args ./build/tests/test_fuzz_advanced
 
 # Run AFL with debug output
 AFL_DEBUG=1 afl-fuzz -i fuzz_input -o fuzz_output ./build/tests/test_fuzz_advanced @@
-``` 
+```

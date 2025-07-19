@@ -2,7 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#ifdef LPM_X86_ARCH
 #include <cpuid.h>
+#endif
 #include "../include/lpm.h"
 
 /* Version information */
@@ -587,4 +589,4 @@ void lpm_print_stats(const lpm_trie_t *trie)
     if (trie->cpu_features & LPM_CPU_AVX512DQ) printf(" AVX512DQ");
     if (trie->cpu_features & LPM_CPU_AVX512BW) printf(" AVX512BW");
     printf("\n");
-} 
+}

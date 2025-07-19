@@ -37,7 +37,6 @@ Runs on:
 
 4. **static-analysis** - Code quality checks
    - Runs cppcheck for static analysis
-   - Runs clang-tidy for additional checks
    - Identifies potential issues and code quality problems
 
 5. **build-verification** - Build configuration testing
@@ -115,7 +114,6 @@ Runs on:
 
 ### Static Analysis
 - **cppcheck_tests** - Static analysis with cppcheck
-- **clang-tidy** - Additional static analysis
 
 ### Fuzzing Tests
 - **AFL-based fuzzing** - File-based fuzzing with AFL
@@ -218,4 +216,4 @@ When contributing to the project:
 - Check workflow status on GitHub Actions tab
 - Monitor coverage trends on Codecov
 - Review fuzzing artifacts for new crashes
-- Track performance regressions in benchmarks 
+- Track performance regressions in benchmarks

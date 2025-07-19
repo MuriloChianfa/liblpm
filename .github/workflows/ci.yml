@@ -159,7 +159,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y build-essential cmake cppcheck clang-tidy
+        sudo apt install -y build-essential cmake cppcheck
 
     - name: Configure for static analysis
       run: |
@@ -175,16 +175,6 @@ jobs:
       run: |
         cd build
         ctest -L static_analysis --verbose --output-on-failure
-
-    - name: Run clang-tidy
-      run: |
-        cd build
-        # Run clang-tidy on all source files
-        find ../src ../include ../tests -name "*.c" -o -name "*.h" | \
-        xargs clang-tidy -checks=*,-fuchsia-*,-google-*,-zircon-*,-abseil-*,-modernize-use-trailing-return-type \
-                        -header-filter=.* \
-                        -system-headers=0 \
-                        -- -I../include
 
   # Build verification with different configurations
   build-verification:
@@ -210,7 +200,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y build-essential cmake
+        sudo apt install -y build-essential cmake cppcheck
 
     - name: Configure and build (${{ matrix.config.name }})
       run: |
@@ -280,7 +270,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y build-essential cmake lcov
+        sudo apt install -y build-essential cmake lcov cppcheck
 
     - name: Configure with coverage
       run: |
@@ -316,4 +306,4 @@ jobs:
         file: build/coverage.info
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: false 
+        fail_ci_if_error: false

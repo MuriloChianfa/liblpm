@@ -1,7 +1,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#ifdef LPM_X86_ARCH
 #include <immintrin.h>
+#endif
 #include "../include/lpm.h"
 
 /* External function to get branchless bitmap check */
@@ -253,4 +255,4 @@ void lpm_select_lookup_all_function(lpm_trie_t *trie)
 
     /* Default to optimized generic implementation */
     trie->lookup_all = lpm_lookup_all_optimized;
-} 
+}

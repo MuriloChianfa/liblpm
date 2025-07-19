@@ -73,4 +73,4 @@ jobs:
     - name: Run tests
       run: |
         cd build
-        ctest --verbose --output-on-failure 
+        ctest --verbose --output-on-failure

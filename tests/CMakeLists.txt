@@ -43,4 +43,4 @@ add_test(NAME cppcheck_tests COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test_cppcheck.s
 set_tests_properties(cppcheck_tests PROPERTIES
     TIMEOUT 300
     LABELS "static_analysis"
-) 
+)

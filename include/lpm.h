@@ -203,5 +203,4 @@ void lpm_print_stats(const lpm_trie_t *trie);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* _LPM_H_ */ 
+#endif /* _LPM_H_ */

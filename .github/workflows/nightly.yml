@@ -244,4 +244,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: coverage-report
-        path: build/coverage.info 
+        path: build/coverage.info

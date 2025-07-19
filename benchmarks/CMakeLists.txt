@@ -8,4 +8,4 @@ target_link_libraries(bench_lookup_all lpm)
 # Link with pthread for clock_gettime on some systems
 find_package(Threads REQUIRED)
 target_link_libraries(bench_lookup Threads::Threads)
-target_link_libraries(bench_lookup_all Threads::Threads) 
+target_link_libraries(bench_lookup_all Threads::Threads)

@@ -25,6 +25,14 @@ endif()
 # CPU feature detection
 include(CheckCCompilerFlag)
 
+# Detect x86 architecture
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i386|i686")
+    add_compile_definitions(LPM_X86_ARCH=1)
+    set(LPM_X86_ARCH TRUE)
+else()
+    set(LPM_X86_ARCH FALSE)
+endif()
+
 # Function to check and add CPU feature flags
 function(check_cpu_feature flag define)
     check_c_compiler_flag(${flag} COMPILER_SUPPORTS_${define})
@@ -49,9 +57,9 @@ endfunction()
 
 # Runtime CPU feature detection approach
 # We'll compile all SIMD code but use runtime detection to select the best implementation
-if(ENABLE_NATIVE_ARCH)
+if(ENABLE_NATIVE_ARCH AND LPM_X86_ARCH)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
-else()
+elseif(LPM_X86_ARCH)
     # Enable SIMD features that are safe for the target CPU
     check_cpu_feature("-msse" "LPM_HAVE_SSE")
     check_cpu_feature("-msse2" "LPM_HAVE_SSE2")
@@ -71,6 +79,9 @@ else()
     # check_cpu_feature("-mavx512bw" "LPM_HAVE_AVX512BW")
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CPU_FEATURE_FLAGS}")
+else()
+    # Non-x86 architecture - disable all x86-specific optimizations
+    message(STATUS "Non-x86 architecture detected, disabling x86-specific optimizations")
 endif()
 
 # Source files
@@ -151,4 +162,4 @@ else()
 endif()
 message(STATUS "  Build shared libs: ${BUILD_SHARED_LIBS}")
 message(STATUS "  Build tests: ${BUILD_TESTS}")
-message(STATUS "  Build benchmarks: ${BUILD_BENCHMARKS}") 
+message(STATUS "  Build benchmarks: ${BUILD_BENCHMARKS}")

@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <string.h>
+#ifdef LPM_X86_ARCH
 #include <immintrin.h>
+#endif
 #include "../include/lpm.h"
 
 #ifdef LPM_X86_ARCH
@@ -443,4 +445,4 @@ void lpm_select_batch_lookup_function(lpm_trie_t *trie)
 
     /* Default to generic implementation */
     trie->lookup_batch = lpm_lookup_batch_generic;
-} 
+}

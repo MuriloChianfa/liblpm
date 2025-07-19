@@ -147,4 +147,4 @@ merge_results
 analyze_crashes
 
 echo "Multi-core fuzzing complete!"
-echo "Check $OUTPUT_DIR/merged/ for results" 
+echo "Check $OUTPUT_DIR/merged/ for results"

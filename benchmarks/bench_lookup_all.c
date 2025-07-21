@@ -369,8 +369,8 @@ int main(void)
     srand(time(NULL));
     
     /* Show CPU features */
-    uint32_t features = lpm_detect_cpu_features();
-    printf("\nCPU features enabled: 0x%08x\n", features);
+
+    printf("\nCPU features: Using __builtin_cpu_supports() for runtime detection\n");
     
     /* Run benchmarks */
     benchmark_ipv4_lookup_all();

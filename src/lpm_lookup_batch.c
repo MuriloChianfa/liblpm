@@ -10,13 +10,18 @@
 #include <cpuid.h>
 #endif
 
+/* External function pointers for SIMD implementations */
+extern uint32_t (*lpm_lookup_single_func)(const struct lpm_trie *trie, const uint8_t *addr);
+extern void (*lpm_lookup_batch_func)(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                    uint32_t *next_hops, size_t count);
+
 /* Helper macros for SIMD gather operations */
-#ifdef LPM_HAVE_AVX2
+#if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 #define GATHER_INDICES_AVX2(base, indices, scale) \
     _mm256_i32gather_epi64((const long long*)(base), indices, scale)
 #endif
 
-#ifdef LPM_HAVE_AVX512F
+#if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
 #define GATHER_INDICES_AVX512(base, indices, mask, scale) \
     _mm512_mask_i64gather_epi64(_mm512_setzero_si512(), mask, indices, (const long long*)(base), scale)
 #endif
@@ -27,12 +32,14 @@ void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t **addrs
 {
     /* Process addresses one by one */
     for (size_t i = 0; i < count; i++) {
-        next_hops[i] = trie->lookup_single(trie, addrs[i]);
+        next_hops[i] = lpm_lookup_single_func(trie, addrs[i]);
     }
 }
 
 #ifdef LPM_HAVE_SSE2
 /* SSE2 batch lookup - process 4 addresses at a time */
+void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
+                          uint32_t *next_hops, size_t count) __attribute__((target("sse2")));
 void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
                           uint32_t *next_hops, size_t count)
 {
@@ -126,22 +133,31 @@ void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs,
         
         /* Store results */
         _mm_storeu_si128((__m128i*)&next_hops[i], next_hop_vec);
+        
+        /* Apply default route to any addresses that didn't find a match */
+        for (int j = 0; j < 4; j++) {
+            if (next_hops[i + j] == LPM_INVALID_NEXT_HOP && trie->default_route) {
+                next_hops[i + j] = (uint32_t)(uintptr_t)trie->default_route->user_data;
+            }
+        }
     }
     
     /* Process remaining addresses */
     for (; i < count; i++) {
-        next_hops[i] = trie->lookup_single(trie, addrs[i]);
+        next_hops[i] = lpm_lookup_single_func(trie, addrs[i]);
     }
 }
 #endif
 
-#ifdef LPM_HAVE_AVX2
+#if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 /* AVX2 batch lookup - process 8 addresses at a time */
+void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
+                          uint32_t *next_hops, size_t count) __attribute__((target("avx2")));
 void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
                           uint32_t *next_hops, size_t count)
 {
-    /* Runtime safety check */
-    if (!(trie->cpu_features & LPM_CPU_AVX2)) {
+    /* Runtime safety check - verify AVX2 is actually supported */
+    if (!__builtin_cpu_supports("avx2")) {
         /* Fallback to SSE2 if AVX2 not available */
         lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
         return;
@@ -242,24 +258,33 @@ void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs,
         
         /* Store results */
         _mm256_storeu_si256((__m256i*)&next_hops[i], next_hop_vec);
+        
+        /* Apply default route to any addresses that didn't find a match */
+        for (int j = 0; j < 8; j++) {
+            if (next_hops[i + j] == LPM_INVALID_NEXT_HOP && trie->default_route) {
+                next_hops[i + j] = (uint32_t)(uintptr_t)trie->default_route->user_data;
+            }
+        }
     }
     
     /* Process remaining addresses */
     for (; i < count; i++) {
-        next_hops[i] = trie->lookup_single(trie, addrs[i]);
+        next_hops[i] = lpm_lookup_single_func(trie, addrs[i]);
     }
 }
 #endif
 
-#ifdef LPM_HAVE_AVX512F
+#if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
 /* AVX512 batch lookup - process 16 addresses at a time */
+void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
+                            uint32_t *next_hops, size_t count) __attribute__((target("avx512f")));
 void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
                             uint32_t *next_hops, size_t count)
 {
-    /* Runtime safety check */
-    if (!(trie->cpu_features & LPM_CPU_AVX512F)) {
+    /* Runtime safety check - verify AVX512 is actually supported */
+    if (!__builtin_cpu_supports("avx512f")) {
         /* Fallback to AVX2 if AVX512 not available */
-        if (trie->cpu_features & LPM_CPU_AVX2) {
+        if (__builtin_cpu_supports("avx2")) {
             lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
             return;
         }
@@ -314,7 +339,12 @@ void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs,
                     if (valid && nodes[j]->prefix_info[idx[j]]) {
                         valid_mask |= (1 << j);
                         uint32_t next_hop = (uint32_t)(uintptr_t)nodes[j]->prefix_info[idx[j]]->user_data;
-                        new_hops = _mm512_mask_set1_epi32(new_hops, 1 << j, next_hop);
+                        /* Use simple conditional assignment instead of complex mask operations */
+                        /* Store the next hop in a temporary array for later processing */
+                        uint32_t temp_hops[16];
+                        _mm512_storeu_si512((__m512i*)temp_hops, new_hops);
+                        temp_hops[j] = next_hop;
+                        new_hops = _mm512_loadu_si512((__m512i*)temp_hops);
                     }
                     
                     nodes[j] = nodes[j]->children[idx[j]];
@@ -335,11 +365,18 @@ void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs,
         
         /* Store results */
         _mm512_storeu_si512((__m512i*)&next_hops[i], next_hop_vec);
+        
+        /* Apply default route to any addresses that didn't find a match */
+        for (int j = 0; j < 16; j++) {
+            if (next_hops[i + j] == LPM_INVALID_NEXT_HOP && trie->default_route) {
+                next_hops[i + j] = (uint32_t)(uintptr_t)trie->default_route->user_data;
+            }
+        }
     }
     
     /* Process remaining addresses */
     for (; i < count; i++) {
-        next_hops[i] = trie->lookup_single(trie, addrs[i]);
+        next_hops[i] = lpm_lookup_single_func(trie, addrs[i]);
     }
 }
 #endif
@@ -375,7 +412,7 @@ void lpm_lookup_batch_ipv4(const lpm_trie_t *trie, const uint32_t *addrs,
     }
     
     /* Perform batch lookup */
-    trie->lookup_batch(trie, addr_ptrs, next_hops, count);
+    lpm_lookup_batch_func(trie, addr_ptrs, next_hops, count);
     
     free(addr_ptrs);
     free(addr_bytes);
@@ -400,50 +437,32 @@ void lpm_lookup_batch_ipv6(const lpm_trie_t *trie, const uint8_t (*addrs)[16],
     }
     
     /* Perform batch lookup */
-    trie->lookup_batch(trie, addr_ptrs, next_hops, count);
+    lpm_lookup_batch_func(trie, addr_ptrs, next_hops, count);
     
     free(addr_ptrs);
 }
 
-/* Function to select the best batch lookup implementation based on CPU features */
-void lpm_select_batch_lookup_function(lpm_trie_t *trie)
+/* Stub implementations for disabled SIMD functions */
+#ifdef LPM_DISABLE_AVX2
+void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
+                          uint32_t *next_hops, size_t count)
 {
-    /* Always start with the safest fallback */
-    trie->lookup_batch = lpm_lookup_batch_generic;
-
-#ifdef LPM_HAVE_AVX512F
-    if (trie->cpu_features & LPM_CPU_AVX512F) {
-        /* Additional runtime check for AVX512 */
-        unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 16))) {
-            trie->lookup_batch = lpm_lookup_batch_avx512;
-            return;
-        }
-    }
-#endif
-
-#ifdef LPM_HAVE_AVX2
-    if (trie->cpu_features & LPM_CPU_AVX2) {
-        /* Additional runtime check for AVX2 */
-        unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 5))) {
-            trie->lookup_batch = lpm_lookup_batch_avx2;
-            return;
-        }
-    }
-#endif
-
-#ifdef LPM_HAVE_SSE2
-    if (trie->cpu_features & LPM_CPU_SSE2) {
-        /* Additional runtime check for SSE2 */
-        unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) && (edx & (1 << 26))) {
-            trie->lookup_batch = lpm_lookup_batch_sse2;
-            return;
-        }
-    }
-#endif
-
-    /* Default to generic implementation */
-    trie->lookup_batch = lpm_lookup_batch_generic;
+    /* Fallback to SSE2 implementation */
+    lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
 }
+#endif
+
+#ifdef LPM_DISABLE_AVX512
+void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
+                            uint32_t *next_hops, size_t count)
+{
+    /* Fallback to AVX2 if available, otherwise SSE2 */
+    if (__builtin_cpu_supports("avx2")) {
+        lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
+    } else {
+        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+    }
+}
+#endif
+
+

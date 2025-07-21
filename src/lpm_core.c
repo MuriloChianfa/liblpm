@@ -10,66 +10,71 @@
 /* Version information */
 static const char *lpm_version = "liblpm 1.0.0";
 
+/* Function pointer types for SIMD implementations */
+typedef uint32_t (*lpm_lookup_single_func_t)(const struct lpm_trie *trie, const uint8_t *addr);
+typedef void (*lpm_lookup_batch_func_t)(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                       uint32_t *next_hops, size_t count);
+typedef struct lpm_result* (*lpm_lookup_all_func_t)(const struct lpm_trie *trie, const uint8_t *addr);
+
+/* Global function pointers for SIMD implementations */
+lpm_lookup_single_func_t lpm_lookup_single_func = NULL;
+lpm_lookup_batch_func_t lpm_lookup_batch_func = NULL;
+lpm_lookup_all_func_t lpm_lookup_all_func = NULL;
+
 /* Forward declarations for lookup functions */
 static uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr);
 static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t **addrs, 
                                     uint32_t *next_hops, size_t count);
 static struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr);
 
-/* Forward declarations for optimized function selectors */
-extern void lpm_select_single_lookup_function(lpm_trie_t *trie);
-extern void lpm_select_batch_lookup_function(lpm_trie_t *trie);
-extern void lpm_select_lookup_all_function(lpm_trie_t *trie);
+/* Forward declarations for SIMD implementations */
+extern uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr);
+extern uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr);
+extern uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr);
+extern void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                 uint32_t *next_hops, size_t count);
+extern void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                 uint32_t *next_hops, size_t count);
+extern void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                   uint32_t *next_hops, size_t count);
+extern struct lpm_result* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *addr);
+extern struct lpm_result* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr);
+extern struct lpm_result* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr);
 
-/* CPU feature detection using CPUID */
-uint32_t lpm_detect_cpu_features(void)
+/* Initialize SIMD function pointers based on CPU capabilities */
+static void init_simd_functions(void)
 {
-    uint32_t features = 0;
-    
+    /* Initialize with generic implementations */
+    lpm_lookup_single_func = lpm_lookup_single_generic;
+    lpm_lookup_batch_func = lpm_lookup_batch_generic;
+    lpm_lookup_all_func = lpm_lookup_all_generic;
+
 #ifdef LPM_X86_ARCH
-    unsigned int eax, ebx, ecx, edx;
-    
-    /* Check for CPUID support */
-    if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
-        if (edx & (1 << 25)) features |= LPM_CPU_SSE;
-        if (edx & (1 << 26)) features |= LPM_CPU_SSE2;
-        if (ecx & (1 << 0))  features |= LPM_CPU_SSE3;
-        if (ecx & (1 << 19)) features |= LPM_CPU_SSE4_1;
-        if (ecx & (1 << 20)) features |= LPM_CPU_SSE4_2;
-        if (ecx & (1 << 28)) features |= LPM_CPU_AVX;
-    }
-    
-    /* Check extended features */
-    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
-        if (ebx & (1U << 5))  features |= LPM_CPU_AVX2;
-        if (ebx & (1U << 16)) features |= LPM_CPU_AVX512F;
-        if (ebx & (1U << 17)) features |= LPM_CPU_AVX512DQ;
-        if (ebx & (1U << 30)) features |= LPM_CPU_AVX512BW;
-        if (ebx & (1U << 31)) features |= LPM_CPU_AVX512VL;
-    }
-
-    /* Additional safety checks for AVX2 and AVX512 */
-    /* Check if OS supports AVX2 (XSAVE and YMM state) */
-    if (features & LPM_CPU_AVX2) {
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
-            if (!(ecx & (1 << 27))) { /* XSAVE not supported */
-                features &= ~LPM_CPU_AVX2;
-            }
-        }
-    }
-
-    /* Check if OS supports AVX512 (XSAVE and ZMM state) */
-    if (features & LPM_CPU_AVX512F) {
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
-            if (!(ecx & (1 << 27))) { /* XSAVE not supported */
-                features &= ~(LPM_CPU_AVX512F | LPM_CPU_AVX512VL | LPM_CPU_AVX512DQ | LPM_CPU_AVX512BW);
+    /* Use a more conservative approach - only enable SIMD if we're sure it's safe */
+    /* Check for SSE2 first (most common) */
+    if (__builtin_cpu_supports("sse2")) {
+        lpm_lookup_single_func = lpm_lookup_single_sse2;
+        lpm_lookup_batch_func = lpm_lookup_batch_sse2;
+        lpm_lookup_all_func = lpm_lookup_all_sse2;
+        
+        /* Only enable AVX2 if explicitly supported */
+        if (__builtin_cpu_supports("avx2")) {
+            lpm_lookup_single_func = lpm_lookup_single_avx2;
+            lpm_lookup_batch_func = lpm_lookup_batch_avx2;
+            lpm_lookup_all_func = lpm_lookup_all_avx2;
+            
+            /* Only enable AVX512 if explicitly supported */
+            if (__builtin_cpu_supports("avx512f")) {
+                lpm_lookup_single_func = lpm_lookup_single_avx512;
+                lpm_lookup_batch_func = lpm_lookup_batch_avx512;
+                lpm_lookup_all_func = lpm_lookup_all_avx512;
             }
         }
     }
 #endif
-
-    return features;
 }
+
+
 
 /* Allocate and initialize a new node */
 static lpm_node_t *lpm_node_alloc(lpm_trie_t *trie, uint8_t depth)
@@ -129,22 +134,24 @@ lpm_trie_t *lpm_create_custom(uint8_t max_depth,
     trie->alloc = alloc_fn;
     trie->free = free_fn;
     
-    /* Detect CPU features */
-    trie->cpu_features = lpm_detect_cpu_features();
+    /* Set CPU features to 0 since we're using __builtin_cpu_supports() */
+    trie->cpu_features = 0;
     
-    /* Set function pointers based on CPU features */
-    trie->lookup_single = lpm_lookup_single_generic;
-    trie->lookup_batch = lpm_lookup_batch_generic;
-    trie->lookup_all = lpm_lookup_all_generic;
+    /* Set function pointers to use the selected SIMD implementations */
+    /* Initialize function pointers if not already done */
+    if (!lpm_lookup_single_func) {
+        lpm_lookup_single_func = lpm_lookup_single_generic;
+        lpm_lookup_batch_func = lpm_lookup_batch_generic;
+        lpm_lookup_all_func = lpm_lookup_all_generic;
+        init_simd_functions();
+    }
+    
+    trie->lookup_single = lpm_lookup_single_func;
+    trie->lookup_batch = lpm_lookup_batch_func;
+    trie->lookup_all = lpm_lookup_all_func;
     
     /* Initialize default route to NULL */
     trie->default_route = NULL;
-    
-    /* Select optimized implementations based on detected CPU features */
-    /* Temporarily disable optimized functions to test generic implementation */
-    /* lpm_select_single_lookup_function(trie); */
-    /* lpm_select_batch_lookup_function(trie); */
-    /* lpm_select_lookup_all_function(trie); */
     
     /* Allocate root node */
     trie->root = lpm_node_alloc(trie, 0);
@@ -383,7 +390,7 @@ static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t 
                                     uint32_t *next_hops, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        next_hops[i] = trie->lookup_single(trie, addrs[i]);
+        next_hops[i] = lpm_lookup_single_func(trie, addrs[i]);
     }
 }
 
@@ -412,6 +419,11 @@ static lpm_result_t* lpm_lookup_all_generic(const struct lpm_trie *trie, const u
         /* Move to next level */
         node = node->children[index];
         depth += LPM_STRIDE_BITS;
+    }
+    
+    /* If no specific routes found and default route exists, add it */
+    if (result->count == 0 && trie->default_route) {
+        lpm_result_add(result, trie->default_route);
     }
     
     return result;
@@ -490,7 +502,7 @@ uint32_t lpm_lookup(const lpm_trie_t *trie, const uint8_t *addr)
         return LPM_INVALID_NEXT_HOP;
     }
     
-    return trie->lookup_single(trie, addr);
+    return lpm_lookup_single_func(trie, addr);
 }
 
 uint32_t lpm_lookup_ipv4(const lpm_trie_t *trie, uint32_t addr)
@@ -506,7 +518,7 @@ uint32_t lpm_lookup_ipv4(const lpm_trie_t *trie, uint32_t addr)
     addr_bytes[2] = (addr >> 8) & 0xFF;
     addr_bytes[3] = addr & 0xFF;
     
-    return trie->lookup_single(trie, addr_bytes);
+    return lpm_lookup_single_func(trie, addr_bytes);
 }
 
 uint32_t lpm_lookup_ipv6(const lpm_trie_t *trie, const uint8_t addr[16])
@@ -515,7 +527,7 @@ uint32_t lpm_lookup_ipv6(const lpm_trie_t *trie, const uint8_t addr[16])
         return LPM_INVALID_NEXT_HOP;
     }
     
-    return trie->lookup_single(trie, addr);
+    return lpm_lookup_single_func(trie, addr);
 }
 
 void lpm_lookup_batch(const lpm_trie_t *trie, const uint8_t **addrs, 
@@ -525,7 +537,7 @@ void lpm_lookup_batch(const lpm_trie_t *trie, const uint8_t **addrs,
         return;
     }
     
-    trie->lookup_batch(trie, addrs, next_hops, count);
+    lpm_lookup_batch_func(trie, addrs, next_hops, count);
 }
 
 /* Public lookup all functions */
@@ -535,7 +547,7 @@ lpm_result_t *lpm_lookup_all(const lpm_trie_t *trie, const uint8_t *addr)
         return NULL;
     }
     
-    return trie->lookup_all(trie, addr);
+    return lpm_lookup_all_func(trie, addr);
 }
 
 lpm_result_t *lpm_lookup_all_ipv4(const lpm_trie_t *trie, uint32_t addr)
@@ -551,7 +563,7 @@ lpm_result_t *lpm_lookup_all_ipv4(const lpm_trie_t *trie, uint32_t addr)
     addr_bytes[2] = (addr >> 8) & 0xFF;
     addr_bytes[3] = addr & 0xFF;
     
-    return trie->lookup_all(trie, addr_bytes);
+    return lpm_lookup_all_func(trie, addr_bytes);
 }
 
 lpm_result_t *lpm_lookup_all_ipv6(const lpm_trie_t *trie, const uint8_t addr[16])
@@ -560,7 +572,7 @@ lpm_result_t *lpm_lookup_all_ipv6(const lpm_trie_t *trie, const uint8_t addr[16]
         return NULL;
     }
     
-    return trie->lookup_all(trie, addr);
+    return lpm_lookup_all_func(trie, addr);
 }
 
 void lpm_lookup_all_batch(const lpm_trie_t *trie, const uint8_t **addrs, 
@@ -572,7 +584,7 @@ void lpm_lookup_all_batch(const lpm_trie_t *trie, const uint8_t **addrs,
     
     /* For now, use simple loop - can be optimized later */
     for (size_t i = 0; i < count; i++) {
-        results[i] = trie->lookup_all(trie, addrs[i]);
+        results[i] = lpm_lookup_all_func(trie, addrs[i]);
     }
 }
 
@@ -598,20 +610,26 @@ void lpm_print_stats(const lpm_trie_t *trie)
     printf("  Number of prefixes: %llu\n", trie->num_prefixes);
     printf("  Number of nodes: %llu\n", trie->num_nodes);
 #endif
-    printf("  CPU features: 0x%08x\n", trie->cpu_features);
     
-    /* Print detected features */
     printf("  Detected features:");
-    if (trie->cpu_features & LPM_CPU_SSE) printf(" SSE");
-    if (trie->cpu_features & LPM_CPU_SSE2) printf(" SSE2");
-    if (trie->cpu_features & LPM_CPU_SSE3) printf(" SSE3");
-    if (trie->cpu_features & LPM_CPU_SSE4_1) printf(" SSE4.1");
-    if (trie->cpu_features & LPM_CPU_SSE4_2) printf(" SSE4.2");
-    if (trie->cpu_features & LPM_CPU_AVX) printf(" AVX");
-    if (trie->cpu_features & LPM_CPU_AVX2) printf(" AVX2");
-    if (trie->cpu_features & LPM_CPU_AVX512F) printf(" AVX512F");
-    if (trie->cpu_features & LPM_CPU_AVX512VL) printf(" AVX512VL");
-    if (trie->cpu_features & LPM_CPU_AVX512DQ) printf(" AVX512DQ");
-    if (trie->cpu_features & LPM_CPU_AVX512BW) printf(" AVX512BW");
+#ifdef LPM_X86_ARCH
+    if (__builtin_cpu_supports("sse2")) printf(" SSE2");
+    if (__builtin_cpu_supports("avx")) printf(" AVX");
+    if (__builtin_cpu_supports("avx2")) printf(" AVX2");
+    if (__builtin_cpu_supports("avx512f")) printf(" AVX512F");
+#endif
     printf("\n");
+}
+
+/* Initialize function pointers at library load time */
+__attribute__((constructor))
+static void lpm_init_function_pointers(void)
+{
+    /* Always start with generic implementations as safe defaults */
+    lpm_lookup_single_func = lpm_lookup_single_generic;
+    lpm_lookup_batch_func = lpm_lookup_batch_generic;
+    lpm_lookup_all_func = lpm_lookup_all_generic;
+    
+    /* Try to initialize SIMD functions, but don't fail if detection fails */
+    init_simd_functions();
 }

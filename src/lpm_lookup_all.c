@@ -9,6 +9,10 @@
 /* External function to get branchless bitmap check */
 extern uint32_t lpm_bitmap_get_branchless(const uint32_t *bitmap, uint8_t index);
 
+/* External function pointers for SIMD implementations */
+extern uint32_t (*lpm_lookup_single_func)(const struct lpm_trie *trie, const uint8_t *addr);
+extern struct lpm_result* (*lpm_lookup_all_func)(const struct lpm_trie *trie, const uint8_t *addr);
+
 /* Optimized lookup all with prefetching */
 lpm_result_t* lpm_lookup_all_optimized(const struct lpm_trie *trie, const uint8_t *addr)
 {
@@ -50,11 +54,17 @@ lpm_result_t* lpm_lookup_all_optimized(const struct lpm_trie *trie, const uint8_
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific routes found and default route exists, add it */
+    if (result->count == 0 && trie->default_route) {
+        lpm_result_add(result, trie->default_route);
+    }
+    
     return result;
 }
 
 #ifdef LPM_HAVE_SSE2
 /* SSE2 optimized lookup all */
+lpm_result_t* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("sse2")));
 lpm_result_t* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *addr)
 {
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
@@ -92,14 +102,26 @@ lpm_result_t* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *ad
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific routes found and default route exists, add it */
+    if (result->count == 0 && trie->default_route) {
+        lpm_result_add(result, trie->default_route);
+    }
+    
     return result;
 }
 #endif
 
-#ifdef LPM_HAVE_AVX2
+#if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 /* AVX2 optimized lookup all */
+lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx2")));
 lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
+    /* Runtime safety check - verify AVX2 is actually supported */
+    if (!__builtin_cpu_supports("avx2")) {
+        /* Fallback to SSE2 if AVX2 not available */
+        return lpm_lookup_all_sse2(trie, addr);
+    }
+
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
     if (!result) {
         return NULL;
@@ -145,14 +167,30 @@ lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *ad
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific routes found and default route exists, add it */
+    if (result->count == 0 && trie->default_route) {
+        lpm_result_add(result, trie->default_route);
+    }
+    
     return result;
 }
 #endif
 
-#ifdef LPM_HAVE_AVX512F
+#if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
 /* AVX512 optimized lookup all */
+lpm_result_t* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx512f")));
 lpm_result_t* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr)
 {
+    /* Runtime safety check - verify AVX512 is actually supported */
+    if (!__builtin_cpu_supports("avx512f")) {
+        /* Fallback to AVX2 if AVX512 not available */
+        if (__builtin_cpu_supports("avx2")) {
+            return lpm_lookup_all_avx2(trie, addr);
+        }
+        /* Fallback to SSE2 if AVX2 not available */
+        return lpm_lookup_all_sse2(trie, addr);
+    }
+
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
     if (!result) {
         return NULL;
@@ -188,6 +226,11 @@ lpm_result_t* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific routes found and default route exists, add it */
+    if (result->count == 0 && trie->default_route) {
+        lpm_result_add(result, trie->default_route);
+    }
+    
     return result;
 }
 #endif
@@ -197,12 +240,14 @@ void lpm_lookup_all_batch_generic(const struct lpm_trie *trie, const uint8_t **a
                                  struct lpm_result **results, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        results[i] = trie->lookup_all(trie, addrs[i]);
+        results[i] = lpm_lookup_all_func(trie, addrs[i]);
     }
 }
 
 #ifdef LPM_HAVE_SSE2
 /* SSE2 batch lookup all - process 4 addresses at a time */
+void lpm_lookup_all_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
+                               struct lpm_result **results, size_t count) __attribute__((target("sse2")));
 void lpm_lookup_all_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
                                struct lpm_result **results, size_t count)
 {
@@ -218,41 +263,33 @@ void lpm_lookup_all_batch_sse2(const struct lpm_trie *trie, const uint8_t **addr
         
         /* Process each address */
         for (int j = 0; j < 4; j++) {
-            results[i + j] = trie->lookup_all(trie, addrs[i + j]);
+            results[i + j] = lpm_lookup_all_func(trie, addrs[i + j]);
         }
     }
     
     /* Process remaining addresses */
     for (; i < count; i++) {
-        results[i] = trie->lookup_all(trie, addrs[i]);
+        results[i] = lpm_lookup_all_func(trie, addrs[i]);
     }
 }
 #endif
 
-/* Function to select the best lookup all implementation based on CPU features */
-void lpm_select_lookup_all_function(lpm_trie_t *trie)
+/* Stub implementations for disabled SIMD functions */
+#ifdef LPM_DISABLE_AVX2
+lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
-#ifdef LPM_HAVE_AVX512F
-    if (trie->cpu_features & LPM_CPU_AVX512F) {
-        trie->lookup_all = lpm_lookup_all_avx512;
-        return;
-    }
-#endif
-
-#ifdef LPM_HAVE_AVX2
-    if (trie->cpu_features & LPM_CPU_AVX2) {
-        trie->lookup_all = lpm_lookup_all_avx2;
-        return;
-    }
-#endif
-
-#ifdef LPM_HAVE_SSE2
-    if (trie->cpu_features & LPM_CPU_SSE2) {
-        trie->lookup_all = lpm_lookup_all_sse2;
-        return;
-    }
-#endif
-
-    /* Default to optimized generic implementation */
-    trie->lookup_all = lpm_lookup_all_optimized;
+    /* Fallback to SSE2 implementation */
+    return lpm_lookup_all_sse2(trie, addr);
 }
+#endif
+
+#ifdef LPM_DISABLE_AVX512
+lpm_result_t* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr)
+{
+    /* Fallback to AVX2 if available, otherwise SSE2 */
+    if (__builtin_cpu_supports("avx2")) {
+        return lpm_lookup_all_avx2(trie, addr);
+    }
+    return lpm_lookup_all_sse2(trie, addr);
+}
+#endif

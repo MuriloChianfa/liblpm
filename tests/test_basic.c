@@ -85,9 +85,7 @@ static void test_batch_lookup(void)
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     assert(trie != NULL);
     
-    /* Debug: Print which batch lookup function is selected */
-    printf("Debug: CPU features: 0x%08x\n", trie->cpu_features);
-    printf("Debug: Batch lookup function pointer: %p\n", (void*)trie->lookup_batch);
+
     
     /* Add prefixes */
     const uint8_t prefix1[4] = {10, 0, 0, 0};
@@ -280,34 +278,13 @@ static void test_default_route(void)
     printf("Default route tests passed!\n\n");
 }
 
-static void test_cpu_features(void)
-{
-    printf("Testing CPU feature detection...\n");
-    
-    uint32_t features = lpm_detect_cpu_features();
-    printf("Detected CPU features: 0x%08x\n", features);
-    
-    if (features & LPM_CPU_SSE) printf("  - SSE supported\n");
-    if (features & LPM_CPU_SSE2) printf("  - SSE2 supported\n");
-    if (features & LPM_CPU_SSE3) printf("  - SSE3 supported\n");
-    if (features & LPM_CPU_SSE4_1) printf("  - SSE4.1 supported\n");
-    if (features & LPM_CPU_SSE4_2) printf("  - SSE4.2 supported\n");
-    if (features & LPM_CPU_AVX) printf("  - AVX supported\n");
-    if (features & LPM_CPU_AVX2) printf("  - AVX2 supported\n");
-    if (features & LPM_CPU_AVX512F) printf("  - AVX512F supported\n");
-    if (features & LPM_CPU_AVX512VL) printf("  - AVX512VL supported\n");
-    if (features & LPM_CPU_AVX512DQ) printf("  - AVX512DQ supported\n");
-    if (features & LPM_CPU_AVX512BW) printf("  - AVX512BW supported\n");
-    
-    printf("\n");
-}
+
 
 int main(void)
 {
     printf("=== LPM Library Test Suite ===\n");
     printf("Library version: %s\n\n", lpm_get_version());
     
-    test_cpu_features();
     test_ipv4_basic();
     test_ipv6_basic();
     test_batch_lookup();

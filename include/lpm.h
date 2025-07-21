@@ -199,7 +199,6 @@ void lpm_result_clear(lpm_result_t *result);
 int lpm_result_add(lpm_result_t *result, const lpm_prefix_t *prefix);
 
 /* Utility functions */
-uint32_t lpm_detect_cpu_features(void);
 const char *lpm_get_version(void);
 void lpm_print_stats(const lpm_trie_t *trie);
 

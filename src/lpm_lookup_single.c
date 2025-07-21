@@ -73,6 +73,7 @@ uint32_t lpm_lookup_single_optimized(const struct lpm_trie *trie, const uint8_t 
 
 #ifdef LPM_HAVE_SSE2
 /* SSE2 optimized lookup - uses movemask for bitmap checks */
+uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("sse2")));
 uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr)
 {
     const lpm_node_t *node = trie->root;
@@ -109,16 +110,22 @@ uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
+    }
+    
     return next_hop;
 }
 #endif
 
-#ifdef LPM_HAVE_AVX2
+#if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 /* AVX2 optimized lookup - uses 256-bit vectors for better throughput */
+uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx2")));
 uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
-    /* Runtime safety check */
-    if (!(trie->cpu_features & LPM_CPU_AVX2)) {
+    /* Runtime safety check - verify AVX2 is actually supported */
+    if (!__builtin_cpu_supports("avx2")) {
         /* Fallback to SSE2 if AVX2 not available */
         return lpm_lookup_single_sse2(trie, addr);
     }
@@ -157,18 +164,24 @@ uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
+    }
+    
     return next_hop;
 }
 #endif
 
-#ifdef LPM_HAVE_AVX512F
+#if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
 /* AVX512 optimized lookup - uses mask registers for branchless operations */
+uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx512f")));
 uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr)
 {
-    /* Runtime safety check */
-    if (!(trie->cpu_features & LPM_CPU_AVX512F)) {
+    /* Runtime safety check - verify AVX512 is actually supported */
+    if (!__builtin_cpu_supports("avx512f")) {
         /* Fallback to AVX2 if AVX512 not available */
-        if (trie->cpu_features & LPM_CPU_AVX2) {
+        if (__builtin_cpu_supports("avx2")) {
             return lpm_lookup_single_avx2(trie, addr);
         }
 
@@ -198,15 +211,17 @@ uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *ad
         /* AVX512 mask operation for branchless update */
         if (valid && node->prefix_info[index]) {
             uint32_t new_hop = (uint32_t)(uintptr_t)node->prefix_info[index]->user_data;
-            __mmask8 k = _cvtu32_mask8(1);  /* Single bit mask */
-            __m512i current_hop = _mm512_set1_epi32(next_hop);
-            __m512i candidate_hop = _mm512_set1_epi32(new_hop);
-            __m512i result = _mm512_mask_blend_epi32(k, current_hop, candidate_hop);
-            next_hop = _mm512_cvtsi512_si32(result);
+            /* Use simple conditional assignment instead of complex mask operations */
+            next_hop = new_hop;
         }
         
         node = node->children[index];
         depth += LPM_STRIDE_BITS;
+    }
+    
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
     }
     
     return next_hop;
@@ -268,6 +283,11 @@ uint32_t lpm_lookup_ipv4_optimized(const struct lpm_trie *trie, uint32_t addr)
         if (valid && node->prefix_info[index]) {
             next_hop = (uint32_t)(uintptr_t)node->prefix_info[index]->user_data;
         }
+    }
+    
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
     }
     
     return next_hop;
@@ -332,48 +352,30 @@ uint32_t lpm_lookup_ipv6_optimized(const struct lpm_trie *trie, const uint8_t ad
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
+    }
+    
     return next_hop;
 }
 
-/* Function to select the best single lookup implementation based on CPU features */
-void lpm_select_single_lookup_function(lpm_trie_t *trie)
+/* Stub implementations for disabled SIMD functions */
+#ifdef LPM_DISABLE_AVX2
+uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
-    /* Always start with the safest fallback */
-    trie->lookup_single = lpm_lookup_single_optimized;
-
-#ifdef LPM_HAVE_AVX512F
-    if (trie->cpu_features & LPM_CPU_AVX512F) {
-        /* Additional runtime check for AVX512 */
-        unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 16))) {
-            trie->lookup_single = lpm_lookup_single_avx512;
-            return;
-        }
-    }
-#endif
-
-#ifdef LPM_HAVE_AVX2
-    if (trie->cpu_features & LPM_CPU_AVX2) {
-        /* Additional runtime check for AVX2 */
-        unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) && (ebx & (1U << 5))) {
-            trie->lookup_single = lpm_lookup_single_avx2;
-            return;
-        }
-    }
-#endif
-
-#ifdef LPM_HAVE_SSE2
-    if (trie->cpu_features & LPM_CPU_SSE2) {
-        /* Additional runtime check for SSE2 */
-        unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) && (edx & (1 << 26))) {
-            trie->lookup_single = lpm_lookup_single_sse2;
-            return;
-        }
-    }
-#endif
-
-    /* Default to optimized generic implementation */
-    trie->lookup_single = lpm_lookup_single_optimized;
+    /* Fallback to SSE2 implementation */
+    return lpm_lookup_single_sse2(trie, addr);
 }
+#endif
+
+#ifdef LPM_DISABLE_AVX512
+uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr)
+{
+    /* Fallback to AVX2 if available, otherwise SSE2 */
+    if (__builtin_cpu_supports("avx2")) {
+        return lpm_lookup_single_avx2(trie, addr);
+    }
+    return lpm_lookup_single_sse2(trie, addr);
+}
+#endif

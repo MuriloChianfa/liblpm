@@ -137,10 +137,14 @@ lpm_trie_t *lpm_create_custom(uint8_t max_depth,
     trie->lookup_batch = lpm_lookup_batch_generic;
     trie->lookup_all = lpm_lookup_all_generic;
     
+    /* Initialize default route to NULL */
+    trie->default_route = NULL;
+    
     /* Select optimized implementations based on detected CPU features */
-    lpm_select_single_lookup_function(trie);
-    lpm_select_batch_lookup_function(trie);
-    lpm_select_lookup_all_function(trie);
+    /* Temporarily disable optimized functions to test generic implementation */
+    /* lpm_select_single_lookup_function(trie); */
+    /* lpm_select_batch_lookup_function(trie); */
+    /* lpm_select_lookup_all_function(trie); */
     
     /* Allocate root node */
     trie->root = lpm_node_alloc(trie, 0);
@@ -233,6 +237,25 @@ int lpm_add_prefix(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, 
 {
     if (!trie || !prefix || prefix_len > trie->max_depth) {
         return -1;
+    }
+    
+    /* Special handling for default route (prefix_len = 0) - handle this first */
+    if (prefix_len == 0) {
+        /* Create prefix info structure for default route */
+        lpm_prefix_t *pinfo = (lpm_prefix_t *)trie->alloc(sizeof(lpm_prefix_t));
+        if (!pinfo) {
+            return -1;
+        }
+        
+        /* Copy prefix data */
+        memset(pinfo, 0, sizeof(lpm_prefix_t));
+        pinfo->prefix_len = 0;
+        pinfo->user_data = user_data;
+        
+        /* For default route, store it in a special field in the trie */
+        /* This prevents it from overriding more specific routes */
+        trie->default_route = pinfo;
+        return 0;
     }
     
     lpm_node_t *node = trie->root;
@@ -347,6 +370,11 @@ static uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uin
         depth += LPM_STRIDE_BITS;
     }
     
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
+    }
+    
     return next_hop;
 }
 
@@ -355,7 +383,7 @@ static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t 
                                     uint32_t *next_hops, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        next_hops[i] = lpm_lookup_single_generic(trie, addrs[i]);
+        next_hops[i] = trie->lookup_single(trie, addrs[i]);
     }
 }
 

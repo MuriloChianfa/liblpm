@@ -135,6 +135,9 @@ struct lpm_trie {
     struct lpm_result* (*lookup_all)(const struct lpm_trie *trie, const uint8_t *addr);
     void (*lookup_all_batch)(const struct lpm_trie *trie, const uint8_t **addrs, 
                             struct lpm_result **results, size_t count);
+    
+    /* Default route (0.0.0.0/0) - stored separately to avoid conflicts */
+    struct lpm_prefix *default_route;
 } LPM_ALIGN_CACHE;
 
 /* CPU feature flags */

@@ -77,14 +77,18 @@ static void init_simd_functions(void)
     /* Use a more conservative approach - only enable SIMD if we're sure it's safe */
     /* Initialize CPU detection - this might fail in some environments */
 #ifdef __GNUC__
+#ifdef LPM_X86_ARCH
     __builtin_cpu_init();
+#endif
 #endif
 
     /* Check for SSE2 first (most common) */
 #ifdef LPM_HAVE_SSE2
     int sse2_supported = 0;
     #ifdef __GNUC__
+    #ifdef LPM_X86_ARCH
         sse2_supported = __builtin_cpu_supports("sse2");
+    #endif
     #endif
 
     if (sse2_supported) {
@@ -122,7 +126,9 @@ static void init_simd_functions(void)
 #if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
     int avx512_supported = 0;
     #ifdef __GNUC__
+    #ifdef LPM_X86_ARCH
         avx512_supported = __builtin_cpu_supports("avx512f");
+    #endif
     #endif
     
     if (avx512_supported) {

@@ -85,13 +85,9 @@ set(LPM_SOURCES
     src/lpm_core.c
 )
 
-# Add SIMD implementations based on CPU support
-if(LPM_X86_ARCH)
-    # Always include SSE2 implementations (baseline for x86_64)
-    list(APPEND LPM_SOURCES src/lpm_lookup_single.c)
-    list(APPEND LPM_SOURCES src/lpm_lookup_batch.c)
-    list(APPEND LPM_SOURCES src/lpm_lookup_all.c)
-endif()
+list(APPEND LPM_SOURCES src/lpm_lookup_single.c)
+list(APPEND LPM_SOURCES src/lpm_lookup_batch.c)
+list(APPEND LPM_SOURCES src/lpm_lookup_all.c)
 
 # Create library
 add_library(lpm ${LPM_SOURCES})

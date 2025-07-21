@@ -44,7 +44,7 @@ jobs:
         # Add debug flags for better debugging in CI
         DEBUG_FLAGS=""
         if [ "${{ matrix.build_type }}" = "DEBUG" ]; then
-          DEBUG_FLAGS='-DCMAKE_C_FLAGS="-g -O0 -DDEBUG_ALLOCATOR -DDEBUG_TESTS"'
+          DEBUG_FLAGS='-DCMAKE_C_FLAGS="-g -DDEBUG_ALLOCATOR -DDEBUG_TESTS"'
         else
           DEBUG_FLAGS='-DCMAKE_C_FLAGS="-DDEBUG_TESTS"'
         fi

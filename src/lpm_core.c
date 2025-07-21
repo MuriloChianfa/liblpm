@@ -31,7 +31,7 @@ lpm_lookup_all_func_t lpm_lookup_all_func = NULL;
 uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr);
 static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t **addrs, 
                                     uint32_t *next_hops, size_t count);
-static struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr);
+struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr);
 
 /* Forward declarations for SIMD implementations */
 #ifdef LPM_HAVE_SSE2
@@ -471,7 +471,7 @@ static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t 
 }
 
 /* Generic lookup all implementation */
-static lpm_result_t* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr)
+lpm_result_t* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Create result structure */
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);

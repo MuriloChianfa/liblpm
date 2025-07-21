@@ -236,8 +236,20 @@ void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs,
                             default: pos_mask = _mm256_setzero_si256(); break;
                         }
 
-                        valid_mask = _mm256_or_si256(valid_mask, pos_mask);
-                        new_hops = _mm256_or_si256(new_hops, _mm256_and_si256(hop_val, pos_mask));
+                        /* Use simple scalar operations for AVX compatibility */
+                        uint32_t valid_vals[8], new_vals[8], hop_vals[8], mask_vals[8];
+                        _mm256_storeu_si256((__m256i*)valid_vals, valid_mask);
+                        _mm256_storeu_si256((__m256i*)new_vals, new_hops);  
+                        _mm256_storeu_si256((__m256i*)hop_vals, hop_val);
+                        _mm256_storeu_si256((__m256i*)mask_vals, pos_mask);
+                        
+                        for (int k = 0; k < 8; k++) {
+                            valid_vals[k] |= mask_vals[k];
+                            new_vals[k] |= (hop_vals[k] & mask_vals[k]);
+                        }
+                        
+                        valid_mask = _mm256_loadu_si256((__m256i*)valid_vals);
+                        new_hops = _mm256_loadu_si256((__m256i*)new_vals);
                     }
                     
                     nodes[j] = nodes[j]->children[idx[j]];
@@ -245,8 +257,21 @@ void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs,
                 }
             }
             
-            /* Update next hops using AVX blend */
-            next_hop_vec = _mm256_blendv_epi8(next_hop_vec, new_hops, valid_mask);
+            uint32_t current_hops[8];
+            uint32_t new_hops_array[8];
+            uint32_t valid_array[8];
+            
+            _mm256_storeu_si256((__m256i*)current_hops, next_hop_vec);
+            _mm256_storeu_si256((__m256i*)new_hops_array, new_hops);
+            _mm256_storeu_si256((__m256i*)valid_array, valid_mask);
+            
+            for (int k = 0; k < 8; k++) {
+                if (valid_array[k]) {
+                    current_hops[k] = new_hops_array[k];
+                }
+            }
+            
+            next_hop_vec = _mm256_loadu_si256((__m256i*)current_hops);
             
             /* If no active nodes, we can stop */
             if (active_nodes == 0) {

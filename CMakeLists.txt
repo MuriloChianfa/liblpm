@@ -43,6 +43,7 @@ endif()
 # We'll compile all SIMD code but use runtime detection to select the best implementation
 if(ENABLE_NATIVE_ARCH AND LPM_X86_ARCH)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+    message(STATUS "Using native architecture compilation with all supported SIMD features")
 else()
     # Use conservative compilation flags to ensure compatibility
     if(LPM_X86_ARCH)
@@ -58,6 +59,9 @@ else()
     else()
         # Non-x86 architecture - disable all x86-specific optimizations
         message(STATUS "Non-x86 architecture detected, disabling x86-specific optimizations")
+        add_compile_definitions(LPM_DISABLE_AVX=1)
+        add_compile_definitions(LPM_DISABLE_AVX2=1)
+        add_compile_definitions(LPM_DISABLE_AVX512=1)
     endif()
 endif()
 

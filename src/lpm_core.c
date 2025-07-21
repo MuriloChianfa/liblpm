@@ -28,22 +28,33 @@ static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t 
 static struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr);
 
 /* Forward declarations for SIMD implementations */
+#ifdef LPM_HAVE_SSE2
 extern uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr);
-extern uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr);
-extern uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr);
-extern uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr);
 extern void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
                                  uint32_t *next_hops, size_t count);
+extern struct lpm_result* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *addr);
+#endif
+
+#if defined(LPM_HAVE_AVX) && !defined(LPM_DISABLE_AVX)
+extern uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr);
 extern void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs, 
                                 uint32_t *next_hops, size_t count);
+extern struct lpm_result* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr);
+#endif
+
+#if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
+extern uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr);
 extern void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
                                  uint32_t *next_hops, size_t count);
+extern struct lpm_result* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr);
+#endif
+
+#if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
+extern uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr);
 extern void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
                                    uint32_t *next_hops, size_t count);
-extern struct lpm_result* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *addr);
-extern struct lpm_result* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr);
-extern struct lpm_result* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr);
 extern struct lpm_result* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr);
+#endif
 
 /* Initialize SIMD function pointers based on CPU capabilities */
 static void init_simd_functions(void)
@@ -59,6 +70,7 @@ static void init_simd_functions(void)
 
     /* Use a more conservative approach - only enable SIMD if we're sure it's safe */
     /* Check for SSE2 first (most common) */
+#ifdef LPM_HAVE_SSE2
     if (!__builtin_cpu_supports("sse2")) {
         return;
     }
@@ -66,8 +78,10 @@ static void init_simd_functions(void)
     lpm_lookup_single_func = lpm_lookup_single_sse2;
     lpm_lookup_batch_func = lpm_lookup_batch_sse2;
     lpm_lookup_all_func = lpm_lookup_all_sse2;
+#endif
     
     /* Enable AVX if supported */
+#if defined(LPM_HAVE_AVX) && !defined(LPM_DISABLE_AVX)
     if (!__builtin_cpu_supports("avx")) {
         return;
     }
@@ -75,8 +89,10 @@ static void init_simd_functions(void)
     lpm_lookup_single_func = lpm_lookup_single_avx;
     lpm_lookup_batch_func = lpm_lookup_batch_avx;
     lpm_lookup_all_func = lpm_lookup_all_avx;
+#endif
     
     /* Only enable AVX2 if explicitly supported */
+#if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
     if (!__builtin_cpu_supports("avx2")) {
         return;
     }
@@ -84,8 +100,10 @@ static void init_simd_functions(void)
     lpm_lookup_single_func = lpm_lookup_single_avx2;
     lpm_lookup_batch_func = lpm_lookup_batch_avx2;
     lpm_lookup_all_func = lpm_lookup_all_avx2;
+#endif
     
     /* Only enable AVX512 if explicitly supported */
+#if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
     if (!__builtin_cpu_supports("avx512f")) {
         return;
     }
@@ -93,6 +111,7 @@ static void init_simd_functions(void)
     lpm_lookup_single_func = lpm_lookup_single_avx512;
     lpm_lookup_batch_func = lpm_lookup_batch_avx512;
     lpm_lookup_all_func = lpm_lookup_all_avx512;
+#endif
 }
 
 

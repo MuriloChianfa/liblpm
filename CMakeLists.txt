@@ -47,15 +47,30 @@ if(ENABLE_NATIVE_ARCH AND LPM_X86_ARCH)
 else()
     # Use conservative compilation flags to ensure compatibility
     if(LPM_X86_ARCH)
-        # For x86, compile with baseline SSE2 and use runtime detection for advanced features
+        # For x86, compile with baseline SSE2 and allow runtime detection for advanced features
         # This ensures compatibility while still allowing runtime selection of best implementation
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse2")
-        message(STATUS "Using baseline SSE2 compilation with runtime detection")
+        message(STATUS "Using baseline SSE2 compilation with runtime detection for advanced features")
         
-        # Add definitions to disable AVX/AVX2/AVX512 compilation for compatibility
-        add_compile_definitions(LPM_DISABLE_AVX=1)
-        add_compile_definitions(LPM_DISABLE_AVX2=1)
-        add_compile_definitions(LPM_DISABLE_AVX512=1)
+        # Enable compile-time feature flags for SIMD implementations
+        # but use runtime detection to select the appropriate one
+        add_compile_definitions(LPM_HAVE_SSE2=1)
+        
+        # Check if compiler supports these features for conditional compilation
+        check_c_compiler_flag("-mavx" COMPILER_SUPPORTS_AVX)
+        if(COMPILER_SUPPORTS_AVX)
+            add_compile_definitions(LPM_HAVE_AVX=1)
+        endif()
+        
+        check_c_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)  
+        if(COMPILER_SUPPORTS_AVX2)
+            add_compile_definitions(LPM_HAVE_AVX2=1)
+        endif()
+        
+        check_c_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512)
+        if(COMPILER_SUPPORTS_AVX512)
+            add_compile_definitions(LPM_HAVE_AVX512F=1)
+        endif()
     else()
         # Non-x86 architecture - disable all x86-specific optimizations
         message(STATUS "Non-x86 architecture detected, disabling x86-specific optimizations")
@@ -144,7 +159,20 @@ message(STATUS "  C flags: ${CMAKE_C_FLAGS}")
 if(ENABLE_NATIVE_ARCH)
     message(STATUS "  CPU optimizations: native architecture")
 else()
-    message(STATUS "  CPU features: ${CPU_FEATURE_FLAGS}")
+    if(LPM_X86_ARCH)
+        message(STATUS "  CPU features: baseline SSE2 with runtime detection")
+        if(COMPILER_SUPPORTS_AVX)
+            message(STATUS "    - AVX support: available")
+        endif()
+        if(COMPILER_SUPPORTS_AVX2)
+            message(STATUS "    - AVX2 support: available") 
+        endif()
+        if(COMPILER_SUPPORTS_AVX512)
+            message(STATUS "    - AVX512 support: available")
+        endif()
+    else()
+        message(STATUS "  CPU features: generic (non-x86)")
+    endif()
 endif()
 message(STATUS "  Build shared libs: ${BUILD_SHARED_LIBS}")
 message(STATUS "  Build tests: ${BUILD_TESTS}")

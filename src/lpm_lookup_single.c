@@ -150,14 +150,8 @@ uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr)
         /* Check validity */
         uint32_t valid = lpm_bitmap_get_branchless(node->valid_bitmap, index);
         
-        /* AVX blend operation for branchless update */
         if (valid && node->prefix_info[index]) {
-            uint32_t new_hop = (uint32_t)(uintptr_t)node->prefix_info[index]->user_data;
-            __m256i current_hop = _mm256_set1_epi32(next_hop);
-            __m256i candidate_hop = _mm256_set1_epi32(new_hop);
-            __m256i mask = _mm256_set1_epi32(-1);
-            __m256i result = _mm256_blendv_epi8(current_hop, candidate_hop, mask);
-            next_hop = _mm256_cvtsi256_si32(result);
+            next_hop = (uint32_t)(uintptr_t)node->prefix_info[index]->user_data;
         }
         
         node = node->children[index];

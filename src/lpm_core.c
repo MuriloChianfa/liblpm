@@ -643,13 +643,8 @@ void lpm_print_stats(const lpm_trie_t *trie)
     printf("LPM Trie Statistics:\n");
     printf("  Max depth: %u\n", trie->max_depth);
     printf("  Stride bits: %u\n", trie->stride_bits);
-#ifdef LPM_X86_ARCH
-    printf("  Number of prefixes: %lu\n", trie->num_prefixes);
-    printf("  Number of nodes: %lu\n", trie->num_nodes);
-#else
-    printf("  Number of prefixes: %llu\n", trie->num_prefixes);
-    printf("  Number of nodes: %llu\n", trie->num_nodes);
-#endif
+    printf("  Number of prefixes: %llu\n", (unsigned long long)trie->num_prefixes);
+    printf("  Number of nodes: %llu\n", (unsigned long long)trie->num_nodes);
     
     printf("  Detected features:");
 #ifdef LPM_X86_ARCH

@@ -28,17 +28,17 @@ A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv
   <summary style="font-size: 16px;"><strong>Ubuntu/Debian</strong></summary>
 
   ```bash
-  apt install build-essential cmake gcc-13 g++-13 libc6-dev clang-13 lldb-18 lld-13 python3 python3-pip afl++ libasan6 libubsan1 cppcheck valgrind gdb strace ltrace
+  apt install build-essential cmake gcc-11 g++-11 libc6-dev clang lldb-18 lld-18 python3 python3-pip afl++ libasan6 libubsan1 cppcheck valgrind gdb strace ltrace
   ```
 </details>
-<details>
+<details open>
   <summary style="font-size: 16px;"><strong>CentOS/RHEL/Rocky Linux</strong></summary>
 
   ```bash
   yum install cmake3 gcc-c++ libc-devel clang lldb lld python3 python3-pip afl++ libasan libubsan cppcheck valgrind gdb strace ltrace
   ```
 </details>
-<details>
+<details open>
   <summary style="font-size: 16px;"><strong>Fedora</strong></summary>
 
   ```bash

@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
+
+# Set Clang as default compiler
+if(NOT DEFINED CMAKE_C_COMPILER)
+    set(CMAKE_C_COMPILER "clang" CACHE STRING "C compiler" FORCE)
+endif()
+
 project(liblpm VERSION 1.1.0 LANGUAGES C)
 
 # Set C standard

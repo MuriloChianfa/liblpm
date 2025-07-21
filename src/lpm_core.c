@@ -8,7 +8,7 @@
 #include "../include/lpm.h"
 
 /* Version information */
-static const char *lpm_version = "liblpm 1.0.0";
+static const char *lpm_version = "liblpm 1.2.0";
 
 /* Function pointer types for SIMD implementations */
 typedef uint32_t (*lpm_lookup_single_func_t)(const struct lpm_trie *trie, const uint8_t *addr);
@@ -140,9 +140,23 @@ static lpm_node_t *lpm_node_alloc(lpm_trie_t *trie, uint8_t depth)
 /* Default memory allocator */
 static void *default_alloc(size_t size)
 {
-    /* Ensure size is a multiple of alignment for aligned_alloc */
+    /* Try aligned allocation first for better performance */
     size_t aligned_size = (size + LPM_CACHE_LINE_SIZE - 1) & ~(LPM_CACHE_LINE_SIZE - 1);
-    return aligned_alloc(LPM_CACHE_LINE_SIZE, aligned_size);
+    void *ptr = aligned_alloc(LPM_CACHE_LINE_SIZE, aligned_size);
+    
+    /* Fall back to regular malloc if aligned_alloc fails */
+    if (!ptr) {
+        ptr = malloc(size);
+        #ifdef DEBUG_ALLOCATOR
+        if (ptr) {
+            fprintf(stderr, "[LPM] aligned_alloc failed, using malloc fallback for size %zu\n", size);
+        } else {
+            fprintf(stderr, "[LPM] CRITICAL: Both aligned_alloc and malloc failed for size %zu\n", size);
+        }
+        #endif
+    }
+    
+    return ptr;
 }
 
 /* Default memory deallocator */
@@ -341,34 +355,24 @@ int lpm_add_prefix(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, 
     if (depth < prefix_len) {
         uint8_t remaining_bits = prefix_len - depth;
         uint8_t byte_index = depth / 8;
-        uint8_t bit_offset = depth % 8;
         
-        /* Extract the remaining bits */
-        uint8_t index = prefix[byte_index] >> (8 - remaining_bits - bit_offset);
-        index &= (1 << remaining_bits) - 1;
-        
-        if (remaining_bits == LPM_STRIDE_BITS && prefix_len == depth + LPM_STRIDE_BITS) {
-            /* Exactly one full byte remaining - this is an exact match prefix */
-            index = prefix[byte_index];
+        if (remaining_bits >= LPM_STRIDE_BITS) {
+            /* Full byte remaining - use entire byte as index */
+            uint8_t index = prefix[byte_index];
             node->prefix_info[index] = pinfo;
             lpm_bitmap_set(node->valid_bitmap, index);
         } else {
-            /* Partial byte OR not the last byte - expand to all possible completions */
-            uint32_t num_entries = 1U << (LPM_STRIDE_BITS - remaining_bits);
-            uint32_t base_index = index << (LPM_STRIDE_BITS - remaining_bits);
+            /* Partial byte - expand based on the prefix bits */
+            uint8_t bit_offset = depth % 8;
+            uint8_t prefix_bits = prefix[byte_index] >> (8 - remaining_bits - bit_offset);
+            prefix_bits &= (1 << remaining_bits) - 1;
             
-            if (remaining_bits == LPM_STRIDE_BITS) {
-                /* Full byte but not the last - set all 256 entries */
-                for (int i = 0; i < LPM_STRIDE_SIZE; i++) {
-                    node->prefix_info[i] = pinfo;
-                    lpm_bitmap_set(node->valid_bitmap, i);
-                }
-            } else {
-                /* Partial byte - expand based on the prefix bits */
-                for (uint32_t i = 0; i < num_entries; i++) {
-                    node->prefix_info[base_index + i] = pinfo;
-                    lpm_bitmap_set(node->valid_bitmap, base_index + i);
-                }
+            uint32_t num_entries = 1U << (LPM_STRIDE_BITS - remaining_bits);
+            uint32_t base_index = prefix_bits << (LPM_STRIDE_BITS - remaining_bits);
+            
+            for (uint32_t i = 0; i < num_entries; i++) {
+                node->prefix_info[base_index + i] = pinfo;
+                lpm_bitmap_set(node->valid_bitmap, base_index + i);
             }
         }
     } else {

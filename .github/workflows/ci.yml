@@ -40,6 +40,15 @@ jobs:
       run: |
         mkdir build
         cd build
+        
+        # Add debug flags for better debugging in CI
+        DEBUG_FLAGS=""
+        if [ "${{ matrix.build_type }}" = "DEBUG" ]; then
+          DEBUG_FLAGS="-DCMAKE_C_FLAGS='-g -O0 -fno-omit-frame-pointer -DDEBUG_ALLOCATOR -DDEBUG_TESTS'"
+        else
+          DEBUG_FLAGS="-DCMAKE_C_FLAGS='-DDEBUG_TESTS'"
+        fi
+        
         if [ "${{ matrix.compiler }}" = "clang" ]; then
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
                 -DCMAKE_C_COMPILER=clang \
@@ -47,6 +56,7 @@ jobs:
                 -DBUILD_TESTS=ON \
                 -DBUILD_BENCHMARKS=ON \
                 -DENABLE_NATIVE_ARCH=OFF \
+                $DEBUG_FLAGS \
                 ..
         else
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -55,29 +65,120 @@ jobs:
                 -DBUILD_TESTS=ON \
                 -DBUILD_BENCHMARKS=ON \
                 -DENABLE_NATIVE_ARCH=OFF \
+                $DEBUG_FLAGS \
                 ..
         fi
         make -j$(nproc)
+        
+        # Verify build success
+        echo "Build completed. Checking artifacts:"
+        ls -la liblpm* tests/ || echo "Some build artifacts missing"
+
+    - name: Prepare debugging environment
+      run: |
+        chmod +x .github/debug_ci.sh
+        echo "=== CI Environment Debug Info ==="
+        echo "Runner OS: ${{ runner.os }}"
+        echo "Build type: ${{ matrix.build_type }}"
+        echo "Compiler: ${{ matrix.compiler }}"
+        echo "Working directory: $(pwd)"
+        echo "Available memory: $(free -h 2>/dev/null || echo 'free command not available')"
+        echo "CPU info: $(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2- || echo 'CPU info not available')"
+        echo "Library files:"
+        ls -la build/liblpm* 2>/dev/null || echo "No library files found"
+        echo "Test binaries:"
+                 ls -la build/tests/ 2>/dev/null || echo "No test binaries found"
+
+    - name: Quick test run (basic test binary)
+      run: |
+        echo "=== Running basic test binary directly ==="
+        cd build
+        echo "Testing basic test binary execution..."
+        timeout 60s ./tests/test_basic || {
+          exit_code=$?
+          echo "ERROR: Basic test binary failed with exit code: $exit_code"
+          if [ $exit_code -eq 124 ]; then
+            echo "Test timed out after 60 seconds"
+          elif [ $exit_code -eq 139 ]; then
+            echo "Segmentation fault detected"
+          elif [ $exit_code -eq 134 ]; then
+            echo "Assertion failure or abort detected"
+          fi
+          echo "Running immediate debug analysis..."
+          cd ..
+          ./.github/debug_ci.sh 2>&1 | head -100
+          exit 1
+        }
+        echo "Basic test binary completed successfully"
 
     - name: Run unit tests
       run: |
         cd build
-        ctest -L unit --verbose --output-on-failure
+        echo "=== Running Unit Tests ==="
+                 ctest -L unit --verbose --output-on-failure || {
+           echo "ERROR: Unit tests failed, running debug script..."
+           cd ..
+           ./.github/debug_ci.sh 2>&1 | head -200
+           exit 1
+         }
 
     - name: Run fuzzing tests
       run: |
         cd build
-        ctest -L fuzz --verbose --output-on-failure
+        echo "=== Running Fuzzing Tests ==="
+                 ctest -L fuzz --verbose --output-on-failure || {
+           echo "ERROR: Fuzzing tests failed, running debug script..."
+           cd ..
+           ./.github/debug_ci.sh 2>&1 | head -200
+           exit 1
+         }
 
     - name: Run static analysis
       run: |
         cd build
-        ctest -L static_analysis --verbose --output-on-failure
+        echo "=== Running Static Analysis ==="
+        ctest -L static_analysis --verbose --output-on-failure || {
+          echo "ERROR: Static analysis failed"
+          exit 1
+        }
 
-    - name: Run all tests
+    - name: Run all tests with debugging
       run: |
         cd build
-        ctest --verbose --output-on-failure
+        echo "=== Running All Tests ==="
+        ctest --verbose --output-on-failure || {
+                     echo "ERROR: Tests failed, running comprehensive debug analysis..."
+           cd ..
+           echo "=== Debug Script Output ==="
+           ./.github/debug_ci.sh 2>&1 | head -300
+           echo "=== End Debug Script Output ==="
+          
+          echo "=== Additional CI Debugging ==="
+          echo "Test log files:"
+          find build/Testing -name "*.log" -exec echo "File: {}" \; -exec head -50 {} \; 2>/dev/null || echo "No test log files found"
+          
+          echo "Core dumps:"
+          find . -name "core*" -exec echo "Found core dump: {}" \; -exec file {} \; 2>/dev/null || echo "No core dumps found"
+          
+          echo "Build artifacts:"
+          ls -la build/ 2>/dev/null || echo "No build directory"
+          
+                     exit 1
+         }
+
+    - name: Upload debug artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: debug-artifacts-${{ matrix.compiler }}-${{ matrix.build_type }}
+        path: |
+          build/Testing/
+          build/tests/test_basic
+          build/liblpm*
+          core*
+          .github/debug_ci.sh
+          tests/test_basic.c
+        retention-days: 7
 
   # Test on macOS
   test-macos:

@@ -5,13 +5,78 @@
 #include <arpa/inet.h>
 #include "../include/lpm.h"
 
+/* Enable verbose debugging only when DEBUG_TESTS is defined */
+#ifdef DEBUG_TESTS
+#define DEBUG_VERBOSE 1
+#else
+#define DEBUG_VERBOSE 0
+#endif
+
+#if DEBUG_VERBOSE
+#define DEBUG_PRINTF(...) printf("[DEBUG] " __VA_ARGS__)
+#else
+#define DEBUG_PRINTF(...) do {} while(0)
+#endif
+
+/* Helper function to validate trie state */
+static void validate_trie_state(lpm_trie_t *trie, const char *context) {
+    DEBUG_PRINTF("=== Validating trie state: %s ===\n", context);
+    if (!trie) {
+        printf("ERROR: Trie is NULL in context: %s\n", context);
+        abort();
+    }
+    DEBUG_PRINTF("Trie pointer: %p\n", (void*)trie);
+    printf("Trie stats in context '%s':\n", context);
+    lpm_print_stats(trie);
+    DEBUG_PRINTF("=== End validation: %s ===\n", context);
+}
+
+/* Helper function to validate add operation */
+static int debug_lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop, const char *desc) {
+    DEBUG_PRINTF("=== Adding prefix: %s ===\n", desc);
+    DEBUG_PRINTF("Prefix: %u.%u.%u.%u/%u, Next hop: %u\n", 
+                prefix[0], prefix[1], prefix[2], prefix[3], prefix_len, next_hop);
+    
+    validate_trie_state(trie, "before add");
+    
+    int result = lpm_add(trie, prefix, prefix_len, next_hop);
+    DEBUG_PRINTF("lpm_add returned: %d\n", result);
+    
+    validate_trie_state(trie, "after add");
+    
+    if (result != 0) {
+        printf("ERROR: lpm_add failed with result %d for %s\n", result, desc);
+    }
+    
+    DEBUG_PRINTF("=== End adding prefix: %s ===\n", desc);
+    return result;
+}
+
+/* Helper function to validate lookup operation */
+static uint32_t debug_lpm_lookup(lpm_trie_t *trie, const uint8_t *addr, const char *desc) {
+    DEBUG_PRINTF("=== Looking up: %s ===\n", desc);
+    DEBUG_PRINTF("Address: %u.%u.%u.%u\n", addr[0], addr[1], addr[2], addr[3]);
+    
+    uint32_t result = lpm_lookup(trie, addr);
+    DEBUG_PRINTF("Lookup result: %u\n", result);
+    
+    DEBUG_PRINTF("=== End lookup: %s ===\n", desc);
+    return result;
+}
+
 /* Test helper functions */
 static void test_ipv4_basic(void)
 {
     printf("Testing IPv4 basic functionality...\n");
     
+    DEBUG_PRINTF("Creating trie with max depth %d\n", LPM_IPV4_MAX_DEPTH);
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
-    assert(trie != NULL);
+    if (!trie) {
+        printf("CRITICAL ERROR: Failed to create trie\n");
+        abort();
+    }
+    
+    validate_trie_state(trie, "initial creation");
     
     /* Add some test prefixes */
     const uint8_t prefix1[4] = {192, 168, 0, 0};    // 192.168.0.0/16
@@ -19,10 +84,10 @@ static void test_ipv4_basic(void)
     const uint8_t prefix3[4] = {10, 0, 0, 0};       // 10.0.0.0/8
     const uint8_t prefix4[4] = {172, 16, 0, 0};     // 172.16.0.0/12
     
-    assert(lpm_add(trie, prefix1, 16, 100) == 0);
-    assert(lpm_add(trie, prefix2, 24, 200) == 0);
-    assert(lpm_add(trie, prefix3, 8, 300) == 0);
-    assert(lpm_add(trie, prefix4, 12, 400) == 0);
+    assert(debug_lpm_add(trie, prefix1, 16, 100, "192.168.0.0/16 -> 100") == 0);
+    assert(debug_lpm_add(trie, prefix2, 24, 200, "192.168.1.0/24 -> 200") == 0);
+    assert(debug_lpm_add(trie, prefix3, 8, 300, "10.0.0.0/8 -> 300") == 0);
+    assert(debug_lpm_add(trie, prefix4, 12, 400, "172.16.0.0/12 -> 400") == 0);
     
     /* Test lookups */
     const uint8_t test1[4] = {192, 168, 1, 1};      // Should match 192.168.1.0/24 -> 200
@@ -31,17 +96,20 @@ static void test_ipv4_basic(void)
     const uint8_t test4[4] = {172, 16, 5, 10};      // Should match 172.16.0.0/12 -> 400
     const uint8_t test5[4] = {8, 8, 8, 8};          // Should not match -> INVALID
     
-    assert(lpm_lookup(trie, test1) == 200);
-    assert(lpm_lookup(trie, test2) == 100);
-    assert(lpm_lookup(trie, test3) == 300);
-    assert(lpm_lookup(trie, test4) == 400);
-    assert(lpm_lookup(trie, test5) == LPM_INVALID_NEXT_HOP);
+    assert(debug_lpm_lookup(trie, test1, "192.168.1.1 -> expect 200") == 200);
+    assert(debug_lpm_lookup(trie, test2, "192.168.2.1 -> expect 100") == 100);
+    assert(debug_lpm_lookup(trie, test3, "10.1.2.3 -> expect 300") == 300);
+    assert(debug_lpm_lookup(trie, test4, "172.16.5.10 -> expect 400") == 400);
+    assert(debug_lpm_lookup(trie, test5, "8.8.8.8 -> expect INVALID") == LPM_INVALID_NEXT_HOP);
     
     /* Test IPv4 specific function */
     uint32_t addr1 = htonl((192 << 24) | (168 << 16) | (1 << 8) | 1);
-    assert(lpm_lookup_ipv4(trie, ntohl(addr1)) == 200);
+    DEBUG_PRINTF("Testing lpm_lookup_ipv4 with address 0x%08x\n", ntohl(addr1));
+    uint32_t ipv4_result = lpm_lookup_ipv4(trie, ntohl(addr1));
+    DEBUG_PRINTF("lpm_lookup_ipv4 result: %u (expected: 200)\n", ipv4_result);
+    assert(ipv4_result == 200);
     
-    lpm_print_stats(trie);
+    validate_trie_state(trie, "before destruction");
     lpm_destroy(trie);
     printf("IPv4 basic tests passed!\n\n");
 }
@@ -82,19 +150,23 @@ static void test_batch_lookup(void)
 {
     printf("Testing batch lookup functionality...\n");
     
+    DEBUG_PRINTF("Creating trie for batch lookup test\n");
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
-    assert(trie != NULL);
+    if (!trie) {
+        printf("CRITICAL ERROR: Failed to create trie for batch lookup\n");
+        abort();
+    }
     
-
+    validate_trie_state(trie, "batch test initial");
     
     /* Add prefixes */
     const uint8_t prefix1[4] = {10, 0, 0, 0};
     const uint8_t prefix2[4] = {10, 1, 0, 0};
     const uint8_t prefix3[4] = {10, 2, 0, 0};
     
-    assert(lpm_add(trie, prefix1, 8, 100) == 0);
-    assert(lpm_add(trie, prefix2, 16, 200) == 0);
-    assert(lpm_add(trie, prefix3, 16, 300) == 0);
+    assert(debug_lpm_add(trie, prefix1, 8, 100, "10.0.0.0/8 -> 100") == 0);
+    assert(debug_lpm_add(trie, prefix2, 16, 200, "10.1.0.0/16 -> 200") == 0);
+    assert(debug_lpm_add(trie, prefix3, 16, 300, "10.2.0.0/16 -> 300") == 0);
     
     /* Debug: Print trie statistics after adding prefixes */
     printf("Debug: After adding prefixes:\n");
@@ -106,9 +178,9 @@ static void test_batch_lookup(void)
     const uint8_t test_addr3[4] = {10, 2, 0, 1};
     
     printf("Debug: Individual lookup results:\n");
-    printf("  10.0.0.1 -> %u\n", lpm_lookup(trie, test_addr1));
-    printf("  10.1.0.1 -> %u\n", lpm_lookup(trie, test_addr2));
-    printf("  10.2.0.1 -> %u\n", lpm_lookup(trie, test_addr3));
+    printf("  10.0.0.1 -> %u\n", debug_lpm_lookup(trie, test_addr1, "10.0.0.1"));
+    printf("  10.1.0.1 -> %u\n", debug_lpm_lookup(trie, test_addr2, "10.1.0.1"));
+    printf("  10.2.0.1 -> %u\n", debug_lpm_lookup(trie, test_addr3, "10.2.0.1"));
     
     /* Prepare batch of addresses */
     const int batch_size = 8;

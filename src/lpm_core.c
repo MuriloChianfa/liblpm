@@ -28,7 +28,7 @@ lpm_lookup_batch_func_t lpm_lookup_batch_func = NULL;
 lpm_lookup_all_func_t lpm_lookup_all_func = NULL;
 
 /* Forward declarations for lookup functions */
-static uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr);
+uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr);
 static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t **addrs, 
                                     uint32_t *next_hops, size_t count);
 static struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr);
@@ -428,7 +428,7 @@ int lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_
 }
 
 /* Generic single lookup implementation */
-static uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr)
+uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr)
 {
     const lpm_node_t *node = trie->root;
     uint32_t next_hop = LPM_INVALID_NEXT_HOP;

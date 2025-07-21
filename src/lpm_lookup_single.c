@@ -10,7 +10,7 @@
 #endif
 
 /* Forward declaration for generic function */
-static uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr);
+extern uint32_t lpm_lookup_single_generic(const struct lpm_trie *trie, const uint8_t *addr);
 
 /* Branchless bitmap check */
 uint32_t lpm_bitmap_get_branchless(const uint32_t *bitmap, uint8_t index)
@@ -128,13 +128,13 @@ uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr)
 uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Runtime safety check - verify AVX is actually supported */
-    #ifdef __GNUC__
+    #if defined(__GNUC__) && !defined(__clang__)
         if (!__builtin_cpu_supports("avx")) {
-            /* Fallback to SSE2 if AVX not available */
-            return lpm_lookup_single_sse2(trie, addr);
+            /* Fallback to generic implementation */
+            return lpm_lookup_single_generic(trie, addr);
         }
     #else
-        /* For non-GCC/Clang compilers, fallback to generic implementation */
+        /* For non-GCC compilers (including Apple Clang), fallback to generic implementation */
         return lpm_lookup_single_generic(trie, addr);
     #endif
 
@@ -181,13 +181,13 @@ uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr
 uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Runtime safety check - verify AVX2 is actually supported */
-    #ifdef __GNUC__
+    #if defined(__GNUC__) && !defined(__clang__)
         if (!__builtin_cpu_supports("avx2")) {
-            /* Fallback to SSE2 if AVX2 not available */
-            return lpm_lookup_single_sse2(trie, addr);
+            /* Fallback to generic implementation */
+            return lpm_lookup_single_generic(trie, addr);
         }
     #else
-        /* For non-GCC compilers, fallback to generic implementation */
+        /* For non-GCC compilers (including Apple Clang), fallback to generic implementation */
         return lpm_lookup_single_generic(trie, addr);
     #endif
 
@@ -240,17 +240,13 @@ uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *ad
 uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Runtime safety check - verify AVX512 is actually supported */
-    #ifdef __GNUC__
+    #if defined(__GNUC__) && !defined(__clang__)
         if (!__builtin_cpu_supports("avx512f")) {
-            /* Fallback to AVX2 if AVX512 not available */
-            if (__builtin_cpu_supports("avx2")) {
-                return lpm_lookup_single_avx2(trie, addr);
-            }
-
-            return lpm_lookup_single_sse2(trie, addr);
+            /* Fallback to generic implementation */
+            return lpm_lookup_single_generic(trie, addr);
         }
     #else
-        /* For non-GCC compilers, fallback to generic implementation */
+        /* For non-GCC compilers (including Apple Clang), fallback to generic implementation */
         return lpm_lookup_single_generic(trie, addr);
     #endif
 
@@ -430,32 +426,23 @@ uint32_t lpm_lookup_ipv6_optimized(const struct lpm_trie *trie, const uint8_t ad
 #ifdef LPM_DISABLE_AVX
 uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr)
 {
-    /* Fallback to SSE2 implementation */
-    return lpm_lookup_single_sse2(trie, addr);
+    /* Fallback to generic implementation */
+    return lpm_lookup_single_generic(trie, addr);
 }
 #endif
 
 #ifdef LPM_DISABLE_AVX2
 uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
-    /* Fallback to SSE2 implementation */
-    return lpm_lookup_single_sse2(trie, addr);
+    /* Fallback to generic implementation */
+    return lpm_lookup_single_generic(trie, addr);
 }
 #endif
 
 #ifdef LPM_DISABLE_AVX512
 uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr)
 {
-    /* Fallback to AVX2 if available, otherwise SSE2 */
-    #ifdef __GNUC__
-        if (__builtin_cpu_supports("avx2")) {
-            return lpm_lookup_single_avx2(trie, addr);
-        }
-    #else
-        /* For non-GCC compilers, assume no AVX2 for safety */
-        /* Fallback to generic implementation */
-        return lpm_lookup_single_generic(trie, addr);
-    #endif
-    return lpm_lookup_single_sse2(trie, addr);
+    /* Fallback to generic implementation */
+    return lpm_lookup_single_generic(trie, addr);
 }
 #endif

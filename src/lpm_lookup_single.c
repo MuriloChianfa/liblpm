@@ -119,6 +119,60 @@ uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr
 }
 #endif
 
+#if defined(LPM_HAVE_AVX) && !defined(LPM_DISABLE_AVX)
+/* AVX optimized lookup - uses 256-bit vectors for better throughput */
+uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx")));
+uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr)
+{
+    /* Runtime safety check - verify AVX is actually supported */
+    if (!__builtin_cpu_supports("avx")) {
+        /* Fallback to SSE2 if AVX not available */
+        return lpm_lookup_single_sse2(trie, addr);
+    }
+
+    const lpm_node_t *node = trie->root;
+    uint32_t next_hop = LPM_INVALID_NEXT_HOP;
+    uint8_t depth = 0;
+    
+    /* Prefetch with AVX */
+    _mm_prefetch((const char*)addr, _MM_HINT_T0);
+    
+    while (node && depth < trie->max_depth) {
+        uint8_t byte_index = depth >> 3;
+        uint8_t index = addr[byte_index];
+        
+        /* Prefetch next level */
+        if (node->children[index]) {
+            _mm_prefetch((const char*)node->children[index], _MM_HINT_T0);
+            _mm_prefetch((const char*)&node->children[index]->valid_bitmap[0], _MM_HINT_T0);
+        }
+        
+        /* Check validity */
+        uint32_t valid = lpm_bitmap_get_branchless(node->valid_bitmap, index);
+        
+        /* AVX blend operation for branchless update */
+        if (valid && node->prefix_info[index]) {
+            uint32_t new_hop = (uint32_t)(uintptr_t)node->prefix_info[index]->user_data;
+            __m256i current_hop = _mm256_set1_epi32(next_hop);
+            __m256i candidate_hop = _mm256_set1_epi32(new_hop);
+            __m256i mask = _mm256_set1_epi32(-1);
+            __m256i result = _mm256_blendv_epi8(current_hop, candidate_hop, mask);
+            next_hop = _mm256_cvtsi256_si32(result);
+        }
+        
+        node = node->children[index];
+        depth += LPM_STRIDE_BITS;
+    }
+    
+    /* If no specific route found, check for default route */
+    if (next_hop == LPM_INVALID_NEXT_HOP && trie->default_route) {
+        next_hop = (uint32_t)(uintptr_t)trie->default_route->user_data;
+    }
+    
+    return next_hop;
+}
+#endif
+
 #if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 /* AVX2 optimized lookup - uses 256-bit vectors for better throughput */
 uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx2")));
@@ -361,6 +415,14 @@ uint32_t lpm_lookup_ipv6_optimized(const struct lpm_trie *trie, const uint8_t ad
 }
 
 /* Stub implementations for disabled SIMD functions */
+#ifdef LPM_DISABLE_AVX
+uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr)
+{
+    /* Fallback to SSE2 implementation */
+    return lpm_lookup_single_sse2(trie, addr);
+}
+#endif
+
 #ifdef LPM_DISABLE_AVX2
 uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {

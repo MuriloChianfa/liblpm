@@ -3,7 +3,7 @@
 [![CI](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml)
 [![Code Coverage](https://codecov.io/gh/MuriloChianfa/liblpm/branch/main/graph/badge.svg)](https://codecov.io/gh/MuriloChianfa/liblpm)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue.svg)](https://github.com/MuriloChianfa/liblpm)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/MuriloChianfa/liblpm/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/MuriloChianfa/liblpm/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CMake](https://img.shields.io/badge/CMake-3.16+-green.svg)](https://cmake.org/)
 [![GCC](https://img.shields.io/badge/GCC-11+-green.svg)](https://gcc.gnu.org/)
@@ -14,7 +14,7 @@ A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv
 
 - **High Performance**: Multi-bit trie with 8-bit stride reduces trie depth and improves cache.
 - **Dual Stack Support**: Native support for both IPv4 (32-bit) and IPv6 (128-bit) addresses.
-- **SIMD Optimizations**: Automatic detection and use of CPU features. (SSE2, AVX2, AVX512F)
+- **SIMD Optimizations**: Automatic detection and use of CPU features. (SSE2, AVX, AVX2, AVX512F)
 - **Batch Processing**: Vectorized batch lookup for processing multiple addresses simultaneously.
 - **Branchless Design**: Optimized lookup paths with minimal branch mispredictions.
 - **Cache-Friendly**: Aligned data structures and prefetching for optimal cache utilization.

@@ -5,7 +5,7 @@ if(NOT DEFINED CMAKE_C_COMPILER)
     set(CMAKE_C_COMPILER "clang" CACHE STRING "C compiler" FORCE)
 endif()
 
-project(liblpm VERSION 1.1.0 LANGUAGES C)
+project(liblpm VERSION 1.2.0 LANGUAGES C)
 
 # Set C standard
 set(CMAKE_C_STANDARD 23)
@@ -51,7 +51,8 @@ else()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse2")
         message(STATUS "Using baseline SSE2 compilation with runtime detection")
         
-        # Add definitions to disable AVX2/AVX512 compilation for compatibility
+        # Add definitions to disable AVX/AVX2/AVX512 compilation for compatibility
+        add_compile_definitions(LPM_DISABLE_AVX=1)
         add_compile_definitions(LPM_DISABLE_AVX2=1)
         add_compile_definitions(LPM_DISABLE_AVX512=1)
     else()

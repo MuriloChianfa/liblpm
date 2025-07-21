@@ -29,15 +29,19 @@ static struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, co
 
 /* Forward declarations for SIMD implementations */
 extern uint32_t lpm_lookup_single_sse2(const struct lpm_trie *trie, const uint8_t *addr);
+extern uint32_t lpm_lookup_single_avx(const struct lpm_trie *trie, const uint8_t *addr);
 extern uint32_t lpm_lookup_single_avx2(const struct lpm_trie *trie, const uint8_t *addr);
 extern uint32_t lpm_lookup_single_avx512(const struct lpm_trie *trie, const uint8_t *addr);
 extern void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs, 
                                  uint32_t *next_hops, size_t count);
+extern void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                uint32_t *next_hops, size_t count);
 extern void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
                                  uint32_t *next_hops, size_t count);
 extern void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs, 
                                    uint32_t *next_hops, size_t count);
 extern struct lpm_result* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *addr);
+extern struct lpm_result* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr);
 extern struct lpm_result* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr);
 extern struct lpm_result* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr);
 
@@ -49,29 +53,46 @@ static void init_simd_functions(void)
     lpm_lookup_batch_func = lpm_lookup_batch_generic;
     lpm_lookup_all_func = lpm_lookup_all_generic;
 
-#ifdef LPM_X86_ARCH
+#ifndef LPM_X86_ARCH
+    return;
+#endif
+
     /* Use a more conservative approach - only enable SIMD if we're sure it's safe */
     /* Check for SSE2 first (most common) */
-    if (__builtin_cpu_supports("sse2")) {
-        lpm_lookup_single_func = lpm_lookup_single_sse2;
-        lpm_lookup_batch_func = lpm_lookup_batch_sse2;
-        lpm_lookup_all_func = lpm_lookup_all_sse2;
-        
-        /* Only enable AVX2 if explicitly supported */
-        if (__builtin_cpu_supports("avx2")) {
-            lpm_lookup_single_func = lpm_lookup_single_avx2;
-            lpm_lookup_batch_func = lpm_lookup_batch_avx2;
-            lpm_lookup_all_func = lpm_lookup_all_avx2;
-            
-            /* Only enable AVX512 if explicitly supported */
-            if (__builtin_cpu_supports("avx512f")) {
-                lpm_lookup_single_func = lpm_lookup_single_avx512;
-                lpm_lookup_batch_func = lpm_lookup_batch_avx512;
-                lpm_lookup_all_func = lpm_lookup_all_avx512;
-            }
-        }
+    if (!__builtin_cpu_supports("sse2")) {
+        return;
     }
-#endif
+    
+    lpm_lookup_single_func = lpm_lookup_single_sse2;
+    lpm_lookup_batch_func = lpm_lookup_batch_sse2;
+    lpm_lookup_all_func = lpm_lookup_all_sse2;
+    
+    /* Enable AVX if supported */
+    if (!__builtin_cpu_supports("avx")) {
+        return;
+    }
+    
+    lpm_lookup_single_func = lpm_lookup_single_avx;
+    lpm_lookup_batch_func = lpm_lookup_batch_avx;
+    lpm_lookup_all_func = lpm_lookup_all_avx;
+    
+    /* Only enable AVX2 if explicitly supported */
+    if (!__builtin_cpu_supports("avx2")) {
+        return;
+    }
+    
+    lpm_lookup_single_func = lpm_lookup_single_avx2;
+    lpm_lookup_batch_func = lpm_lookup_batch_avx2;
+    lpm_lookup_all_func = lpm_lookup_all_avx2;
+    
+    /* Only enable AVX512 if explicitly supported */
+    if (!__builtin_cpu_supports("avx512f")) {
+        return;
+    }
+    
+    lpm_lookup_single_func = lpm_lookup_single_avx512;
+    lpm_lookup_batch_func = lpm_lookup_batch_avx512;
+    lpm_lookup_all_func = lpm_lookup_all_avx512;
 }
 
 

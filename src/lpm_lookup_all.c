@@ -111,6 +111,71 @@ lpm_result_t* lpm_lookup_all_sse2(const struct lpm_trie *trie, const uint8_t *ad
 }
 #endif
 
+#if defined(LPM_HAVE_AVX) && !defined(LPM_DISABLE_AVX)
+/* AVX optimized lookup all */
+lpm_result_t* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx")));
+lpm_result_t* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr)
+{
+    /* Runtime safety check - verify AVX is actually supported */
+    if (!__builtin_cpu_supports("avx")) {
+        /* Fallback to SSE2 if AVX not available */
+        return lpm_lookup_all_sse2(trie, addr);
+    }
+
+    lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
+    if (!result) {
+        return NULL;
+    }
+    
+    const lpm_node_t *node = trie->root;
+    uint8_t depth = 0;
+    
+    /* Prefetch multiple cache lines */
+    _mm_prefetch((const char*)addr, _MM_HINT_T0);
+    _mm_prefetch((const char*)(addr + 8), _MM_HINT_T1);
+    
+    while (node && depth < trie->max_depth) {
+        uint8_t byte_index = depth >> 3;
+        uint8_t index = addr[byte_index];
+        
+        /* Aggressive prefetching for next two levels */
+        if (node->children[index]) {
+            _mm_prefetch((const char*)node->children[index], _MM_HINT_T0);
+            _mm_prefetch((const char*)&node->children[index]->valid_bitmap[0], _MM_HINT_T0);
+            _mm_prefetch((const char*)&node->children[index]->prefix_info[0], _MM_HINT_T0);
+            
+            /* Prefetch potential grandchild */
+            if (depth + LPM_STRIDE_BITS < trie->max_depth && byte_index + 1 < 16) {
+                uint8_t next_index = addr[byte_index + 1];
+                if (node->children[index]->children[next_index]) {
+                    _mm_prefetch((const char*)node->children[index]->children[next_index], _MM_HINT_T1);
+                }
+            }
+        }
+        
+        /* Check validity */
+        uint32_t valid = lpm_bitmap_get_branchless(node->valid_bitmap, index);
+        
+        if (valid && node->prefix_info[index]) {
+            if (lpm_result_add(result, node->prefix_info[index]) < 0) {
+                lpm_result_destroy(result);
+                return NULL;
+            }
+        }
+        
+        node = node->children[index];
+        depth += LPM_STRIDE_BITS;
+    }
+    
+    /* If no specific routes found and default route exists, add it */
+    if (result->count == 0 && trie->default_route) {
+        lpm_result_add(result, trie->default_route);
+    }
+    
+    return result;
+}
+#endif
+
 #if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 /* AVX2 optimized lookup all */
 lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr) __attribute__((target("avx2")));
@@ -275,6 +340,14 @@ void lpm_lookup_all_batch_sse2(const struct lpm_trie *trie, const uint8_t **addr
 #endif
 
 /* Stub implementations for disabled SIMD functions */
+#ifdef LPM_DISABLE_AVX
+lpm_result_t* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr)
+{
+    /* Fallback to SSE2 implementation */
+    return lpm_lookup_all_sse2(trie, addr);
+}
+#endif
+
 #ifdef LPM_DISABLE_AVX2
 lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {

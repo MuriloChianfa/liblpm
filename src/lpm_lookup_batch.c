@@ -149,6 +149,129 @@ void lpm_lookup_batch_sse2(const struct lpm_trie *trie, const uint8_t **addrs,
 }
 #endif
 
+#if defined(LPM_HAVE_AVX) && !defined(LPM_DISABLE_AVX)
+/* AVX batch lookup - process 8 addresses at a time */
+void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs, 
+                         uint32_t *next_hops, size_t count) __attribute__((target("avx")));
+void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs, 
+                         uint32_t *next_hops, size_t count)
+{
+    /* Runtime safety check - verify AVX is actually supported */
+    if (!__builtin_cpu_supports("avx")) {
+        /* Fallback to SSE2 if AVX not available */
+        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+        return;
+    }
+
+    size_t i = 0;
+
+    /* Process 8 addresses at a time */
+    for (; i + 7 < count; i += 8) {
+        const lpm_node_t *nodes[8];
+        for (int j = 0; j < 8; j++) {
+            nodes[j] = trie->root;
+        }
+
+        __m256i next_hop_vec = _mm256_set1_epi32(LPM_INVALID_NEXT_HOP);
+        uint8_t depth = 0;
+        
+        /* Prefetch all 8 addresses */
+        for (int j = 0; j < 8; j++) {
+            _mm_prefetch((const char*)addrs[i+j], _MM_HINT_T0);
+        }
+        
+        while (depth < trie->max_depth) {
+            uint8_t byte_index = depth >> 3;
+            
+            /* Load indices from all 8 addresses */
+            __m256i indices = _mm256_setr_epi32(
+                addrs[i][byte_index],
+                addrs[i+1][byte_index],
+                addrs[i+2][byte_index],
+                addrs[i+3][byte_index],
+                addrs[i+4][byte_index],
+                addrs[i+5][byte_index],
+                addrs[i+6][byte_index],
+                addrs[i+7][byte_index]
+            );
+            
+            /* Extract indices */
+            uint32_t idx[8];
+            _mm256_storeu_si256((__m256i*)idx, indices);
+            
+            __m256i valid_mask = _mm256_setzero_si256();
+            __m256i new_hops = _mm256_setzero_si256();
+            int active_nodes = 0;
+            
+            /* Process each node */
+            for (int j = 0; j < 8; j++) {
+                if (nodes[j]) {
+                    /* Prefetch child node */
+                    if (nodes[j]->children[idx[j]]) {
+                        _mm_prefetch((const char*)nodes[j]->children[idx[j]], _MM_HINT_T0);
+                    }
+                    
+                    /* Check validity */
+                    uint32_t word = idx[j] >> 5;
+                    uint32_t bit = idx[j] & 31;
+                    uint32_t valid = (nodes[j]->valid_bitmap[word] >> bit) & 1;
+                    
+                    if (valid && nodes[j]->prefix_info[idx[j]]) {
+                        uint32_t next_hop = (uint32_t)(uintptr_t)nodes[j]->prefix_info[idx[j]]->user_data;
+
+                        /* Use conditional operations instead of insert */
+                        __m256i hop_val = _mm256_set1_epi32(next_hop);
+
+                        /* Create position-specific masks */
+                        __m256i pos_mask;
+                        switch (j) {
+                            case 0: pos_mask = _mm256_setr_epi32(-1, 0, 0, 0, 0, 0, 0, 0); break;
+                            case 1: pos_mask = _mm256_setr_epi32(0, -1, 0, 0, 0, 0, 0, 0); break;
+                            case 2: pos_mask = _mm256_setr_epi32(0, 0, -1, 0, 0, 0, 0, 0); break;
+                            case 3: pos_mask = _mm256_setr_epi32(0, 0, 0, -1, 0, 0, 0, 0); break;
+                            case 4: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, -1, 0, 0, 0); break;
+                            case 5: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, 0, -1, 0, 0); break;
+                            case 6: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, 0, 0, -1, 0); break;
+                            case 7: pos_mask = _mm256_setr_epi32(0, 0, 0, 0, 0, 0, 0, -1); break;
+                            default: pos_mask = _mm256_setzero_si256(); break;
+                        }
+
+                        valid_mask = _mm256_or_si256(valid_mask, pos_mask);
+                        new_hops = _mm256_or_si256(new_hops, _mm256_and_si256(hop_val, pos_mask));
+                    }
+                    
+                    nodes[j] = nodes[j]->children[idx[j]];
+                    if (nodes[j]) active_nodes++;
+                }
+            }
+            
+            /* Update next hops using AVX blend */
+            next_hop_vec = _mm256_blendv_epi8(next_hop_vec, new_hops, valid_mask);
+            
+            /* If no active nodes, we can stop */
+            if (active_nodes == 0) {
+                break;
+            }
+            
+            depth += LPM_STRIDE_BITS;
+        }
+        
+        /* Store results */
+        uint32_t results[8];
+        _mm256_storeu_si256((__m256i*)results, next_hop_vec);
+        
+        for (int j = 0; j < 8; j++) {
+            next_hops[i + j] = results[j];
+        }
+    }
+    
+    /* Handle remaining addresses */
+    for (; i < count; i++) {
+        next_hops[i] = lpm_lookup_single_func(trie, addrs[i]);
+    }
+}
+#endif
+
 #if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
 /* AVX2 batch lookup - process 8 addresses at a time */
 void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
@@ -443,6 +566,15 @@ void lpm_lookup_batch_ipv6(const lpm_trie_t *trie, const uint8_t (*addrs)[16],
 }
 
 /* Stub implementations for disabled SIMD functions */
+#ifdef LPM_DISABLE_AVX
+void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs, 
+                         uint32_t *next_hops, size_t count)
+{
+    /* Fallback to SSE2 implementation */
+    lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+}
+#endif
+
 #ifdef LPM_DISABLE_AVX2
 void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs, 
                           uint32_t *next_hops, size_t count)

@@ -539,7 +539,10 @@ void lpm_lookup_batch_ipv4(const lpm_trie_t *trie, const uint32_t *addrs,
     
     /* Convert IPv4 addresses to byte arrays and perform batch lookup */
     const uint8_t **addr_ptrs = (const uint8_t**)malloc(count * sizeof(uint8_t*));
-    uint8_t *addr_bytes = (uint8_t*)aligned_alloc(64, count * 4);
+
+    /* Align size to 64 bytes */
+    size_t aligned_size = ((count * 4) + 63) & ~63;
+    uint8_t *addr_bytes = (uint8_t*)aligned_alloc(64, aligned_size);
     
     if (!addr_ptrs || !addr_bytes) {
         free(addr_ptrs);

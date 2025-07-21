@@ -254,7 +254,10 @@ static void lpm_node_free_recursive(lpm_trie_t *trie, lpm_node_t *node)
             
             if (!already_freed) {
                 trie->free(node->prefix_info[i]);
-                freed_prefixes[freed_count++] = node->prefix_info[i];
+                /* Check bounds to prevent buffer overflow */
+                if (freed_count < LPM_STRIDE_SIZE) {
+                    freed_prefixes[freed_count++] = node->prefix_info[i];
+                }
             }
         }
     }
@@ -272,6 +275,11 @@ void lpm_destroy(lpm_trie_t *trie)
     
     /* Free all nodes */
     lpm_node_free_recursive(trie, trie->root);
+    
+    /* Free default route if it exists */
+    if (trie->default_route) {
+        trie->free(trie->default_route);
+    }
     
     /* Free trie structure */
     trie->free(trie);

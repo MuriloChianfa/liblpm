@@ -11,6 +11,7 @@ jobs:
   test-linux:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         build_type: [DEBUG, RELEASE]
         compiler: [gcc, clang]
@@ -184,6 +185,7 @@ jobs:
   test-macos:
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
         build_type: [RELEASE]
         # build_type: [DEBUG, RELEASE]
@@ -287,6 +289,7 @@ jobs:
   build-verification:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         config:
           - name: "Shared library"

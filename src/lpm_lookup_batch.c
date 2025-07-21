@@ -6,6 +6,10 @@
 #endif
 #include "../include/lpm.h"
 
+/* Forward declaration for generic function */
+static void lpm_lookup_batch_generic(const struct lpm_trie *trie, const uint8_t **addrs, 
+                                    uint32_t *next_hops, size_t count);
+
 #ifdef LPM_X86_ARCH
 #include <cpuid.h>
 #endif
@@ -157,11 +161,17 @@ void lpm_lookup_batch_avx(const struct lpm_trie *trie, const uint8_t **addrs,
                          uint32_t *next_hops, size_t count)
 {
     /* Runtime safety check - verify AVX is actually supported */
-    if (!__builtin_cpu_supports("avx")) {
-        /* Fallback to SSE2 if AVX not available */
-        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+    #ifdef __GNUC__
+        if (!__builtin_cpu_supports("avx")) {
+            /* Fallback to SSE2 if AVX not available */
+            lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+            return;
+        }
+    #else
+        /* For non-GCC compilers, fallback to generic implementation */
+        lpm_lookup_batch_generic(trie, addrs, next_hops, count);
         return;
-    }
+    #endif
 
     size_t i = 0;
 
@@ -305,11 +315,17 @@ void lpm_lookup_batch_avx2(const struct lpm_trie *trie, const uint8_t **addrs,
                           uint32_t *next_hops, size_t count)
 {
     /* Runtime safety check - verify AVX2 is actually supported */
-    if (!__builtin_cpu_supports("avx2")) {
-        /* Fallback to SSE2 if AVX2 not available */
-        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+    #ifdef __GNUC__
+        if (!__builtin_cpu_supports("avx2")) {
+            /* Fallback to SSE2 if AVX2 not available */
+            lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+            return;
+        }
+    #else
+        /* For non-GCC compilers, fallback to generic implementation */
+        lpm_lookup_batch_generic(trie, addrs, next_hops, count);
         return;
-    }
+    #endif
 
     size_t i = 0;
 
@@ -430,16 +446,22 @@ void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs,
                             uint32_t *next_hops, size_t count)
 {
     /* Runtime safety check - verify AVX512 is actually supported */
-    if (!__builtin_cpu_supports("avx512f")) {
-        /* Fallback to AVX2 if AVX512 not available */
-        if (__builtin_cpu_supports("avx2")) {
-            lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
+    #ifdef __GNUC__
+        if (!__builtin_cpu_supports("avx512f")) {
+            /* Fallback to AVX2 if AVX512 not available */
+            if (__builtin_cpu_supports("avx2")) {
+                lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
+                return;
+            }
+
+            lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
             return;
         }
-
-        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+    #else
+        /* For non-GCC compilers, fallback to generic implementation */
+        lpm_lookup_batch_generic(trie, addrs, next_hops, count);
         return;
-    }
+    #endif
 
     size_t i = 0;
     
@@ -617,11 +639,17 @@ void lpm_lookup_batch_avx512(const struct lpm_trie *trie, const uint8_t **addrs,
                             uint32_t *next_hops, size_t count)
 {
     /* Fallback to AVX2 if available, otherwise SSE2 */
-    if (__builtin_cpu_supports("avx2")) {
-        lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
-    } else {
-        lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
-    }
+    #ifdef __GNUC__
+        if (__builtin_cpu_supports("avx2")) {
+            lpm_lookup_batch_avx2(trie, addrs, next_hops, count);
+        } else {
+            lpm_lookup_batch_sse2(trie, addrs, next_hops, count);
+        }
+    #else
+        /* For non-GCC compilers, assume no AVX2 for safety */
+        /* Fallback to generic implementation */
+        lpm_lookup_batch_generic(trie, addrs, next_hops, count);
+    #endif
 }
 #endif
 

@@ -5,7 +5,6 @@
 #include <arpa/inet.h>
 #include "../include/lpm.h"
 
-/* Enable verbose debugging only when DEBUG_TESTS is defined */
 #ifdef DEBUG_TESTS
 #define DEBUG_VERBOSE 1
 #else
@@ -33,14 +32,15 @@ static void validate_trie_state(lpm_trie_t *trie, const char *context) {
 
 /* Helper function to validate add operation */
 static int debug_lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop, const char *desc) {
-    DEBUG_PRINTF("=== Adding prefix: %s ===\n", desc);
-    DEBUG_PRINTF("Prefix: %u.%u.%u.%u/%u, Next hop: %u\n", 
-                prefix[0], prefix[1], prefix[2], prefix[3], prefix_len, next_hop);
+    printf("=== Adding prefix: %s ===\n", desc);
+    printf("Prefix: %u.%u.%u.%u/%u, Next hop: %u\n", 
+           prefix[0], prefix[1], prefix[2], prefix[3], prefix_len, next_hop);
     
     validate_trie_state(trie, "before add");
     
+    printf("Calling lpm_add...\n");
     int result = lpm_add(trie, prefix, prefix_len, next_hop);
-    DEBUG_PRINTF("lpm_add returned: %d\n", result);
+    printf("lpm_add returned: %d\n", result);
     
     validate_trie_state(trie, "after add");
     
@@ -48,7 +48,7 @@ static int debug_lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix
         printf("ERROR: lpm_add failed with result %d for %s\n", result, desc);
     }
     
-    DEBUG_PRINTF("=== End adding prefix: %s ===\n", desc);
+    printf("=== End adding prefix: %s ===\n", desc);
     return result;
 }
 
@@ -69,7 +69,6 @@ static void test_ipv4_basic(void)
 {
     printf("Testing IPv4 basic functionality...\n");
     
-    DEBUG_PRINTF("Creating trie with max depth %d\n", LPM_IPV4_MAX_DEPTH);
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     if (!trie) {
         printf("CRITICAL ERROR: Failed to create trie\n");
@@ -104,9 +103,7 @@ static void test_ipv4_basic(void)
     
     /* Test IPv4 specific function */
     uint32_t addr1 = htonl((192 << 24) | (168 << 16) | (1 << 8) | 1);
-    DEBUG_PRINTF("Testing lpm_lookup_ipv4 with address 0x%08x\n", ntohl(addr1));
     uint32_t ipv4_result = lpm_lookup_ipv4(trie, ntohl(addr1));
-    DEBUG_PRINTF("lpm_lookup_ipv4 result: %u (expected: 200)\n", ipv4_result);
     assert(ipv4_result == 200);
     
     validate_trie_state(trie, "before destruction");
@@ -150,7 +147,6 @@ static void test_batch_lookup(void)
 {
     printf("Testing batch lookup functionality...\n");
     
-    DEBUG_PRINTF("Creating trie for batch lookup test\n");
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     if (!trie) {
         printf("CRITICAL ERROR: Failed to create trie for batch lookup\n");
@@ -309,20 +305,7 @@ static void test_default_route(void)
     printf("Default route test results: %u, %u, %u, %u, %u\n", 
            lookup1, lookup2, lookup3, lookup4, lookup5);
     
-    printf("DEBUG: About to check lookup1 == 100 (lookup1 = %u)\n", lookup1);
-    
-    /* Test with simple variable comparison */
-    uint32_t expected = 100;
-    uint32_t actual = lookup1;
-    printf("DEBUG: expected = %u, actual = %u\n", expected, actual);
-    
-    if (actual != expected) {
-        printf("ERROR: Assertion failed - expected %u, got %u\n", expected, actual);
-        abort();
-    }
-    
     assert(lookup1 == 100);
-    
     assert(lookup2 == 200);
     assert(lookup3 == 300);
     assert(lookup4 == 999);
@@ -349,8 +332,6 @@ static void test_default_route(void)
     lpm_destroy(trie);
     printf("Default route tests passed!\n\n");
 }
-
-
 
 int main(void)
 {

@@ -5,7 +5,13 @@
 #ifdef LPM_X86_ARCH
 #include <cpuid.h>
 #endif
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 #include "../include/lpm.h"
+
+static bool lpm_cpu_supports_avx2(void);
+static bool lpm_cpu_supports_avx(void);
 
 /* Version information */
 static const char *lpm_version = "liblpm 1.2.0";
@@ -69,52 +75,63 @@ static void init_simd_functions(void)
 #endif
 
     /* Use a more conservative approach - only enable SIMD if we're sure it's safe */
+    /* Initialize CPU detection - this might fail in some environments */
+#ifdef __GNUC__
+    __builtin_cpu_init();
+#endif
+
     /* Check for SSE2 first (most common) */
 #ifdef LPM_HAVE_SSE2
-    if (!__builtin_cpu_supports("sse2")) {
-        return;
+    int sse2_supported = 0;
+    #ifdef __GNUC__
+        sse2_supported = __builtin_cpu_supports("sse2");
+    #endif
+
+    if (sse2_supported) {
+        lpm_lookup_single_func = lpm_lookup_single_sse2;
+        lpm_lookup_batch_func = lpm_lookup_batch_sse2;
+        lpm_lookup_all_func = lpm_lookup_all_sse2;
     }
-    
-    lpm_lookup_single_func = lpm_lookup_single_sse2;
-    lpm_lookup_batch_func = lpm_lookup_batch_sse2;
-    lpm_lookup_all_func = lpm_lookup_all_sse2;
 #endif
     
     /* Enable AVX if supported */
 #if defined(LPM_HAVE_AVX) && !defined(LPM_DISABLE_AVX)
-    if (!__builtin_cpu_supports("avx")) {
-        return;
-    }
+    int avx_supported = 0;
+    avx_supported = lpm_cpu_supports_avx();
     
-    lpm_lookup_single_func = lpm_lookup_single_avx;
-    lpm_lookup_batch_func = lpm_lookup_batch_avx;
-    lpm_lookup_all_func = lpm_lookup_all_avx;
+    if (avx_supported) {
+        lpm_lookup_single_func = lpm_lookup_single_avx;
+        lpm_lookup_batch_func = lpm_lookup_batch_avx;
+        lpm_lookup_all_func = lpm_lookup_all_avx;
+    }
 #endif
     
     /* Only enable AVX2 if explicitly supported */
 #if defined(LPM_HAVE_AVX2) && !defined(LPM_DISABLE_AVX2)
-    if (!__builtin_cpu_supports("avx2")) {
-        return;
-    }
+    int avx2_supported = 0;
+    avx2_supported = lpm_cpu_supports_avx2();
     
-    lpm_lookup_single_func = lpm_lookup_single_avx2;
-    lpm_lookup_batch_func = lpm_lookup_batch_avx2;
-    lpm_lookup_all_func = lpm_lookup_all_avx2;
+    if (avx2_supported) {
+        lpm_lookup_single_func = lpm_lookup_single_avx2;
+        lpm_lookup_batch_func = lpm_lookup_batch_avx2;
+        lpm_lookup_all_func = lpm_lookup_all_avx2;
+    }
 #endif
     
     /* Only enable AVX512 if explicitly supported */
 #if defined(LPM_HAVE_AVX512F) && !defined(LPM_DISABLE_AVX512)
-    if (!__builtin_cpu_supports("avx512f")) {
-        return;
-    }
+    int avx512_supported = 0;
+    #ifdef __GNUC__
+        avx512_supported = __builtin_cpu_supports("avx512f");
+    #endif
     
-    lpm_lookup_single_func = lpm_lookup_single_avx512;
-    lpm_lookup_batch_func = lpm_lookup_batch_avx512;
-    lpm_lookup_all_func = lpm_lookup_all_avx512;
+    if (avx512_supported) {
+        lpm_lookup_single_func = lpm_lookup_single_avx512;
+        lpm_lookup_batch_func = lpm_lookup_batch_avx512;
+        lpm_lookup_all_func = lpm_lookup_all_avx512;
+    }
 #endif
 }
-
-
 
 /* Allocate and initialize a new node */
 static lpm_node_t *lpm_node_alloc(lpm_trie_t *trie, uint8_t depth)
@@ -384,12 +401,11 @@ int lpm_add_prefix(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, 
             }
         }
     } else {
-        /* Exact stride boundary - set all entries */
-        for (int i = 0; i < LPM_STRIDE_SIZE; i++) {
-            /* TODO: Handle memory management properly - for now, just overwrite */
-            node->prefix_info[i] = pinfo;
-            lpm_bitmap_set(node->valid_bitmap, i);
-        }
+        /* Exact stride boundary - set the specific index */
+        uint8_t byte_index = depth >> 3;
+        uint8_t index = prefix[byte_index];
+        node->prefix_info[index] = pinfo;
+        lpm_bitmap_set(node->valid_bitmap, index);
     }
     
     trie->num_prefixes++;
@@ -400,7 +416,9 @@ int lpm_add_prefix(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, 
 int lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop)
 {
     /* For backward compatibility, just call lpm_add_prefix */
-    return lpm_add_prefix(trie, prefix, prefix_len, (void*)(uintptr_t)next_hop);
+    int result = lpm_add_prefix(trie, prefix, prefix_len, (void*)(uintptr_t)next_hop);
+    
+    return result;
 }
 
 /* Generic single lookup implementation */
@@ -660,10 +678,14 @@ void lpm_print_stats(const lpm_trie_t *trie)
     
     printf("  Detected features:");
 #ifdef LPM_X86_ARCH
-    if (__builtin_cpu_supports("sse2")) printf(" SSE2");
-    if (__builtin_cpu_supports("avx")) printf(" AVX");
-    if (__builtin_cpu_supports("avx2")) printf(" AVX2");
-    if (__builtin_cpu_supports("avx512f")) printf(" AVX512F");
+    #ifdef __GNUC__
+        if (__builtin_cpu_supports("sse2")) printf(" SSE2");
+        if (__builtin_cpu_supports("avx")) printf(" AVX");
+        if (__builtin_cpu_supports("avx2")) printf(" AVX2");
+        if (__builtin_cpu_supports("avx512f")) printf(" AVX512F");
+    #else
+        printf(" None");
+    #endif
 #endif
     printf("\n");
 }
@@ -679,4 +701,47 @@ static void lpm_init_function_pointers(void)
     
     /* Try to initialize SIMD functions, but don't fail if detection fails */
     init_simd_functions();
+}
+
+/* Cross-platform CPU feature detection */
+static bool lpm_cpu_supports_avx2(void) {
+#ifdef __GNUC__
+    #ifdef __linux__
+        // Linux with GCC/Clang - use __builtin_cpu_supports
+        return __builtin_cpu_supports("avx2");
+    #elif defined(__APPLE__)
+        // macOS - check via sysctl
+        int has_avx2 = 0;
+        size_t size = sizeof(has_avx2);
+        if (sysctlbyname("hw.optional.avx2_0", &has_avx2, &size, NULL, 0) == 0) {
+            return has_avx2 != 0;
+        }
+        return false;
+    #else
+        // Other Unix systems - try __builtin_cpu_supports
+        return __builtin_cpu_supports("avx2");
+    #endif
+#else
+    // Non-GCC/Clang compiler - assume no AVX2 for safety
+    return false;
+#endif
+}
+
+static bool lpm_cpu_supports_avx(void) {
+#ifdef __GNUC__
+    #ifdef __linux__
+        return __builtin_cpu_supports("avx");
+    #elif defined(__APPLE__)
+        int has_avx = 0;
+        size_t size = sizeof(has_avx);
+        if (sysctlbyname("hw.optional.avx1_0", &has_avx, &size, NULL, 0) == 0) {
+            return has_avx != 0;
+        }
+        return false;
+    #else
+        return __builtin_cpu_supports("avx");
+    #endif
+#else
+    return false;
+#endif
 }

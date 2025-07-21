@@ -6,6 +6,9 @@
 #endif
 #include "../include/lpm.h"
 
+/* Forward declaration for generic function */
+static struct lpm_result* lpm_lookup_all_generic(const struct lpm_trie *trie, const uint8_t *addr);
+
 /* External function to get branchless bitmap check */
 extern uint32_t lpm_bitmap_get_branchless(const uint32_t *bitmap, uint8_t index);
 
@@ -117,10 +120,15 @@ lpm_result_t* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *add
 lpm_result_t* lpm_lookup_all_avx(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Runtime safety check - verify AVX is actually supported */
-    if (!__builtin_cpu_supports("avx")) {
-        /* Fallback to SSE2 if AVX not available */
-        return lpm_lookup_all_sse2(trie, addr);
-    }
+    #ifdef __GNUC__
+        if (!__builtin_cpu_supports("avx")) {
+            /* Fallback to SSE2 if AVX not available */
+            return lpm_lookup_all_sse2(trie, addr);
+        }
+    #else
+        /* For non-GCC/Clang compilers, fallback to generic implementation */
+        return lpm_lookup_all_generic(trie, addr);
+    #endif
 
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
     if (!result) {
@@ -182,10 +190,15 @@ lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *ad
 lpm_result_t* lpm_lookup_all_avx2(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Runtime safety check - verify AVX2 is actually supported */
-    if (!__builtin_cpu_supports("avx2")) {
-        /* Fallback to SSE2 if AVX2 not available */
-        return lpm_lookup_all_sse2(trie, addr);
-    }
+    #ifdef __GNUC__
+        if (!__builtin_cpu_supports("avx2")) {
+            /* Fallback to SSE2 if AVX2 not available */
+            return lpm_lookup_all_sse2(trie, addr);
+        }
+    #else
+        /* For non-GCC/Clang compilers, fallback to generic implementation */
+        return lpm_lookup_all_generic(trie, addr);
+    #endif
 
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
     if (!result) {
@@ -247,14 +260,19 @@ lpm_result_t* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *
 lpm_result_t* lpm_lookup_all_avx512(const struct lpm_trie *trie, const uint8_t *addr)
 {
     /* Runtime safety check - verify AVX512 is actually supported */
-    if (!__builtin_cpu_supports("avx512f")) {
-        /* Fallback to AVX2 if AVX512 not available */
-        if (__builtin_cpu_supports("avx2")) {
-            return lpm_lookup_all_avx2(trie, addr);
+    #ifdef __GNUC__
+        if (!__builtin_cpu_supports("avx512f")) {
+            /* Fallback to AVX2 if AVX512 not available */
+            if (__builtin_cpu_supports("avx2")) {
+                return lpm_lookup_all_avx2(trie, addr);
+            }
+            /* Fallback to SSE2 if AVX2 not available */
+            return lpm_lookup_all_sse2(trie, addr);
         }
-        /* Fallback to SSE2 if AVX2 not available */
-        return lpm_lookup_all_sse2(trie, addr);
-    }
+    #else
+        /* For non-GCC/Clang compilers, fallback to generic implementation */
+        return lpm_lookup_all_generic(trie, addr);
+    #endif
 
     lpm_result_t *result = lpm_result_create(LPM_MAX_RESULTS);
     if (!result) {

@@ -4,7 +4,7 @@
 [![Code Coverage](https://codecov.io/gh/MuriloChianfa/liblpm/branch/main/graph/badge.svg)](https://codecov.io/gh/MuriloChianfa/liblpm)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue.svg)](https://github.com/MuriloChianfa/liblpm)
 [![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/MuriloChianfa/liblpm/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Boost](https://img.shields.io/badge/License-Boost_1.0-lightblue.svg)](https://www.boost.org/LICENSE_1_0.txt)
 [![CMake](https://img.shields.io/badge/CMake-3.16+-green.svg)](https://cmake.org/)
 [![GCC](https://img.shields.io/badge/GCC-11+-green.svg)](https://gcc.gnu.org/)
 
@@ -137,7 +137,7 @@ For detailed information about the fuzzing tests, coverage areas,<br> and advanc
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.md)
+This project is licensed under the Boost Software License 1.0 - see the [LICENSE](LICENSE)
 file for details.
 
 ## Security

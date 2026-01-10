@@ -87,12 +87,13 @@ echo ""\n\
 echo "=== Running C++ Example (GCC) ==="\n\
 ./bindings/cpp/examples/cpp_basic_example || echo "Example completed"\n\
 \n\
-# Test with Clang\n\
+# Test with Clang (C++) and GCC (C)\n\
+# Note: libdynemit requires GCC, so we use GCC for C and Clang for C++\n\
 echo ""\n\
-echo "=== Building with Clang 21.1 ==="\n\
+echo "=== Building with Clang 21.1 (C++) and GCC 15.2 (C) ==="\n\
 cd /build && rm -rf build_clang && mkdir build_clang && cd build_clang\n\
 cmake \
-    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_C_COMPILER=gcc \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_CPP_WRAPPER=ON \
@@ -103,16 +104,19 @@ cmake \
 ninja\n\
 \n\
 echo ""\n\
-echo "=== Running C++ Tests (Clang) ==="\n\
+echo "=== Running C++ Tests (Clang++ / GCC) ==="\n\
 ctest -R cpp --output-on-failure --verbose\n\
 \n\
 echo ""\n\
-echo "=== Running C++ Example (Clang) ==="\n\
+echo "=== Running C++ Example (Clang++ / GCC) ==="\n\
 ./bindings/cpp/examples/cpp_basic_example || echo "Example completed"\n\
 \n\
 echo ""\n\
 echo "=== C++ Bindings Test Summary ==="\n\
-echo "All tests passed with both GCC and Clang!"\n\
+echo "All tests passed!"\n\
+echo "  - GCC 15.2 (both C and C++)"\n\
+echo "  - Clang 21.1 (C++) with GCC 15.2 (C)"\n\
+echo "Note: libdynemit requires GCC for C compilation"\n\
 ' > /build/run_cpp_tests.sh && chmod +x /build/run_cpp_tests.sh
 
 # Export volume for built artifacts

@@ -43,13 +43,19 @@
 *.pdb
 
 # Kernel Module Compile Results
-*.mod*
+*.mod.c
+*.mod.o
+*.ko.cmd
 *.cmd
 .tmp_versions/
 modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Exception: Don't ignore Go module files
+!go.mod
+!go.sum
 
 # debug information files
 *.dwo

@@ -130,8 +130,6 @@ int main() {
     
     print_separator("Done");
     std::cout << "C++ wrapper demo completed successfully!\n";
-    std::cout << "Performance: Byte array lookups are ~13-18ns (same as C)\n";
-    std::cout << "             String lookups are ~18-28ns (+5-10ns parsing)\n";
     
     return 0;
 }

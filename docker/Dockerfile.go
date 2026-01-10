@@ -47,7 +47,7 @@ RUN git config --global --add safe.directory /build && \
 # ============================================================================
 # Stage 2: Build Go bindings
 # ============================================================================
-FROM golang:1.23-bookworm AS go-builder
+FROM golang:1.25-bookworm AS go-builder
 
 # Install runtime dependencies for cgo
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -103,7 +103,7 @@ echo "All tests passed!"\n\
 # ============================================================================
 # Stage 3: Runtime
 # ============================================================================
-FROM golang:1.23-bookworm AS runtime
+FROM golang:1.25-bookworm AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libc6 \

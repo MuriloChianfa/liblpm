@@ -70,3 +70,8 @@ tests/dict.txt
 continuous_fuzz.sh
 cppcheck_output/
 compiler_comparison_results.txt
+
+# CodeQL
+.codeql-databases/
+.codeql-results/
+*.sarif

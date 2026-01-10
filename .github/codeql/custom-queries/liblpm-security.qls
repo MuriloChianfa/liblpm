@@ -1,0 +1,8 @@
+- description: Custom security queries for liblpm
+- queries: .
+- apply: security-extended
+- apply: security-and-quality
+- include:
+    id:
+      - cpp/liblpm/buffer-overflow
+      - go/liblpm/unsafe-cgo-pointer

@@ -69,8 +69,8 @@ WORKDIR /go/src/liblpm
 # Copy Go source
 COPY bindings/go /go/src/liblpm/
 
-# Download Go dependencies
-RUN go mod download
+# Download Go dependencies (if any exist)
+RUN go mod download || true
 
 # Build Go bindings
 RUN go build ./...

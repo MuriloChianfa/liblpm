@@ -1,0 +1,5 @@
+name: liblpm-custom-queries
+version: 1.0.0
+dependencies:
+  codeql/cpp-queries: "*"
+  codeql/go-queries: "*"

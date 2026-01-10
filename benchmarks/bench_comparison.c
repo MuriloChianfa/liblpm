@@ -796,8 +796,22 @@ static benchmark_result_t benchmark_ipv6_dpdk_batch(void)
  * Main
  * ============================================================================ */
 
+/* Flag to track if DPDK is available at runtime */
+#ifdef HAVE_DPDK
+static int dpdk_available = 0;
+#endif
+
 int main(int argc, char **argv)
 {
+    /* Force output to be line-buffered for better crash debugging */
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    setvbuf(stderr, NULL, _IOLBF, 0);
+    
+    printf("bench_comparison: Starting benchmark...\n");
+    fflush(stdout);
+    
+    (void)argc; /* Suppress unused parameter warning */
+    
 #ifdef HAVE_DPDK
     /* Initialize DPDK EAL (Environment Abstraction Layer) */
     char *dpdk_argv[] = {
@@ -807,17 +821,26 @@ int main(int argc, char **argv)
         "--log-level", "error",
         "--no-pci",          /* Don't need PCI devices */
         "--no-huge",         /* Don't require hugepages */
-        "-m", "512",         /* Use 512MB of memory */
+        "--in-memory",       /* Don't require shared memory files */
+        "-m", "256",         /* Use 256MB of memory (reduced) */
         "--",
         NULL
     };
     int dpdk_argc = sizeof(dpdk_argv) / sizeof(dpdk_argv[0]) - 1;
     
-    printf("Initializing DPDK EAL...\n");
+    printf("Initializing DPDK EAL (version %d.%d)...\n", RTE_VER_YEAR, RTE_VER_MONTH);
+    fflush(stdout);
+    
     int ret = rte_eal_init(dpdk_argc, dpdk_argv);
     if (ret < 0) {
-        fprintf(stderr, "Error: DPDK EAL initialization failed: %s\n", rte_strerror(rte_errno));
-        return 1;
+        fprintf(stderr, "Warning: DPDK EAL initialization failed: %s\n", rte_strerror(rte_errno));
+        fprintf(stderr, "Continuing without DPDK comparison...\n");
+        fflush(stderr);
+        dpdk_available = 0;
+    } else {
+        printf("DPDK EAL initialized successfully.\n");
+        fflush(stdout);
+        dpdk_available = 1;
     }
 #endif
     
@@ -844,18 +867,26 @@ int main(int argc, char **argv)
     
     /* Run IPv4 single lookup benchmark */
     printf("%sRunning IPv4 Single Lookup Benchmark...%s\n", COLOR_CYAN, COLOR_RESET);
+    fflush(stdout);
     srand(42);
     benchmark_result_t ipv4_liblpm_pure_single = benchmark_ipv4_liblpm_pure_single();
     srand(42);
     benchmark_result_t ipv4_liblpm_single = benchmark_ipv4_liblpm_single();
     
 #ifdef HAVE_DPDK
-    srand(42);
-    benchmark_result_t ipv4_dpdk_single = benchmark_ipv4_dpdk_single();
-    benchmark_result_t ipv4_single_results[] = {
-        ipv4_liblpm_pure_single, ipv4_liblpm_single, ipv4_dpdk_single
-    };
-    print_comparison_multi("IPv4 Single Lookup Comparison", ipv4_single_results, 3);
+    if (dpdk_available) {
+        srand(42);
+        benchmark_result_t ipv4_dpdk_single = benchmark_ipv4_dpdk_single();
+        benchmark_result_t ipv4_single_results[] = {
+            ipv4_liblpm_pure_single, ipv4_liblpm_single, ipv4_dpdk_single
+        };
+        print_comparison_multi("IPv4 Single Lookup Comparison", ipv4_single_results, 3);
+    } else {
+        benchmark_result_t ipv4_single_results[] = {
+            ipv4_liblpm_pure_single, ipv4_liblpm_single
+        };
+        print_comparison_multi("IPv4 Single Lookup Comparison", ipv4_single_results, 2);
+    }
 #else
     benchmark_result_t ipv4_single_results[] = {
         ipv4_liblpm_pure_single, ipv4_liblpm_single
@@ -865,18 +896,26 @@ int main(int argc, char **argv)
     
     /* Run IPv4 batch lookup benchmark */
     printf("\n%sRunning IPv4 Batch Lookup Benchmark...%s\n", COLOR_CYAN, COLOR_RESET);
+    fflush(stdout);
     srand(42);
     benchmark_result_t ipv4_liblpm_pure_batch = benchmark_ipv4_liblpm_pure_batch();
     srand(42);
     benchmark_result_t ipv4_liblpm_batch = benchmark_ipv4_liblpm_batch();
     
 #ifdef HAVE_DPDK
-    srand(42);
-    benchmark_result_t ipv4_dpdk_batch = benchmark_ipv4_dpdk_batch();
-    benchmark_result_t ipv4_batch_results[] = {
-        ipv4_liblpm_pure_batch, ipv4_liblpm_batch, ipv4_dpdk_batch
-    };
-    print_comparison_multi("IPv4 Batch Lookup Comparison", ipv4_batch_results, 3);
+    if (dpdk_available) {
+        srand(42);
+        benchmark_result_t ipv4_dpdk_batch = benchmark_ipv4_dpdk_batch();
+        benchmark_result_t ipv4_batch_results[] = {
+            ipv4_liblpm_pure_batch, ipv4_liblpm_batch, ipv4_dpdk_batch
+        };
+        print_comparison_multi("IPv4 Batch Lookup Comparison", ipv4_batch_results, 3);
+    } else {
+        benchmark_result_t ipv4_batch_results[] = {
+            ipv4_liblpm_pure_batch, ipv4_liblpm_batch
+        };
+        print_comparison_multi("IPv4 Batch Lookup Comparison", ipv4_batch_results, 2);
+    }
 #else
     benchmark_result_t ipv4_batch_results[] = {
         ipv4_liblpm_pure_batch, ipv4_liblpm_batch
@@ -886,13 +925,19 @@ int main(int argc, char **argv)
     
     /* Run IPv6 single lookup benchmark */
     printf("\n%sRunning IPv6 Single Lookup Benchmark...%s\n", COLOR_CYAN, COLOR_RESET);
+    fflush(stdout);
     srand(42);
     benchmark_result_t ipv6_liblpm_single = benchmark_ipv6_liblpm_single();
     
 #ifdef HAVE_DPDK
-    srand(42);
-    benchmark_result_t ipv6_dpdk_single = benchmark_ipv6_dpdk_single();
-    print_comparison("IPv6 Single Lookup Comparison", &ipv6_liblpm_single, &ipv6_dpdk_single);
+    if (dpdk_available) {
+        srand(42);
+        benchmark_result_t ipv6_dpdk_single = benchmark_ipv6_dpdk_single();
+        print_comparison("IPv6 Single Lookup Comparison", &ipv6_liblpm_single, &ipv6_dpdk_single);
+    } else {
+        benchmark_result_t ipv6_single_results[] = { ipv6_liblpm_single };
+        print_comparison_multi("IPv6 Single Lookup", ipv6_single_results, 1);
+    }
 #else
     benchmark_result_t ipv6_single_results[] = { ipv6_liblpm_single };
     print_comparison_multi("IPv6 Single Lookup", ipv6_single_results, 1);
@@ -900,13 +945,19 @@ int main(int argc, char **argv)
     
     /* Run IPv6 batch lookup benchmark */
     printf("\n%sRunning IPv6 Batch Lookup Benchmark...%s\n", COLOR_CYAN, COLOR_RESET);
+    fflush(stdout);
     srand(42);
     benchmark_result_t ipv6_liblpm_batch = benchmark_ipv6_liblpm_batch();
     
 #ifdef HAVE_DPDK
-    srand(42);
-    benchmark_result_t ipv6_dpdk_batch = benchmark_ipv6_dpdk_batch();
-    print_comparison("IPv6 Batch Lookup Comparison", &ipv6_liblpm_batch, &ipv6_dpdk_batch);
+    if (dpdk_available) {
+        srand(42);
+        benchmark_result_t ipv6_dpdk_batch = benchmark_ipv6_dpdk_batch();
+        print_comparison("IPv6 Batch Lookup Comparison", &ipv6_liblpm_batch, &ipv6_dpdk_batch);
+    } else {
+        benchmark_result_t ipv6_batch_results[] = { ipv6_liblpm_batch };
+        print_comparison_multi("IPv6 Batch Lookup", ipv6_batch_results, 1);
+    }
 #else
     benchmark_result_t ipv6_batch_results[] = { ipv6_liblpm_batch };
     print_comparison_multi("IPv6 Batch Lookup", ipv6_batch_results, 1);
@@ -917,9 +968,15 @@ int main(int argc, char **argv)
     printf("%s  Benchmark Summary%s\n", COLOR_BOLD, COLOR_RESET);
     printf("%s==========================================%s\n", COLOR_BOLD, COLOR_RESET);
 #ifdef HAVE_DPDK
-    printf("\nDPDK comparison enabled.\n");
-    printf("For detailed methodology and interpretation,\n");
-    printf("see docs/DPDK_COMPARISON.md\n");
+    if (dpdk_available) {
+        printf("\nDPDK comparison enabled.\n");
+        printf("For detailed methodology and interpretation,\n");
+        printf("see docs/DPDK_COMPARISON.md\n");
+    } else {
+        printf("\nDPDK was compiled but initialization failed.\n");
+        printf("Showing liblpm algorithms only.\n");
+        printf("This can happen in containerized environments.\n");
+    }
 #else
     printf("\nDPDK not available - showing liblpm algorithms only.\n");
     printf("To enable DPDK comparison, install DPDK and rebuild with:\n");
@@ -929,7 +986,9 @@ int main(int argc, char **argv)
     
 #ifdef HAVE_DPDK
     /* Cleanup DPDK */
-    rte_eal_cleanup();
+    if (dpdk_available) {
+        rte_eal_cleanup();
+    }
 #endif
     
     return 0;

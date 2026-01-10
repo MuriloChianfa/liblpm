@@ -177,33 +177,120 @@ struct lpm_trie {
     uint32_t default_next_hop;
     
     void *huge_page_base;
-    size_t huge_page_size;
-    
-    /* Note: Function pointers removed - using ifunc for dispatch */
+    size_t huge_page_size; // TODO: use this for huge pages
 } LPM_ALIGN_CACHE;
 
 /* ============================================================================
- * API
+ * GENERIC API (dispatches to compile-time selected algorithm)
+ *
+ * These functions dispatch to the algorithm selected via CMake flags:
+ * - LPM_IPV4_DEFAULT: "dir24" (default) or "stride8"
+ * - LPM_IPV6_DEFAULT: "wide16" (default) or "stride8"
  * ============================================================================ */
 
-lpm_trie_t *lpm_create(uint8_t max_depth);
-lpm_trie_t *lpm_create_ipv4_dir24(void);  /* Create IPv4 trie with DIR-24-8 optimization */
-void lpm_destroy(lpm_trie_t *trie);
+/* Generic create (uses compile-time selected algorithm) */
+lpm_trie_t *lpm_create_ipv4(void);
+lpm_trie_t *lpm_create_ipv6(void);
 
+/* Generic add/delete (auto-dispatch based on trie type) */
 int lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop);
 int lpm_delete(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len);
 
-uint32_t lpm_lookup(const lpm_trie_t *trie, const uint8_t *addr);
+/* Generic lookup (uses compile-time selected algorithm) */
 uint32_t lpm_lookup_ipv4(const lpm_trie_t *trie, uint32_t addr);
 uint32_t lpm_lookup_ipv6(const lpm_trie_t *trie, const uint8_t addr[16]);
 
-void lpm_lookup_batch(const lpm_trie_t *trie, const uint8_t **addrs, 
-                      uint32_t *next_hops, size_t count);
+/* Generic batch lookup */
 void lpm_lookup_batch_ipv4(const lpm_trie_t *trie, const uint32_t *addrs, 
                            uint32_t *next_hops, size_t count);
 void lpm_lookup_batch_ipv6(const lpm_trie_t *trie, const uint8_t (*addrs)[16], 
                            uint32_t *next_hops, size_t count);
 
+/* ============================================================================
+ * ALGORITHM-SPECIFIC API: IPv4 DIR-24-8
+ *
+ * Uses 24-bit direct table + 8-bit extension for /25-/32 routes.
+ * Optimal for IPv4 with 1-2 memory accesses per lookup.
+ * ============================================================================ */
+
+lpm_trie_t *lpm_create_ipv4_dir24(void);
+int lpm_add_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop);
+int lpm_delete_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len);
+uint32_t lpm_lookup_ipv4_dir24(const lpm_trie_t *trie, uint32_t addr);
+uint32_t lpm_lookup_ipv4_dir24_bytes(const lpm_trie_t *trie, const uint8_t addr[4]);
+void lpm_lookup_batch_ipv4_dir24(const lpm_trie_t *trie, const uint32_t *addrs, 
+                                  uint32_t *next_hops, size_t count);
+void lpm_lookup_batch_ipv4_dir24_bytes(const lpm_trie_t *trie, const uint8_t (*addrs)[4],
+                                        uint32_t *next_hops, size_t count);
+void lpm_lookup_batch_ipv4_dir24_ptrs(const lpm_trie_t *trie, const uint8_t **addrs,
+                                       uint32_t *next_hops, size_t count);
+
+/* ============================================================================
+ * ALGORITHM-SPECIFIC API: IPv4 8-bit Stride
+ *
+ * Standard 8-bit stride trie for IPv4. 4 levels maximum.
+ * Good for diverse prefix distributions.
+ * ============================================================================ */
+
+lpm_trie_t *lpm_create_ipv4_8stride(void);
+int lpm_add_ipv4_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop);
+int lpm_delete_ipv4_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len);
+uint32_t lpm_lookup_ipv4_8stride(const lpm_trie_t *trie, uint32_t addr);
+uint32_t lpm_lookup_ipv4_8stride_bytes(const lpm_trie_t *trie, const uint8_t *addr);
+void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *trie, const uint32_t *addrs, 
+                                    uint32_t *next_hops, size_t count);
+void lpm_lookup_batch_ipv4_8stride_bytes(const lpm_trie_t *trie, const uint8_t **addrs,
+                                          uint32_t *next_hops, size_t count);
+
+/* ============================================================================
+ * ALGORITHM-SPECIFIC API: IPv6 Wide 16-bit Stride
+ *
+ * Uses 16-bit stride for first level, then 8-bit for remaining.
+ * Optimal for IPv6 with common /48 allocations.
+ * ============================================================================ */
+
+lpm_trie_t *lpm_create_ipv6_wide16(void);
+int lpm_add_ipv6_wide16(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop);
+int lpm_delete_ipv6_wide16(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len);
+uint32_t lpm_lookup_ipv6_wide16(const lpm_trie_t *trie, const uint8_t addr[16]);
+void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *trie, const uint8_t (*addrs)[16],
+                                   uint32_t *next_hops, size_t count);
+
+/* ============================================================================
+ * ALGORITHM-SPECIFIC API: IPv6 8-bit Stride
+ *
+ * Standard 8-bit stride trie for IPv6. 16 levels maximum.
+ * Simple and memory-efficient for sparse prefix sets.
+ * ============================================================================ */
+
+lpm_trie_t *lpm_create_ipv6_8stride(void);
+int lpm_add_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop);
+int lpm_delete_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len);
+uint32_t lpm_lookup_ipv6_8stride(const lpm_trie_t *trie, const uint8_t addr[16]);
+void lpm_lookup_batch_ipv6_8stride(const lpm_trie_t *trie, const uint8_t (*addrs)[16],
+                                    uint32_t *next_hops, size_t count);
+
+/* ============================================================================
+ * LEGACY API (for backwards compatibility)
+ *
+ * These functions provide the original API behavior.
+ * ============================================================================ */
+
+/* Legacy create with depth parameter */
+lpm_trie_t *lpm_create(uint8_t max_depth);
+
+/* Legacy generic lookup (auto-detects based on max_depth) */
+uint32_t lpm_lookup(const lpm_trie_t *trie, const uint8_t *addr);
+
+/* Legacy batch lookup with pointer array */
+void lpm_lookup_batch(const lpm_trie_t *trie, const uint8_t **addrs, 
+                      uint32_t *next_hops, size_t count);
+
+/* ============================================================================
+ * UTILITY FUNCTIONS
+ * ============================================================================ */
+
+void lpm_destroy(lpm_trie_t *trie);
 const char *lpm_get_version(void);
 void lpm_print_stats(const lpm_trie_t *trie);
 

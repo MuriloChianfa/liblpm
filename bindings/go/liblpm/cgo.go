@@ -21,20 +21,56 @@ import (
 	"unsafe"
 )
 
-// cCreateIPv4 creates an IPv4 LPM trie using DIR-24-8 optimization.
+// cCreateIPv4 creates an IPv4 LPM trie using the default algorithm (DIR-24-8).
 func cCreateIPv4() (uintptr, error) {
-	trie := C.lpm_create_ipv4_dir24()
+	trie := C.lpm_create_ipv4()
 	if trie == nil {
 		return 0, errors.New("failed to create IPv4 trie")
 	}
 	return uintptr(unsafe.Pointer(trie)), nil
 }
 
-// cCreateIPv6 creates an IPv6 LPM trie.
+// cCreateIPv4Dir24 creates an IPv4 LPM trie using DIR-24-8 optimization explicitly.
+func cCreateIPv4Dir24() (uintptr, error) {
+	trie := C.lpm_create_ipv4_dir24()
+	if trie == nil {
+		return 0, errors.New("failed to create IPv4 DIR-24-8 trie")
+	}
+	return uintptr(unsafe.Pointer(trie)), nil
+}
+
+// cCreateIPv4Stride8 creates an IPv4 LPM trie using 8-bit stride explicitly.
+func cCreateIPv4Stride8() (uintptr, error) {
+	trie := C.lpm_create_ipv4_8stride()
+	if trie == nil {
+		return 0, errors.New("failed to create IPv4 8-stride trie")
+	}
+	return uintptr(unsafe.Pointer(trie)), nil
+}
+
+// cCreateIPv6 creates an IPv6 LPM trie using the default algorithm (wide16).
 func cCreateIPv6() (uintptr, error) {
-	trie := C.lpm_create(C.uint8_t(128))
+	trie := C.lpm_create_ipv6()
 	if trie == nil {
 		return 0, errors.New("failed to create IPv6 trie")
+	}
+	return uintptr(unsafe.Pointer(trie)), nil
+}
+
+// cCreateIPv6Wide16 creates an IPv6 LPM trie using wide 16-bit stride explicitly.
+func cCreateIPv6Wide16() (uintptr, error) {
+	trie := C.lpm_create_ipv6_wide16()
+	if trie == nil {
+		return 0, errors.New("failed to create IPv6 wide16 trie")
+	}
+	return uintptr(unsafe.Pointer(trie)), nil
+}
+
+// cCreateIPv6Stride8 creates an IPv6 LPM trie using 8-bit stride explicitly.
+func cCreateIPv6Stride8() (uintptr, error) {
+	trie := C.lpm_create_ipv6_8stride()
+	if trie == nil {
+		return 0, errors.New("failed to create IPv6 8-stride trie")
 	}
 	return uintptr(unsafe.Pointer(trie)), nil
 }
@@ -294,12 +330,13 @@ func cLookupBatchIPv6(triePtr uintptr, addrs [][16]byte, results []uint32) error
 	pinner.Pin(&addrs[0])
 	pinner.Pin(&results[0])
 	
-	// Cast to C array pointer
-	cAddrs := (*C.uint8_t)(unsafe.Pointer(&addrs[0]))
+	// Cast to C array pointer - the slice addrs is contiguous memory of [16]byte
+	// which matches C's uint8_t (*)[16]
+	cAddrs := (*[16]C.uint8_t)(unsafe.Pointer(&addrs[0]))
 	cResults := (*C.uint32_t)(unsafe.Pointer(&results[0]))
 	
 	// Call batch lookup
-	C.lpm_lookup_batch_ipv6(trie, (*[16]C.uint8_t)(unsafe.Pointer(cAddrs)), cResults, C.size_t(len(addrs)))
+	C.lpm_lookup_batch_ipv6(trie, cAddrs, cResults, C.size_t(len(addrs)))
 
 	return nil
 }

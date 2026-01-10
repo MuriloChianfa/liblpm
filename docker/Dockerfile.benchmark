@@ -72,9 +72,12 @@ RUN mkdir -p /tmp/dpdk-build && cd /tmp/dpdk-build && \
     ldconfig && \
     cd / && rm -rf /tmp/dpdk-build
 
-# Set PKG_CONFIG_PATH for DPDK
-ENV PKG_CONFIG_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH}"
-ENV LD_LIBRARY_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+# Set PKG_CONFIG_PATH and library path for DPDK
+ENV PKG_CONFIG_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu/pkgconfig"
+ENV LD_LIBRARY_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu"
+
+# Add DPDK library path to ldconfig
+RUN echo "${DPDK_DIR}/lib/x86_64-linux-gnu" > /etc/ld.so.conf.d/dpdk.conf && ldconfig
 
 # Build liblpm without DPDK first
 RUN cd /build/liblpm && \

@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// NewTableIPv4 creates a new IPv4 routing table using DIR-24-8 optimization.
+// NewTableIPv4 creates a new IPv4 routing table using the default algorithm (DIR-24-8).
 // This provides optimal performance for IPv4 lookups with ~64MB of memory.
 // The table must be closed with Close() when no longer needed to free resources.
 func NewTableIPv4() (*Table, error) {
@@ -30,7 +30,43 @@ func NewTableIPv4() (*Table, error) {
 	return t, nil
 }
 
-// NewTableIPv6 creates a new IPv6 routing table using wide stride optimization.
+// NewTableIPv4Dir24 creates an IPv4 routing table using DIR-24-8 algorithm explicitly.
+// This is the recommended algorithm for IPv4 with 1-2 memory accesses per lookup.
+func NewTableIPv4Dir24() (*Table, error) {
+	triePtr, err := cCreateIPv4Dir24()
+	if err != nil {
+		return nil, err
+	}
+
+	t := &Table{
+		cTrie:  triePtr,
+		closed: false,
+		isIPv4: true,
+	}
+
+	runtime.SetFinalizer(t, (*Table).finalize)
+	return t, nil
+}
+
+// NewTableIPv4Stride8 creates an IPv4 routing table using 8-bit stride algorithm.
+// This is memory-efficient for diverse prefix distributions.
+func NewTableIPv4Stride8() (*Table, error) {
+	triePtr, err := cCreateIPv4Stride8()
+	if err != nil {
+		return nil, err
+	}
+
+	t := &Table{
+		cTrie:  triePtr,
+		closed: false,
+		isIPv4: true,
+	}
+
+	runtime.SetFinalizer(t, (*Table).finalize)
+	return t, nil
+}
+
+// NewTableIPv6 creates a new IPv6 routing table using the default algorithm (wide16).
 // This uses a 16-bit stride for the first level and 8-bit strides for remaining levels.
 // The table must be closed with Close() when no longer needed to free resources.
 func NewTableIPv6() (*Table, error) {
@@ -48,6 +84,42 @@ func NewTableIPv6() (*Table, error) {
 	// Set finalizer to ensure cleanup even if Close() is not called
 	runtime.SetFinalizer(t, (*Table).finalize)
 
+	return t, nil
+}
+
+// NewTableIPv6Wide16 creates an IPv6 routing table using wide 16-bit stride explicitly.
+// Optimal for IPv6 with common /48 allocations.
+func NewTableIPv6Wide16() (*Table, error) {
+	triePtr, err := cCreateIPv6Wide16()
+	if err != nil {
+		return nil, err
+	}
+
+	t := &Table{
+		cTrie:  triePtr,
+		closed: false,
+		isIPv4: false,
+	}
+
+	runtime.SetFinalizer(t, (*Table).finalize)
+	return t, nil
+}
+
+// NewTableIPv6Stride8 creates an IPv6 routing table using 8-bit stride algorithm.
+// Simple and memory-efficient for sparse prefix sets.
+func NewTableIPv6Stride8() (*Table, error) {
+	triePtr, err := cCreateIPv6Stride8()
+	if err != nil {
+		return nil, err
+	}
+
+	t := &Table{
+		cTrie:  triePtr,
+		closed: false,
+		isIPv4: false,
+	}
+
+	runtime.SetFinalizer(t, (*Table).finalize)
 	return t, nil
 }
 
@@ -190,18 +262,17 @@ func (t *Table) LookupBatch(addrs []netip.Addr) ([]NextHop, error) {
 			return nil, err
 		}
 	} else {
-		// Use general batch lookup for IPv6
-		addrsBytes := make([][]byte, len(addrs))
+		// Use optimized IPv6 batch lookup
+		addrs16 := make([][16]byte, len(addrs))
 		for i, addr := range addrs {
 			if !addr.Is6() {
 				results[i] = uint32(InvalidNextHop)
 				continue
 			}
-			addr6 := addr.As16()
-			addrsBytes[i] = addr6[:]
+			addrs16[i] = addr.As16()
 		}
 
-		err := cLookupBatch(t.cTrie, addrsBytes, results)
+		err := cLookupBatchIPv6(t.cTrie, addrs16, results)
 		if err != nil {
 			return nil, err
 		}

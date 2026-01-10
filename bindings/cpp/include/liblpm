@@ -133,21 +133,72 @@ struct IPv6Address {
 // LPM Table (Template-based for compile-time optimization)
 // ============================================================================
 
+// Algorithm selector for compile-time dispatch
+enum class LpmAlgorithm {
+    Default,   // Use compile-time default
+    Dir24,     // IPv4 DIR-24-8 only
+    Wide16,    // IPv6 Wide 16-bit stride only
+    Stride8    // 8-bit stride (both IPv4/IPv6)
+};
+
 template<bool IsIPv6>
 class LpmTable {
 public:
     static constexpr uint8_t MAX_DEPTH = IsIPv6 ? 128 : 32;
     static constexpr bool is_ipv6 = IsIPv6;
     
-    // Constructor - creates new LPM trie
+    // Constructor - creates new LPM trie with default algorithm
     LpmTable() 
-        : trie_(lpm_create(MAX_DEPTH), Deleter{}) {
+        : trie_(create_default(), Deleter{}) {
         if (!trie_) {
 #ifndef LIBLPM_NO_EXCEPTIONS
             throw LpmException("Failed to create LPM trie");
 #endif
         }
     }
+    
+    // Constructor with explicit algorithm selection
+    explicit LpmTable(LpmAlgorithm algo) 
+        : trie_(create_with_algo(algo), Deleter{}) {
+        if (!trie_) {
+#ifndef LIBLPM_NO_EXCEPTIONS
+            throw LpmException("Failed to create LPM trie");
+#endif
+        }
+    }
+    
+private:
+    static lpm_trie_t* create_default() noexcept {
+        if constexpr (IsIPv6) {
+            return lpm_create_ipv6();
+        } else {
+            return lpm_create_ipv4();
+        }
+    }
+    
+    static lpm_trie_t* create_with_algo(LpmAlgorithm algo) noexcept {
+        if constexpr (IsIPv6) {
+            switch (algo) {
+                case LpmAlgorithm::Wide16:
+                    return lpm_create_ipv6_wide16();
+                case LpmAlgorithm::Stride8:
+                    return lpm_create_ipv6_8stride();
+                default:
+                    return lpm_create_ipv6();
+            }
+        } else {
+            switch (algo) {
+                case LpmAlgorithm::Dir24:
+                    return lpm_create_ipv4_dir24();
+                case LpmAlgorithm::Stride8:
+                    return lpm_create_ipv4_8stride();
+                default:
+                    return lpm_create_ipv4();
+            }
+        }
+    }
+    
+public:
     
     // Destructor - automatic cleanup
     ~LpmTable() noexcept = default;

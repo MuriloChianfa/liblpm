@@ -10,6 +10,32 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Include GNUInstallDirs for CMAKE_INSTALL_* variables
 include(GNUInstallDirs)
 
+# Find or import lpm library
+if(NOT TARGET lpm)
+    # Standalone build - find system lpm or use parent project
+    set(LPM_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    if(EXISTS "${LPM_ROOT_DIR}/include/lpm.h")
+        # Build from parent project source
+        add_library(lpm SHARED IMPORTED)
+        set_target_properties(lpm PROPERTIES
+            IMPORTED_LOCATION "${LPM_ROOT_DIR}/build/liblpm.so"
+            INTERFACE_INCLUDE_DIRECTORIES "${LPM_ROOT_DIR}/include"
+        )
+    else()
+        find_library(LPM_LIBRARY NAMES lpm)
+        find_path(LPM_INCLUDE_DIR lpm.h)
+        if(LPM_LIBRARY AND LPM_INCLUDE_DIR)
+            add_library(lpm SHARED IMPORTED)
+            set_target_properties(lpm PROPERTIES
+                IMPORTED_LOCATION "${LPM_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}"
+            )
+        else()
+            message(FATAL_ERROR "liblpm not found. Build the main project first or install liblpm.")
+        endif()
+    endif()
+endif()
+
 # C++ wrapper - header-only interface library
 add_library(lpm_cpp INTERFACE)
 target_include_directories(lpm_cpp INTERFACE
@@ -53,6 +79,7 @@ add_subdirectory(examples)
 
 # Tests (optional)
 if(BUILD_TESTS)
+    enable_testing()
     add_subdirectory(tests)
 endif()
 

@@ -18,7 +18,42 @@ set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
-# Options
+# ============================================================================
+# Algorithm Selection Options
+# ============================================================================
+
+set(LPM_IPV4_DEFAULT "dir24" CACHE STRING "Default IPv4 algorithm (dir24, stride8)")
+set_property(CACHE LPM_IPV4_DEFAULT PROPERTY STRINGS "dir24" "stride8")
+
+set(LPM_IPV6_DEFAULT "wide16" CACHE STRING "Default IPv6 algorithm (wide16, stride8)")
+set_property(CACHE LPM_IPV6_DEFAULT PROPERTY STRINGS "wide16" "stride8")
+
+# Validate algorithm choices
+if(NOT LPM_IPV4_DEFAULT STREQUAL "dir24" AND NOT LPM_IPV4_DEFAULT STREQUAL "stride8")
+    message(FATAL_ERROR "LPM_IPV4_DEFAULT must be 'dir24' or 'stride8'")
+endif()
+
+if(NOT LPM_IPV6_DEFAULT STREQUAL "wide16" AND NOT LPM_IPV6_DEFAULT STREQUAL "stride8")
+    message(FATAL_ERROR "LPM_IPV6_DEFAULT must be 'wide16' or 'stride8'")
+endif()
+
+# Generate compile definitions for algorithm selection
+if(LPM_IPV4_DEFAULT STREQUAL "dir24")
+    add_compile_definitions(LPM_IPV4_DEFAULT_dir24=1)
+else()
+    add_compile_definitions(LPM_IPV4_DEFAULT_stride8=1)
+endif()
+
+if(LPM_IPV6_DEFAULT STREQUAL "wide16")
+    add_compile_definitions(LPM_IPV6_DEFAULT_wide16=1)
+else()
+    add_compile_definitions(LPM_IPV6_DEFAULT_stride8=1)
+endif()
+
+# ============================================================================
+# Build Options
+# ============================================================================
+
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_BENCHMARKS "Build benchmark programs" ON)
 option(ENABLE_NATIVE_ARCH "Enable native architecture optimizations" OFF)
@@ -34,6 +69,8 @@ if(WITH_DPDK_BENCHMARK)
         if(DPDK_FOUND)
             message(STATUS "Found DPDK: ${DPDK_VERSION}")
             set(HAVE_DPDK TRUE)
+            # Use link directories to avoid individual library resolution issues
+            link_directories(${DPDK_LIBRARY_DIRS})
         else()
             message(STATUS "DPDK not found. DPDK comparison benchmark will not be built.")
             message(STATUS "To install DPDK, run: sudo ./scripts/install_dpdk.sh")
@@ -86,15 +123,35 @@ else()
     endif()
 endif()
 
-# Source files - core functionality
-set(LPM_SOURCES
-    src/lpm_core.c
-    src/lpm_ipv6_wide.c
-    src/lpm_ipv4_dir24.c
-)
+# ============================================================================
+# Source files - organized by algorithm
+# ============================================================================
 
-list(APPEND LPM_SOURCES src/lpm_lookup_single.c)
-list(APPEND LPM_SOURCES src/lpm_lookup_batch.c)
+set(LPM_SOURCES
+    # Core shared functionality
+    src/core.c
+    src/api.c
+    
+    # IPv4 8-bit stride algorithm
+    src/4stride8/core.c
+    src/4stride8/single.c
+    src/4stride8/batch.c
+    
+    # IPv6 8-bit stride algorithm
+    src/6stride8/core.c
+    src/6stride8/single.c
+    src/6stride8/batch.c
+    
+    # IPv4 DIR-24-8 algorithm
+    src/dir24/core.c
+    src/dir24/single.c
+    src/dir24/batch.c
+    
+    # IPv6 Wide 16-bit stride algorithm
+    src/wide16/core.c
+    src/wide16/single.c
+    src/wide16/batch.c
+)
 
 # Create shared library
 add_library(lpm SHARED ${LPM_SOURCES})
@@ -116,7 +173,7 @@ target_link_libraries(lpm PRIVATE dynemit_core)
 set_target_properties(lpm PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
-    PUBLIC_HEADER include/lpm.h
+    PUBLIC_HEADER "include/lpm.h;include/internal.h;include/algo/4stride8.h;include/algo/6stride8.h;include/algo/dir24.h;include/algo/wide16.h"
 )
 
 # Create static library - include dynemit_core objects to make it self-contained
@@ -135,7 +192,7 @@ target_link_libraries(lpm_static PUBLIC m)
 # Set library properties - use same output name "lpm" for both
 set_target_properties(lpm_static PROPERTIES
     OUTPUT_NAME lpm
-    PUBLIC_HEADER include/lpm.h
+    PUBLIC_HEADER "include/lpm.h;include/internal.h;include/algo/4stride8.h;include/algo/6stride8.h;include/algo/dir24.h;include/algo/wide16.h"
 )
 
 # Enable Link Time Optimization for Release builds
@@ -244,6 +301,8 @@ message(STATUS "  Version: ${PROJECT_VERSION}")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C compiler: ${CMAKE_C_COMPILER}")
 message(STATUS "  C flags: ${CMAKE_C_FLAGS}")
+message(STATUS "  Default IPv4 algorithm: ${LPM_IPV4_DEFAULT}")
+message(STATUS "  Default IPv6 algorithm: ${LPM_IPV6_DEFAULT}")
 if(ENABLE_NATIVE_ARCH)
     message(STATUS "  CPU optimizations: native architecture")
 endif()

@@ -1,0 +1,95 @@
+# EditorConfig helps maintain consistent coding styles across different editors
+# and IDEs for the liblpm project
+# See: https://editorconfig.org
+
+root = true
+
+# Default settings for all files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C source files
+[*.{c,h}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+# Keep function braces on the same line for K&R style
+continuation_indent_size = 4
+
+# C++ source files (for C++ bindings)
+[*.{cpp,hpp,cc,cxx}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Go source files (for Go bindings)
+[*.go]
+indent_style = tab
+indent_size = 4
+max_line_length = 100
+
+# CMake files
+[{CMakeLists.txt,*.cmake}]
+indent_style = space
+indent_size = 4
+
+# Python scripts (for benchmarking and utilities)
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+# Shell scripts
+[*.{sh,bash}]
+indent_style = space
+indent_size = 4
+
+# Makefiles require tabs
+[{Makefile,*.mk}]
+indent_style = tab
+indent_size = 4
+
+# YAML files (GitHub Actions, CI/CD)
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+indent_style = space
+indent_size = 2
+max_line_length = 0
+trim_trailing_whitespace = false
+
+# Documentation files
+[*.{rst,txt}]
+indent_style = space
+indent_size = 2
+
+# Configuration files
+[*.{toml,ini,cfg,conf}]
+indent_style = space
+indent_size = 2
+
+# Docker files
+[{Dockerfile,*.dockerfile}]
+indent_style = space
+indent_size = 4
+
+# Git configuration
+[.git*]
+indent_style = space
+indent_size = 2
+
+# Package configuration
+[*.cff]
+indent_style = space
+indent_size = 2

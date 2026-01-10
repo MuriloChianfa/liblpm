@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Discussions
+    url: https://github.com/MuriloChianfa/liblpm/discussions
+    about: Ask questions, share ideas, and discuss the project with the community
+  - name: 📚 Documentation
+    url: https://github.com/MuriloChianfa/liblpm#readme
+    about: Read the documentation and API reference
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/MuriloChianfa/liblpm/security/policy
+    about: Report security vulnerabilities privately (DO NOT use public issues)

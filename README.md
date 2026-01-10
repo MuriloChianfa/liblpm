@@ -122,7 +122,10 @@ ctest --verbose            # Run test suite
 
 For detailed information about the fuzzing tests, coverage areas,<br> and advanced fuzzing techniques, see [tests/FUZZING.md](tests/FUZZING.md).
 
-## Development
+## Containerized Development
+
+<details>
+  <summary style="font-size: 16px;"><strong>Docker Containers</strong></summary>
 
 For a reproducible development environment with the latest toolchain (GCC 15.2, Clang 21.1, CMake 4.2), you can use Docker containers:
 
@@ -152,6 +155,8 @@ docker run --rm --cpus=4 liblpm-fuzz
 - **liblpm-benchmark**: DPDK rte_lpm performance comparison
 
 For complete documentation, see [docs/DOCKER.md](docs/DOCKER.md).
+
+</details>
 
 ## Verifying Binary Signatures
 
@@ -213,14 +218,28 @@ Additional documentation:
 - [C++ API Reference](bindings/cpp/README.md) - C++ wrapper documentation
 - [Go API Reference](bindings/go/README.md) - Go bindings documentation
 
-## License
+## Contributing
 
-This project is licensed under the Boost Software License 1.0 - see the [LICENSE](LICENSE)
-file for details.
+We welcome contributions from the community! Whether you're fixing bugs, adding features, improving documentation, or reporting issues, your help is appreciated.
+
+- **[Contributing Guide](.github/CONTRIBUTING.md)** - How to contribute, coding standards, and development workflow
+- **[Code of Conduct](.github/CODE_OF_CONDUCT.md)** - Community guidelines and expected behavior
+- **[Issue Templates](.github/ISSUE_TEMPLATE/)** - Report bugs or request features
+- **[Pull Request Templates](.github/PULL_REQUEST_TEMPLATE/)** - Submit changes with our PR templates
+
+Before contributing, please read our [Contributing Guide](.github/CONTRIBUTING.md) and [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 ## Security
 
-If you discover any security related issues, instead of using<br> the issue tracker, please email to: murilo.chianfa@outlook.com.
+If you discover any security vulnerabilities, please **DO NOT** open a public issue. Instead, refer to our [Security Policy](.github/SECURITY.md) for instructions on how to report security issues responsibly.
+
+## License
+
+This project is licensed under the Boost Software License 1.0 - see the [LICENSE](LICENSE) file for details.
+
+## Citation
+
+If you use liblpm in your research or project, please cite it using the information in [CITATION.cff](CITATION.cff).
 
 ## Credits
 

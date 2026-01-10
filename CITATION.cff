@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "liblpm: High-Performance Longest Prefix Match Library"
+abstract: "A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv4 and IPv6 addresses. The library uses multi-bit trie with 8-bit stride for optimal performance and supports CPU vectorization."
+authors:
+  - family-names: "Chianfa"
+    given-names: "Murilo"
+    email: "murilo.chianfa@outlook.com"
+repository-code: "https://github.com/MuriloChianfa/liblpm"
+url: "https://github.com/MuriloChianfa/liblpm"
+license: BSL-1.0
+version: 2.0.0
+date-released: 2025-01-10
+keywords:
+  - longest-prefix-match
+  - lpm
+  - trie
+  - routing
+  - IPv4
+  - IPv6
+  - SIMD
+  - networking
+  - high-performance
+  - data-structures
+  - lookup
+  - packet-processing
+  - network-routing
+preferred-citation:
+  type: software
+  title: "liblpm: High-Performance Longest Prefix Match Library"
+  authors:
+    - family-names: "Chianfa"
+      given-names: "Murilo"
+      email: "murilo.chianfa@outlook.com"
+  year: 2025
+  url: "https://github.com/MuriloChianfa/liblpm"
+  version: 2.0.0

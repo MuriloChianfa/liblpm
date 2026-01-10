@@ -1,0 +1,32 @@
+# CODEOWNERS file for liblpm
+# This file defines individuals or teams responsible for code in the repository.
+# These users will automatically be requested for review when someone opens a PR.
+
+# Default owner for everything in the repo
+* @MuriloChianfa
+
+# Core library code
+/src/ @MuriloChianfa
+/include/ @MuriloChianfa
+
+# Bindings
+/bindings/cpp/ @MuriloChianfa
+/bindings/go/ @MuriloChianfa
+
+# Tests, fuzzing, and benchmarks
+/tests/ @MuriloChianfa
+/benchmarks/ @MuriloChianfa
+
+# Build system
+/CMakeLists.txt @MuriloChianfa
+/cmake/ @MuriloChianfa
+
+# Documentation
+/docs/ @MuriloChianfa
+*.md @MuriloChianfa
+
+# Docker configuration
+/docker/ @MuriloChianfa
+
+# CI/CD workflows
+/.github/ @MuriloChianfa

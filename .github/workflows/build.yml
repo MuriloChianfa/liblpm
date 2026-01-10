@@ -72,7 +72,7 @@ jobs:
           docker save liblpm-${{ matrix.image }}:test | gzip > liblpm-${{ matrix.image }}.tar.gz
       
       - name: Upload image artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docker-image-${{ matrix.image }}
           path: liblpm-${{ matrix.image }}.tar.gz
@@ -93,7 +93,7 @@ jobs:
     
     steps:
       - name: Download ${{ matrix.test }} image
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: docker-image-${{ matrix.test }}
       
@@ -118,7 +118,7 @@ jobs:
     
     steps:
       - name: Download benchmark image
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: docker-image-benchmark
       

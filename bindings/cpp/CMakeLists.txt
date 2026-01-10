@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Include GNUInstallDirs for CMAKE_INSTALL_* variables
+include(GNUInstallDirs)
+
 # C++ wrapper - header-only interface library
 add_library(lpm_cpp INTERFACE)
 target_include_directories(lpm_cpp INTERFACE
@@ -28,7 +31,8 @@ target_include_directories(lpm_cpp_impl PUBLIC
 install(FILES 
     include/liblpm
     include/liblpm.hpp
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
 # Install libraries
 install(TARGETS lpm_cpp lpm_cpp_impl

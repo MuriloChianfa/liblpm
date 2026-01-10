@@ -39,17 +39,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100
 
-WORKDIR /build
-
-# Copy source code
-COPY . /build/liblpm/
-
-# Initialize submodules
-RUN cd /build/liblpm && \
-    git config --global --add safe.directory /build/liblpm && \
-    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi
-
-# Install DPDK 24.11
+# ============================================================================
+# Install DPDK 24.11 (cached layer - won't rebuild on liblpm code changes)
+# ============================================================================
 ENV DPDK_VERSION=24.11
 ENV DPDK_DIR=/opt/dpdk
 
@@ -78,6 +70,19 @@ ENV LD_LIBRARY_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu"
 
 # Add DPDK library path to ldconfig
 RUN echo "${DPDK_DIR}/lib/x86_64-linux-gnu" > /etc/ld.so.conf.d/dpdk.conf && ldconfig
+
+# ============================================================================
+# Copy and build liblpm (rebuilds on code changes)
+# ============================================================================
+WORKDIR /build
+
+# Copy source code
+COPY . /build/liblpm/
+
+# Initialize submodules
+RUN cd /build/liblpm && \
+    git config --global --add safe.directory /build/liblpm && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi
 
 # Build liblpm without DPDK first
 RUN cd /build/liblpm && \

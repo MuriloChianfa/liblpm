@@ -175,10 +175,10 @@ static void print_comparison_multi(const char *test_name,
 static benchmark_result_t benchmark_ipv4_liblpm_pure_single(void)
 {
     benchmark_result_t result = {0};
-    result.library_name = "liblpm Pure";
+    result.library_name = "liblpm 8-Stride";
     
-    /* Use pure LPM trie (standard multibit trie) for comparison */
-    lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
+    /* Use 8-bit stride trie (standard multibit trie) for comparison */
+    lpm_trie_t *trie = lpm_create_ipv4_8stride();
     assert(trie != NULL);
     
     /* Add random prefixes */
@@ -215,8 +215,8 @@ static benchmark_result_t benchmark_ipv4_liblpm_pure_single(void)
     result.lookups_per_sec = (NUM_LOOKUPS / elapsed_us) * MILLION;
     result.ns_per_lookup = (elapsed_us * 1000) / NUM_LOOKUPS;
     
-    /* Memory: 8-bit stride nodes (2KB each) */
-    result.memory_bytes = trie->num_nodes * sizeof(lpm_node_t);
+    /* Memory: 8-bit stride nodes (2KB each) - use pool_used for actual allocation */
+    result.memory_bytes = trie->pool_used * sizeof(lpm_node_t);
     
     free(test_addrs);
     lpm_destroy(trie);
@@ -353,10 +353,10 @@ static benchmark_result_t benchmark_ipv4_dpdk_single(void)
 static benchmark_result_t benchmark_ipv4_liblpm_pure_batch(void)
 {
     benchmark_result_t result = {0};
-    result.library_name = "liblpm";
+    result.library_name = "liblpm 8-Stride";
     
-    /* Use pure LPM trie (standard multibit trie) for comparison */
-    lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
+    /* Use 8-bit stride trie (standard multibit trie) for comparison */
+    lpm_trie_t *trie = lpm_create_ipv4_8stride();
     assert(trie != NULL);
     
     /* Add random prefixes */
@@ -367,33 +367,38 @@ static benchmark_result_t benchmark_ipv4_liblpm_pure_batch(void)
         lpm_add(trie, prefix, prefix_len, i);
     }
     
-    /* Generate test addresses as uint32_t for fair comparison */
+    /* Generate test addresses as byte arrays and pointer array
+     * (matches how lpm_lookup_batch expects data) */
     int num_batches = NUM_LOOKUPS / BATCH_SIZE;
-    uint32_t *test_addrs = malloc(num_batches * BATCH_SIZE * sizeof(uint32_t));
+    uint8_t (*test_addrs)[4] = malloc(num_batches * BATCH_SIZE * sizeof(*test_addrs));
+    const uint8_t **addr_ptrs = malloc(BATCH_SIZE * sizeof(const uint8_t*));
     uint32_t *next_hops = malloc(BATCH_SIZE * sizeof(uint32_t));
     
+    if (!test_addrs || !addr_ptrs || !next_hops) {
+        fprintf(stderr, "Error: Failed to allocate memory for batch test\n");
+        free(test_addrs);
+        free(addr_ptrs);
+        free(next_hops);
+        lpm_destroy(trie);
+        return result;
+    }
+    
     for (int i = 0; i < num_batches * BATCH_SIZE; i++) {
-        uint8_t addr[4];
-        generate_random_ipv4(addr);
-        /* Store as big-endian (network byte order) */
-        test_addrs[i] = ipv4_to_uint32(addr);
+        generate_random_ipv4(test_addrs[i]);
     }
     
-    /* Warm up cache */
-    for (int i = 0; i < 10; i++) {
-        lpm_lookup_batch_ipv4(trie, test_addrs, next_hops, BATCH_SIZE);
-    }
-    
-    /* Benchmark - using uint32_t API directly */
+    /* Benchmark using lpm_lookup_batch (pointer array API) */
     struct timespec start, end;
     volatile uint32_t checksum = 0;  /* Prevent optimization */
     
     clock_gettime(CLOCK_MONOTONIC, &start);
     
     for (int batch = 0; batch < num_batches; batch++) {
-        /* Direct uint32_t batch lookup - no pointer array overhead! */
-        lpm_lookup_batch_ipv4(trie, &test_addrs[batch * BATCH_SIZE], 
-                              next_hops, BATCH_SIZE);
+        /* Setup pointers for this batch */
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            addr_ptrs[i] = test_addrs[batch * BATCH_SIZE + i];
+        }
+        lpm_lookup_batch(trie, addr_ptrs, next_hops, BATCH_SIZE);
         checksum += next_hops[0];
     }
     
@@ -406,10 +411,11 @@ static benchmark_result_t benchmark_ipv4_liblpm_pure_batch(void)
     result.lookups_per_sec = (total_lookups / elapsed_us) * MILLION;
     result.ns_per_lookup = (elapsed_us * 1000) / total_lookups;
     
-    /* Memory: 8-bit stride nodes (2KB each) */
-    result.memory_bytes = trie->num_nodes * sizeof(lpm_node_t);
+    /* Memory: 8-bit stride nodes (2KB each) - use pool_used for actual allocation */
+    result.memory_bytes = trie->pool_used * sizeof(lpm_node_t);
     
     free(test_addrs);
+    free(addr_ptrs);
     free(next_hops);
     lpm_destroy(trie);
     
@@ -433,33 +439,37 @@ static benchmark_result_t benchmark_ipv4_liblpm_batch(void)
         lpm_add(trie, prefix, prefix_len, i);
     }
     
-    /* Generate test addresses as uint32_t for fair comparison */
+    /* Generate test addresses as byte arrays and pointer array */
     int num_batches = NUM_LOOKUPS / BATCH_SIZE;
-    uint32_t *test_addrs = malloc(num_batches * BATCH_SIZE * sizeof(uint32_t));
+    uint8_t (*test_addrs)[4] = malloc(num_batches * BATCH_SIZE * sizeof(*test_addrs));
+    const uint8_t **addr_ptrs = malloc(BATCH_SIZE * sizeof(const uint8_t*));
     uint32_t *next_hops = malloc(BATCH_SIZE * sizeof(uint32_t));
     
+    if (!test_addrs || !addr_ptrs || !next_hops) {
+        fprintf(stderr, "Error: Failed to allocate memory for DIR24 batch test\n");
+        free(test_addrs);
+        free(addr_ptrs);
+        free(next_hops);
+        lpm_destroy(trie);
+        return result;
+    }
+    
     for (int i = 0; i < num_batches * BATCH_SIZE; i++) {
-        uint8_t addr[4];
-        generate_random_ipv4(addr);
-        /* Store as big-endian (network byte order) */
-        test_addrs[i] = ipv4_to_uint32(addr);
+        generate_random_ipv4(test_addrs[i]);
     }
     
-    /* Warm up cache */
-    for (int i = 0; i < 10; i++) {
-        lpm_lookup_batch_ipv4(trie, test_addrs, next_hops, BATCH_SIZE);
-    }
-    
-    /* Benchmark - using uint32_t API directly */
+    /* Benchmark using lpm_lookup_batch (pointer array API) */
     struct timespec start, end;
     volatile uint32_t checksum = 0;  /* Prevent optimization */
     
     clock_gettime(CLOCK_MONOTONIC, &start);
     
     for (int batch = 0; batch < num_batches; batch++) {
-        /* Direct uint32_t batch lookup - no pointer array overhead! */
-        lpm_lookup_batch_ipv4(trie, &test_addrs[batch * BATCH_SIZE], 
-                              next_hops, BATCH_SIZE);
+        /* Setup pointers for this batch */
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            addr_ptrs[i] = test_addrs[batch * BATCH_SIZE + i];
+        }
+        lpm_lookup_batch(trie, addr_ptrs, next_hops, BATCH_SIZE);
         checksum += next_hops[0];
     }
     
@@ -478,6 +488,7 @@ static benchmark_result_t benchmark_ipv4_liblpm_batch(void)
     result.memory_bytes = dir24_mem + tbl8_mem;
     
     free(test_addrs);
+    free(addr_ptrs);
     free(next_hops);
     lpm_destroy(trie);
     
@@ -820,9 +831,8 @@ int main(int argc, char **argv)
         "--proc-type", "primary",
         "--log-level", "error",
         "--no-pci",          /* Don't need PCI devices */
-        "--no-huge",         /* Don't require hugepages */
-        "--in-memory",       /* Don't require shared memory files */
-        "-m", "256",         /* Use 256MB of memory (reduced) */
+        "--no-huge",         /* Don't require hugepages (uses malloc) */
+        "-m", "256",         /* Use 256MB of memory */
         "--",
         NULL
     };

@@ -2,7 +2,7 @@
 # Runs unit tests, cppcheck, valgrind, and basic fuzzing
 # Optimized for CI with cached layers
 
-FROM ubuntu:25.10
+FROM ubuntu:26.04
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm test environment for CI and automated testing"

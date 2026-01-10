@@ -2,7 +2,7 @@
 # Comparison benchmarking: liblpm vs DPDK LPM
 # May require --privileged for hugepages
 
-FROM ubuntu:25.10
+FROM ubuntu:26.04
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm DPDK benchmark environment for performance comparison"

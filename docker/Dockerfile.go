@@ -5,7 +5,7 @@
 # ============================================================================
 # Stage 1: Build liblpm C library
 # ============================================================================
-FROM ubuntu:25.10 AS liblpm-builder
+FROM ubuntu:26.04 AS liblpm-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 

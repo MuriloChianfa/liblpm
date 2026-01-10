@@ -1,7 +1,7 @@
 # C++ bindings container for liblpm
 # Builds and tests C++17 wrapper with latest compilers
 
-FROM ubuntu:25.10
+FROM ubuntu:26.04
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm C++ binding"

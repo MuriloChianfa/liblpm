@@ -2,7 +2,7 @@
 # Pre-instrumented build with AFL++, ready for multicore fuzzing
 # Based on Google's OSS-Fuzz approach
 
-FROM ubuntu:25.10
+FROM ubuntu:26.04
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm AFL++ fuzzing environment with multicore support"

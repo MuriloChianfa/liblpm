@@ -5,7 +5,7 @@
 # ============================================================================
 # Stage 1: Builder
 # ============================================================================
-FROM ubuntu:25.10 AS builder
+FROM ubuntu:26.04 AS builder
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm builder base image"
@@ -60,7 +60,7 @@ WORKDIR /build
 # ============================================================================
 # Stage 2: Runtime
 # ============================================================================
-FROM ubuntu:25.10 AS runtime
+FROM ubuntu:26.04 AS runtime
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm minimal runtime base image"

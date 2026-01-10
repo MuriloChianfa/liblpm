@@ -1,6 +1,6 @@
 # CodeQL Security Analysis
 
-This directory contains the CodeQL workflow configuration for automated security scanning of the liblpm repository.
+This repository uses CodeQL for automated security scanning of C/C++ and Go code.
 
 ## Overview
 
@@ -36,7 +36,6 @@ The CodeQL analysis runs automatically on:
 ### Go Analysis
 - Go bindings (`bindings/go/**`)
 - Checks for:
-  - SQL injection (if applicable)
   - Command injection
   - Path traversal
   - Unsafe use of CGo
@@ -60,59 +59,41 @@ The workflow builds the C/C++ code manually to ensure complete coverage:
 ### Go Build
 The Go code uses CodeQL's autobuild feature, which automatically detects and builds Go modules.
 
+## Viewing Results
+
+### Pull Requests
+- CodeQL findings appear as annotations
+- New issues are highlighted in PRs
+
+## Configuration
+
+The analysis is configured in:
+- `.github/workflows/codeql.yml` - Main workflow
+- `.github/codeql/codeql-config.yml` - Path configuration
+- `.github/codeql/custom-queries/` - Custom security queries (optional)
+
 ### Excluding Paths
 
-To exclude certain paths from analysis, modify the `paths` in the matrix:
+To exclude certain paths from analysis, edit `.github/codeql/codeql-config.yml`:
 
 ```yaml
 paths-ignore:
-  - 'external/**'
-  - 'tests/**'
-  - '**/*.test.go'
+  - tests
+  - benchmarks
+  - external
 ```
 
-### Adjusting Severity Threshold
+## Custom Queries
 
-Add configuration to fail on specific severity levels:
-
-```yaml
-- name: Check for high severity issues
-  run: |
-    # Check SARIF results for high/critical severity
-    # Exit 1 if found
-```
-
-## Troubleshooting
-
-### Build Failures
-
-If the C/C++ build fails:
-1. Check that all dependencies are installed in the workflow
-2. Verify CMake configuration works in CI
-3. Review build logs in Actions tab
-
-### Missing Results
-
-If no results appear:
-1. Ensure `security-events: write` permission is granted
-2. Check that the build completed successfully
-3. Verify paths are correct for your language
-
-### False Positives
-
-To suppress false positives:
-1. Navigate to the finding in Security tab
-2. Click "Dismiss alert"
-3. Select reason and add comment
-4. Consider adding custom suppression queries
+Custom security queries specific to liblpm are available in `.github/codeql/custom-queries/`:
+- `BufferOverflow.ql` - Detects potential buffer overflows in LPM operations
+- `UnsafeCgoPointer.ql` - Detects unsafe CGo pointer usage
 
 ## Best Practices
 
-1. **Review findings promptly**: Security issues should be addressed quickly
-2. **Don't dismiss without investigation**: Understand each finding before dismissing
-3. **Keep CodeQL updated**: GitHub automatically updates the action versions
-4. **Monitor scheduled scans**: Weekly scans catch new vulnerabilities in unchanged code
-5. **Integrate with branch protection**: Require CodeQL checks to pass before merging
+1. **Review findings promptly**: Address security issues quickly
+2. **Don't dismiss without investigation**: Understand each finding
+3. **Monitor scheduled scans**: Weekly scans catch new vulnerabilities
 
 ## Resources
 
@@ -120,7 +101,6 @@ To suppress false positives:
 - [CodeQL for C/C++](https://codeql.github.com/docs/codeql-language-guides/codeql-for-cpp/)
 - [CodeQL for Go](https://codeql.github.com/docs/codeql-language-guides/codeql-for-go/)
 - [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning)
-- [Writing Custom Queries](https://codeql.github.com/docs/writing-codeql-queries/)
 
 ## Support
 

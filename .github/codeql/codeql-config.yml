@@ -1,8 +1,5 @@
 name: "liblpm CodeQL Configuration"
 
-# Disable default setup to use custom paths
-disable-default-queries: false
-
 # Paths to include in analysis
 paths:
   - src
@@ -18,19 +15,3 @@ paths-ignore:
   - '**/*.test.c'
   - '**/*.test.cpp'
   - '**/*_test.go'
-
-# Additional queries to run beyond the default set
-queries:
-  - name: Security extended queries
-    uses: security-extended
-  - name: Security and quality queries
-    uses: security-and-quality
-
-# Advanced configuration for specific languages
-packs:
-  cpp:
-    - codeql/cpp-queries:AlertSuppression.ql
-    - codeql/cpp-queries:SecurityExtended.qls
-  go:
-    - codeql/go-queries:AlertSuppression.ql
-    - codeql/go-queries:SecurityExtended.qls

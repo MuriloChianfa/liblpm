@@ -1,11 +1,11 @@
 # High-Performance Longest Prefix Match Library
 
-[![CI](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/MuriloChianfa/liblpm/actions/workflows/codeql.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/codeql.yml)
-[![Code Coverage](https://codecov.io/gh/MuriloChianfa/liblpm/branch/main/graph/badge.svg)](https://codecov.io/gh/MuriloChianfa/liblpm)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue.svg)](https://github.com/MuriloChianfa/liblpm)
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/MuriloChianfa/liblpm/releases)
 [![License: Boost](https://img.shields.io/badge/License-Boost_1.0-lightblue.svg)](https://www.boost.org/LICENSE_1_0.txt)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue.svg)](https://github.com/MuriloChianfa/liblpm)
+[![Code Coverage](https://codecov.io/gh/MuriloChianfa/liblpm/branch/main/graph/badge.svg)](https://codecov.io/gh/MuriloChianfa/liblpm)
+[![CI](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/MuriloChianfa/liblpm/actions/workflows/codeql.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/codeql.yml)
 
 A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv4 and IPv6 addresses. The library uses multi-bit trie with 8-bit stride for optimal performance and supports CPU vectorization.
 

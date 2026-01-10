@@ -121,13 +121,8 @@ static int test_memory_safety(const uint8_t *data, size_t size) {
     /* Test basic operations */
     ret = test_trie_consistency(trie, addrs, expected_results, num_lookups);
     
-    /* Test lookup_all and batch operations */
+    /* Test batch operations */
     if (num_lookups > 0) {
-        lpm_result_t *result = lpm_lookup_all(trie, addrs);
-        if (result) {
-            lpm_result_destroy(result);
-        }
-
         const uint8_t **addr_ptrs = malloc(num_lookups * sizeof(uint8_t*));
         uint32_t *batch_results = malloc(num_lookups * sizeof(uint32_t));
         
@@ -206,24 +201,25 @@ static int test_ipv6_edge_cases(void) {
     return 0;
 }
 
-/* Test custom allocators with edge cases */
-static int test_custom_allocator_edge_cases(void) {
-    /* Test with custom allocator */
-    lpm_trie_t *trie = lpm_create_custom(LPM_IPV4_MAX_DEPTH, malloc, free);
+/* Test default route handling */
+static int test_default_route_edge_cases(void) {
+    lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     if (!trie) return -1;
     
-    /* Add many prefixes to test memory management */
-    for (int i = 0; i < 100; i++) {
-        const uint8_t prefix[4] = {192, 168, i, 0};
-        assert(lpm_add(trie, prefix, 24, i) == 0);
-    }
+    /* Add default route first */
+    const uint8_t default_prefix[] = {0, 0, 0, 0};
+    assert(lpm_add(trie, default_prefix, 0, 999) == 0);
+    
+    /* Add specific prefix */
+    const uint8_t prefix[] = {192, 168, 0, 0};
+    assert(lpm_add(trie, prefix, 16, 100) == 0);
     
     /* Test lookups */
-    for (int i = 0; i < 100; i++) {
-        const uint8_t addr[4] = {192, 168, i, 1};
-        uint32_t result = lpm_lookup(trie, addr);
-        assert(result == i);
-    }
+    const uint8_t addr1[] = {192, 168, 1, 1};
+    const uint8_t addr2[] = {8, 8, 8, 8};
+    
+    assert(lpm_lookup(trie, addr1) == 100);
+    assert(lpm_lookup(trie, addr2) == 999);  /* Default route */
     
     lpm_destroy(trie);
     return 0;
@@ -231,21 +227,27 @@ static int test_custom_allocator_edge_cases(void) {
 
 /* Main function for AFL-style fuzzing */
 int main(int argc, const char *argv[]) {
+    printf("Starting advanced fuzzing tests...\n");
+    printf("Library version: %s\n\n", lpm_get_version());
+    
     /* Test edge cases first */
     if (test_edge_cases() != 0) {
         fprintf(stderr, "Edge cases test failed\n");
         return 1;
     }
+    printf("Edge cases test passed\n");
     
     if (test_ipv6_edge_cases() != 0) {
         fprintf(stderr, "IPv6 edge cases test failed\n");
         return 1;
     }
+    printf("IPv6 edge cases test passed\n");
     
-    if (test_custom_allocator_edge_cases() != 0) {
-        fprintf(stderr, "Custom allocator edge cases test failed\n");
+    if (test_default_route_edge_cases() != 0) {
+        fprintf(stderr, "Default route edge cases test failed\n");
         return 1;
     }
+    printf("Default route edge cases test passed\n");
     
     /* If no file input, run basic tests */
     if (argc < 2) {
@@ -285,7 +287,7 @@ int main(int argc, const char *argv[]) {
             return 1;
         }
         
-        printf("Basic fuzzing tests passed\n");
+        printf("\nAll advanced fuzzing tests passed!\n");
         return 0;
     }
     

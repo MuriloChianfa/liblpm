@@ -1,0 +1,120 @@
+# Docker ignore file for liblpm
+# Excludes unnecessary files from Docker build context for faster builds
+
+# Git files
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# GitHub
+.github/workflows
+
+# Build directories
+build/
+build_*/
+**/build/
+**/build_*/
+*.o
+*.so
+*.so.*
+*.a
+*.dylib
+
+# CMake cache and generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.code-workspace
+
+# Compiled binaries (exclude binaries in build directories, not source files)
+build/**/bench_*
+build/**/test_*
+build_*/bench_*
+build_*/test_*
+*.out
+
+# Test and fuzzing outputs
+fuzz_output/
+fuzz_results/
+test-results/
+Testing/
+coverage/
+*.profraw
+*.profdata
+
+# Cppcheck output
+cppcheck_output/
+*.xml
+
+# Documentation builds
+docs/_build/
+docs/html/
+docs/latex/
+
+# Docker files (we're already in Docker context)
+docker/
+Dockerfile*
+.dockerignore
+
+# Scripts (selective)
+scripts/build_gcc/
+scripts/compare_compilers.sh
+
+# Comparison results
+compiler_comparison_results.txt
+benchmark_results.txt
+
+# Package manager artifacts
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+*.egg
+
+# Go
+vendor/
+go.sum
+**/vendor/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# OS files
+Thumbs.db
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Keep important files
+!README.md
+!LICENSE
+!*.md

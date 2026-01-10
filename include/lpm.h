@@ -9,178 +9,194 @@
 extern "C" {
 #endif
 
-/* CPU feature detection macros */
+/* Architecture detection - x86 only */
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
     #define LPM_X86_ARCH 1
-    
-    #ifdef __SSE__
-        #define LPM_HAVE_SSE 1
-    #endif
-    #ifdef __SSE2__
-        #define LPM_HAVE_SSE2 1
-    #endif
-    #ifdef __SSE3__
-        #define LPM_HAVE_SSE3 1
-    #endif
-    #ifdef __SSE4_1__
-        #define LPM_HAVE_SSE4_1 1
-    #endif
-    #ifdef __SSE4_2__
-        #define LPM_HAVE_SSE4_2 1
-    #endif
-    #ifdef __AVX__
-        #define LPM_HAVE_AVX 1
-    #endif
-    #ifdef __AVX2__
-        #define LPM_HAVE_AVX2 1
-    #endif
-    #ifdef __AVX512F__
-        #define LPM_HAVE_AVX512F 1
-    #endif
-    #ifdef __AVX512VL__
-        #define LPM_HAVE_AVX512VL 1
-    #endif
-    #ifdef __AVX512DQ__
-        #define LPM_HAVE_AVX512DQ 1
-    #endif
-    #ifdef __AVX512BW__
-        #define LPM_HAVE_AVX512BW 1
-    #endif
 #endif
 
-/* Alignment macros */
+/* 
+ * Note: SIMD feature detection is handled at runtime via libdynemit.
+ * All SIMD variants (SSE2, AVX2, AVX512) are compiled and the optimal
+ * implementation is selected at program load time using GNU ifunc.
+ */
+
+/* ============================================================================
+ * SPEED-OPTIMIZED CONFIGURATION
+ * ============================================================================ */
+
 #define LPM_CACHE_LINE_SIZE 64
 #define LPM_ALIGN_CACHE __attribute__((aligned(LPM_CACHE_LINE_SIZE)))
 
-/* Constants */
-#define LPM_STRIDE_BITS 8
-#define LPM_STRIDE_SIZE (1 << LPM_STRIDE_BITS)
-#define LPM_INVALID_NEXT_HOP ((uint32_t)-1)
-#define LPM_MAX_RESULTS 128  /* Maximum number of matched prefixes to return */
+/* 8-bit stride for MAXIMUM SPEED (256 entries/node) */
+#define LPM_STRIDE_BITS_8 8
+#define LPM_STRIDE_SIZE_8 256
 
-/* IPv4/IPv6 constants */
+/* 16-bit stride for IPv6 optimization (65536 entries/node) */
+#define LPM_STRIDE_BITS_16 16
+#define LPM_STRIDE_SIZE_16 65536
+
+/* IPv6 Variable Stride Configuration: 16-8-8-8...
+ * First 16 bits: 1 level of 16-bit stride (512KB)
+ * Remaining 112 bits: 14 levels of 8-bit stride
+ * Total: 15 levels instead of 16 (6.25% reduction)
+ * Memory: ~100MB instead of 8GB!
+ */
+#define LPM_IPV6_WIDE_STRIDE_LEVELS 1
+
+/* IPv4 DIR-24-8 Configuration
+ * First 24 bits: Single 24-bit lookup (16.7M entries)
+ * Last 8 bits: 8-bit lookup if needed (256 entries)
+ * Total: 2 levels maximum, 1 level for most routes!
+ */
+#define LPM_IPV4_DIR24_BITS 24
+#define LPM_IPV4_DIR24_SIZE (1 << LPM_IPV4_DIR24_BITS)  /* 16,777,216 entries */
+
+/* Legacy compatibility */
+#define LPM_STRIDE_BITS LPM_STRIDE_BITS_8
+#define LPM_STRIDE_SIZE LPM_STRIDE_SIZE_8
+
+#define LPM_INVALID_NEXT_HOP ((uint32_t)-1)
+#define LPM_INVALID_INDEX 0
+
+/* Validity flag in high bit of child index */
+#define LPM_VALID_FLAG      (1U << 31)
+#define LPM_WIDE_NODE_FLAG  (1U << 30)  /* Indicates 16-bit node (bit 30) */
+#define LPM_CHILD_MASK      0x3FFFFFFF  /* Lower 30 bits for node index */
+
 #define LPM_IPV4_MAX_DEPTH 32
 #define LPM_IPV6_MAX_DEPTH 128
 
-/* Batch sizes for vectorized lookups */
-#define LPM_BATCH_SIZE_SSE 4
-#define LPM_BATCH_SIZE_AVX 8
-#define LPM_BATCH_SIZE_AVX512 16
+#define LPM_INITIAL_POOL_SIZE 4096
+#define LPM_POOL_GROWTH_FACTOR 2
 
-/* Forward declarations */
+/* Direct table: instant lookup for first 16 bits */
+#define LPM_DIRECT_BITS 16
+#define LPM_DIRECT_SIZE (1 << LPM_DIRECT_BITS)
+
+/* Hot cache for repeated lookups */
+#define LPM_HOT_CACHE_SIZE 8192
+
+/* Huge pages */
+#define LPM_HUGE_PAGE_SIZE (2 * 1024 * 1024)
+
+/* ============================================================================
+ * Data Structures - Optimized for Speed
+ * ============================================================================ */
+
 typedef struct lpm_trie lpm_trie_t;
 typedef struct lpm_node lpm_node_t;
-typedef struct lpm_prefix lpm_prefix_t;
-typedef struct lpm_result lpm_result_t;
 
-/* Prefix information structure */
-struct lpm_prefix {
-    uint8_t prefix[16];      /* Prefix bytes (supports up to IPv6) */
-    uint8_t prefix_len;      /* Prefix length in bits */
-    uint8_t _pad[3];         /* Padding for alignment */
-    void *user_data;         /* Optional user data associated with prefix */
+/* Interleaved entry: child + next_hop together for cache locality */
+struct lpm_entry {
+    uint32_t child_and_valid;  /* bit 31 = valid, bits 0-30 = child idx */
+    uint32_t next_hop;
 } __attribute__((packed));
 
-/* Result structure for matched prefixes */
-struct lpm_result {
-    struct lpm_prefix *prefixes;  /* Array of matched prefixes */
-    uint32_t count;               /* Number of matched prefixes */
-    uint32_t capacity;            /* Capacity of the array */
-};
-
-/* LPM node structure - optimized for 8-bit stride */
-struct lpm_node {
-    /* Child pointers array - indexed by next 8 bits */
-    struct lpm_node *children[LPM_STRIDE_SIZE] LPM_ALIGN_CACHE;
-    
-    /* Next hop values for prefixes ending at this node */
-    uint32_t next_hops[LPM_STRIDE_SIZE];
-    /* Prefix information for each entry */
-    struct lpm_prefix *prefix_info[LPM_STRIDE_SIZE];
-    
-    /* Valid prefix bitmap - indicates which entries have valid prefixes */
-    uint32_t valid_bitmap[LPM_STRIDE_SIZE / 32];
-    
-    /* Depth of this node in the trie */
-    uint8_t depth;
-    
-    /* Padding for cache alignment */
-    uint8_t _pad[7];
+/* 8-bit stride node: 256 entries * 8 bytes = 2048 bytes */
+struct lpm_node_8 {
+    struct lpm_entry entries[LPM_STRIDE_SIZE_8];
 } LPM_ALIGN_CACHE;
 
-/* Main LPM trie structure */
+/* 16-bit stride node: 65536 entries * 8 bytes = 512 KB */
+struct lpm_node_16 {
+    struct lpm_entry entries[LPM_STRIDE_SIZE_16];
+} LPM_ALIGN_CACHE;
+
+/* 24-bit DIR table for IPv4: 16.7M entries * 4 bytes = 64 MB
+ * Format: bit 31 = valid, bit 30 = tbl8 extended flag, bits 0-29 = next_hop or tbl8_idx
+ * This compact 4-byte format matches DPDK's design for optimal cache efficiency.
+ */
+struct lpm_dir24_entry {
+    uint32_t data;  /* All info packed in one 32-bit word */
+} __attribute__((packed));
+
+/* TBL8 entry: 256 entries per group, each 4 bytes */
+struct lpm_tbl8_entry {
+    uint32_t data;  /* bit 31 = valid, bits 0-30 = next_hop */
+} __attribute__((packed));
+
+/* DIR24 entry flags */
+#define LPM_DIR24_VALID_FLAG    (1U << 31)
+#define LPM_DIR24_EXT_FLAG      (1U << 30)  /* Extended to tbl8 */
+#define LPM_DIR24_NH_MASK       0x3FFFFFFF  /* Lower 30 bits for next_hop/tbl8_idx */
+
+/* Legacy compatibility - keep original struct as lpm_node */
+struct lpm_node {
+    struct lpm_entry entries[LPM_STRIDE_SIZE_8];
+} LPM_ALIGN_CACHE;
+
+/* Direct table entry */
+struct lpm_direct_entry {
+    uint32_t next_hop;
+    uint32_t node_idx;
+    uint8_t prefix_len;
+    uint8_t _pad[3];
+};
+
+/* Hot cache entry */
+struct lpm_cache_entry {
+    uint64_t addr_hash;
+    uint32_t next_hop;
+    uint32_t _pad;
+};
+
+/* Main trie structure */
 struct lpm_trie {
-    /* Root node of the trie */
-    struct lpm_node *root;
+    void *node_pool;  /* Changed to void* to support mixed node types */
+    uint32_t pool_capacity;
+    uint32_t pool_used;
     
-    /* Memory allocator function pointers */
-    void *(*alloc)(size_t size);
-    void (*free)(void *ptr);
+    struct lpm_direct_entry *direct_table;
+    struct lpm_cache_entry *hot_cache;
     
-    /* Statistics */
+    /* IPv6 wide stride nodes (16-bit) - separate pool */
+    void *wide_nodes_pool;
+    uint32_t wide_pool_capacity;
+    uint32_t wide_pool_used;
+    
+    /* IPv4 DIR-24-8 table (compact 4-byte entries) */
+    struct lpm_dir24_entry *dir24_table;
+    struct lpm_tbl8_entry *tbl8_groups;  /* Array of 256-entry groups */
+    uint32_t tbl8_num_groups;
+    uint32_t tbl8_groups_used;
+    
+    uint32_t root_idx;
+    
     uint64_t num_prefixes;
     uint64_t num_nodes;
+    uint64_t num_wide_nodes;
+    uint64_t cache_hits;
+    uint64_t cache_misses;
     
-    /* Configuration */
-    uint8_t max_depth;      /* 32 for IPv4, 128 for IPv6 */
-    uint8_t stride_bits;    /* Usually 8 */
+    uint8_t max_depth;
+    bool has_default_route;
+    bool use_huge_pages;
+    bool use_ipv6_wide_stride;  /* Enable 16-bit stride for IPv6 */
+    bool use_ipv4_dir24;         /* Enable DIR-24-8 for IPv4 */
     
-    /* CPU features detected at runtime */
-    uint32_t cpu_features;
+    uint32_t default_next_hop;
     
-    /* Function pointers for optimized lookup paths */
-    uint32_t (*lookup_single)(const struct lpm_trie *trie, const uint8_t *addr);
-    void (*lookup_batch)(const struct lpm_trie *trie, const uint8_t **addrs, 
-                        uint32_t *next_hops, size_t count);
-    struct lpm_result* (*lookup_all)(const struct lpm_trie *trie, const uint8_t *addr);
-    void (*lookup_all_batch)(const struct lpm_trie *trie, const uint8_t **addrs, 
-                            struct lpm_result **results, size_t count);
+    void *huge_page_base;
+    size_t huge_page_size;
     
-    /* Default route (0.0.0.0/0) - stored separately to avoid conflicts */
-    struct lpm_prefix *default_route;
+    /* Note: Function pointers removed - using ifunc for dispatch */
 } LPM_ALIGN_CACHE;
 
-/* CPU feature flags */
-enum lpm_cpu_features {
-    LPM_CPU_SSE    = 1 << 0,
-    LPM_CPU_SSE2   = 1 << 1,
-    LPM_CPU_SSE3   = 1 << 2,
-    LPM_CPU_SSE4_1 = 1 << 3,
-    LPM_CPU_SSE4_2 = 1 << 4,
-    LPM_CPU_AVX    = 1 << 5,
-    LPM_CPU_AVX2   = 1 << 6,
-    LPM_CPU_AVX512F = 1 << 7,
-    LPM_CPU_AVX512VL = 1 << 8,
-    LPM_CPU_AVX512DQ = 1 << 9,
-    LPM_CPU_AVX512BW = 1 << 10,
-};
+/* ============================================================================
+ * API
+ * ============================================================================ */
 
-/* API Functions */
-
-/* Initialize and destroy LPM trie */
 lpm_trie_t *lpm_create(uint8_t max_depth);
-lpm_trie_t *lpm_create_custom(uint8_t max_depth, 
-                              void *(*alloc_fn)(size_t), 
-                              void (*free_fn)(void *));
+lpm_trie_t *lpm_create_ipv4_dir24(void);  /* Create IPv4 trie with DIR-24-8 optimization */
 void lpm_destroy(lpm_trie_t *trie);
 
-/* Add/delete prefixes */
 int lpm_add(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop);
-int lpm_add_prefix(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, void *user_data);
 int lpm_delete(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len);
 
-/* Single lookup functions */
-/* Single lookup functions - returns longest match only */
 uint32_t lpm_lookup(const lpm_trie_t *trie, const uint8_t *addr);
 uint32_t lpm_lookup_ipv4(const lpm_trie_t *trie, uint32_t addr);
 uint32_t lpm_lookup_ipv6(const lpm_trie_t *trie, const uint8_t addr[16]);
 
-/* Lookup all matching prefixes */
-lpm_result_t *lpm_lookup_all(const lpm_trie_t *trie, const uint8_t *addr);
-lpm_result_t *lpm_lookup_all_ipv4(const lpm_trie_t *trie, uint32_t addr);
-lpm_result_t *lpm_lookup_all_ipv6(const lpm_trie_t *trie, const uint8_t addr[16]);
-
-/* Batch lookup functions */
 void lpm_lookup_batch(const lpm_trie_t *trie, const uint8_t **addrs, 
                       uint32_t *next_hops, size_t count);
 void lpm_lookup_batch_ipv4(const lpm_trie_t *trie, const uint32_t *addrs, 
@@ -188,17 +204,6 @@ void lpm_lookup_batch_ipv4(const lpm_trie_t *trie, const uint32_t *addrs,
 void lpm_lookup_batch_ipv6(const lpm_trie_t *trie, const uint8_t (*addrs)[16], 
                            uint32_t *next_hops, size_t count);
 
-/* Batch lookup for all matching prefixes */
-void lpm_lookup_all_batch(const lpm_trie_t *trie, const uint8_t **addrs, 
-                         lpm_result_t **results, size_t count);
-
-/* Result management */
-lpm_result_t *lpm_result_create(uint32_t capacity);
-void lpm_result_destroy(lpm_result_t *result);
-void lpm_result_clear(lpm_result_t *result);
-int lpm_result_add(lpm_result_t *result, const lpm_prefix_t *prefix);
-
-/* Utility functions */
 const char *lpm_get_version(void);
 void lpm_print_stats(const lpm_trie_t *trie);
 

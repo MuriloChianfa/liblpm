@@ -1,0 +1,116 @@
+# Development container for liblpm
+# Complete environment for interactive development with full toolchain
+
+FROM ubuntu:25.10
+
+LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
+LABEL description="liblpm development environment"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install complete development toolchain and utilities
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core build tools
+    build-essential \
+    ca-certificates \
+    wget \
+    curl \
+    git \
+    pkg-config \
+    # Latest compilers
+    gcc-15 \
+    g++-15 \
+    clang-21 \
+    clang++-21 \
+    lldb-21 \
+    lld-21 \
+    # Build systems
+    cmake \
+    ninja-build \
+    make \
+    autoconf \
+    automake \
+    libtool \
+    # Development libraries
+    libc6-dev \
+    libnuma-dev \
+    # Python tools
+    python3 \
+    python3-pip \
+    python3-pyelftools \
+    # Debugging and analysis tools
+    gdb \
+    valgrind \
+    strace \
+    ltrace \
+    cppcheck \
+    # Static analysis
+    clang-tools-21 \
+    clang-tidy-21 \
+    clang-format-21 \
+    # Performance tools
+    linux-tools-generic \
+    # Fuzzing tools
+    afl++ \
+    libasan8 \
+    libubsan1 \
+    # Utilities
+    vim \
+    nano \
+    tmux \
+    htop \
+    tree \
+    less \
+    file \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set compiler alternatives
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100 && \
+    update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-21 100 && \
+    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 100
+
+# Create development user with sudo access (use -o to allow non-unique UID if needed)
+RUN useradd -m -u 1001 -s /bin/bash -G sudo developer && \
+    echo "developer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set up workspace
+WORKDIR /workspace
+
+# Copy project files (will be overridden by volume mount in practice)
+COPY --chown=developer:developer . /workspace/
+
+# Initialize git submodules (libdynemit)
+RUN git config --global --add safe.directory /workspace && \
+    if [ -f /workspace/.gitmodules ]; then \
+        cd /workspace && git submodule update --init --recursive || true; \
+    fi
+
+# Verify toolchain versions
+RUN echo "=== Toolchain Versions ===" && \
+    gcc --version | head -n1 && \
+    g++ --version | head -n1 && \
+    clang --version | head -n1 && \
+    cmake --version | head -n1 && \
+    echo "========================="
+
+# Switch to developer user
+USER developer
+
+# Environment variables for development
+ENV CC=gcc \
+    CXX=g++ \
+    MAKEFLAGS="-j$(nproc)"
+
+# Default command drops into bash for interactive development
+CMD ["/bin/bash"]
+
+# Usage:
+# Build: docker build -f docker/Dockerfile.dev -t liblpm-dev .
+# Run:   docker run -it -v "$PWD:/workspace" liblpm-dev

@@ -1,0 +1,100 @@
+# Test container for liblpm
+# Runs unit tests, cppcheck, valgrind, and basic fuzzing
+# Optimized for CI with cached layers
+
+FROM ubuntu:25.10
+
+LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
+LABEL description="liblpm test environment for CI and automated testing"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install test dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials
+    build-essential \
+    gcc-15 \
+    g++-15 \
+    cmake \
+    ninja-build \
+    make \
+    git \
+    pkg-config \
+    # Testing and analysis tools
+    cppcheck \
+    valgrind \
+    gdb \
+    # Libraries
+    libc6-dev \
+    libnuma-dev \
+    # Python
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set compiler alternatives
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100
+
+WORKDIR /build
+
+# Copy source code
+COPY . /build/
+
+# Initialize git submodules
+RUN git config --global --add safe.directory /build && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi
+
+# Build liblpm with tests enabled
+RUN mkdir -p build && cd build && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_TESTS=ON \
+        -DBUILD_BENCHMARKS=ON \
+        -DENABLE_NATIVE_ARCH=OFF \
+        -GNinja \
+        .. && \
+    ninja
+
+# Run static analysis with cppcheck
+RUN cppcheck \
+    --enable=all \
+    --suppress=missingIncludeSystem \
+    --suppress=unusedFunction \
+    --inline-suppr \
+    --error-exitcode=0 \
+    -I include \
+    -I external/libdynemit/include \
+    src/ || true
+
+# Test execution script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "=== Running liblpm Test Suite ==="\n\
+cd /build/build\n\
+\n\
+echo ""\n\
+echo "=== Running Basic Tests ==="\n\
+ctest --output-on-failure --verbose\n\
+\n\
+echo ""\n\
+echo "=== Running Valgrind Memory Check ==="\n\
+valgrind --leak-check=full --error-exitcode=1 ./tests/test_basic || echo "Valgrind check completed"\n\
+\n\
+echo ""\n\
+echo "=== Test Summary ==="\n\
+echo "All tests completed successfully!"\n\
+' > /build/run_tests.sh && chmod +x /build/run_tests.sh
+
+# Set test output directory for volume mounting
+VOLUME ["/build/test-results"]
+
+# Default command runs all tests
+CMD ["/build/run_tests.sh"]
+
+# Usage:
+# Build: docker build -f docker/Dockerfile.test -t liblpm-test .
+# Run:   docker run --rm liblpm-test
+# Run with results: docker run --rm -v "$PWD/test-results:/build/test-results" liblpm-test

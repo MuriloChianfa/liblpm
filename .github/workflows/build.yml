@@ -1,0 +1,149 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  # Build all Docker images in parallel
+  build-images:
+    name: Build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - base
+          - dev
+          - test
+          - fuzz
+          - cpp
+          - go
+          - benchmark
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.image }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.image }}-
+            ${{ runner.os }}-buildx-
+      
+      - name: Build ${{ matrix.image }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.${{ matrix.image }}
+          push: false
+          load: true
+          tags: liblpm-${{ matrix.image }}:test
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+      
+      # Move cache to prevent unlimited growth
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+      
+      - name: Save image
+        run: |
+          docker save liblpm-${{ matrix.image }}:test | gzip > liblpm-${{ matrix.image }}.tar.gz
+      
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image-${{ matrix.image }}
+          path: liblpm-${{ matrix.image }}.tar.gz
+          retention-days: 1
+
+  # Test containers
+  test-containers:
+    name: Test ${{ matrix.test }}
+    runs-on: ubuntu-latest
+    needs: build-images
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - test
+          - cpp
+          - go
+    
+    steps:
+      - name: Download ${{ matrix.test }} image
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image-${{ matrix.test }}
+      
+      - name: Load Docker image
+        run: |
+          docker load < liblpm-${{ matrix.test }}.tar.gz
+      
+      - name: Run ${{ matrix.test }} container
+        run: |
+          docker run --rm liblpm-${{ matrix.test }}:test
+      
+      - name: Check for test results
+        run: |
+          echo "${{ matrix.test }} tests completed successfully"
+
+  # Benchmark container (optional, may take longer)
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Download benchmark image
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image-benchmark
+      
+      - name: Load Docker image
+        run: |
+          docker load < liblpm-benchmark.tar.gz
+      
+      - name: Run benchmarks
+        run: |
+          docker run --rm liblpm-benchmark:test
+      
+      - name: Benchmark completed
+        run: |
+          echo "Benchmarks completed successfully"
+
+  # Summary job
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-images, test-containers]
+    if: always()
+    
+    steps:
+      - name: Check build status
+        run: |
+          echo "Docker build and test workflow completed"
+          echo "Build images: ${{ needs.build-images.result }}"
+          echo "Test containers: ${{ needs.test-containers.result }}"

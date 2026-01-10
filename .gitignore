@@ -56,6 +56,9 @@ dkms.conf
 
 # Artefacts
 build/
+build_clang/
+build_gcc/
+build_*/
 build_afl
 run_fuzz.sh
 fuzz_input
@@ -66,3 +69,4 @@ build_afl.sh
 tests/dict.txt
 continuous_fuzz.sh
 cppcheck_output/
+compiler_comparison_results.txt

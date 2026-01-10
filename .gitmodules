@@ -1,0 +1,3 @@
+[submodule "external/libdynemit"]
+	path = external/libdynemit
+	url = https://github.com/MuriloChianfa/libdynemit.git

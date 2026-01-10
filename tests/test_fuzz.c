@@ -10,15 +10,6 @@
 #define MAX_LOOKUPS 500
 #define MAX_PREFIX_LEN 32  /* For IPv4 testing */
 
-/* Custom allocator for testing memory management */
-static void *test_alloc(size_t size) {
-    return malloc(size);
-}
-
-static void test_free(void *ptr) {
-    free(ptr);
-}
-
 /* Fuzzing test data structures */
 typedef struct {
     uint8_t prefix[16];
@@ -158,43 +149,6 @@ static void test_overlapping_prefixes(void) {
     printf("Overlapping prefixes test passed\n");
 }
 
-/* Test lookup_all functionality */
-static void test_lookup_all_fuzz(void) {
-    printf("Testing lookup_all fuzzing...\n");
-    
-    lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
-    assert(trie != NULL);
-    
-    /* Add multiple prefixes that could match the same address */
-    const uint8_t prefix1[] = {192, 168, 0, 0};
-    const uint8_t prefix2[] = {192, 168, 0, 0};
-    const uint8_t prefix3[] = {192, 168, 0, 0};
-    
-    assert(lpm_add_prefix(trie, prefix1, 8, (void*)1) == 0);
-    assert(lpm_add_prefix(trie, prefix2, 16, (void*)2) == 0);
-    assert(lpm_add_prefix(trie, prefix3, 24, (void*)3) == 0);
-    
-    /* Test lookup_all */
-    const uint8_t addr[] = {192, 168, 0, 1};
-    lpm_result_t *result = lpm_lookup_all(trie, addr);
-    assert(result != NULL);
-    assert(result->count == 3);
-    
-    /* Verify all prefixes are returned */
-    bool found1 = false, found2 = false, found3 = false;
-    for (uint32_t i = 0; i < result->count; i++) {
-        uintptr_t user_data = (uintptr_t)result->prefixes[i].user_data;
-        if (user_data == 1) found1 = true;
-        if (user_data == 2) found2 = true;
-        if (user_data == 3) found3 = true;
-    }
-    assert(found1 && found2 && found3);
-    
-    lpm_result_destroy(result);
-    lpm_destroy(trie);
-    printf("Lookup_all fuzzing test passed\n");
-}
-
 /* Test batch operations */
 static void test_batch_operations_fuzz(void) {
     printf("Testing batch operations fuzzing...\n");
@@ -235,34 +189,6 @@ static void test_batch_operations_fuzz(void) {
     printf("Batch operations fuzzing test passed\n");
 }
 
-/* Test custom allocators */
-static void test_custom_allocators_fuzz(void) {
-    printf("Testing custom allocators fuzzing...\n");
-    
-    lpm_trie_t *trie = lpm_create_custom(LPM_IPV4_MAX_DEPTH, test_alloc, test_free);
-    assert(trie != NULL);
-    
-    /* Add many prefixes to test memory management */
-    for (int i = 0; i < 200; i++) {
-        fuzz_prefix_t prefix;
-        generate_random_prefix(&prefix, LPM_IPV4_MAX_DEPTH);
-        int ret = lpm_add(trie, prefix.prefix, prefix.prefix_len, prefix.next_hop);
-        assert(ret == 0);
-    }
-    
-    /* Perform lookups */
-    for (int i = 0; i < 100; i++) {
-        fuzz_lookup_t lookup;
-        generate_random_address(&lookup, LPM_IPV4_MAX_DEPTH);
-        uint32_t result = lpm_lookup(trie, lookup.addr);
-        /* Result can be valid or invalid, just ensure no crash */
-        (void)result;
-    }
-    
-    lpm_destroy(trie);
-    printf("Custom allocators fuzzing test passed\n");
-}
-
 /* Test IPv6 functionality */
 static void test_ipv6_fuzz(void) {
     printf("Testing IPv6 fuzzing...\n");
@@ -291,36 +217,6 @@ static void test_ipv6_fuzz(void) {
     printf("IPv6 fuzzing test passed\n");
 }
 
-/* Test result management */
-static void test_result_management_fuzz(void) {
-    printf("Testing result management fuzzing...\n");
-    
-    /* Test result creation and destruction */
-    for (int i = 0; i < 100; i++) {
-        uint32_t capacity = (rand() % 100) + 1;
-        lpm_result_t *result = lpm_result_create(capacity);
-        assert(result != NULL);
-        assert(result->capacity >= capacity);
-        assert(result->count == 0);
-        
-        /* Add some prefixes */
-        for (int j = 0; j < capacity + 10; j++) {
-            lpm_prefix_t prefix;
-            generate_random_prefix((fuzz_prefix_t*)&prefix, LPM_IPV4_MAX_DEPTH);
-            int ret = lpm_result_add(result, &prefix);
-            assert(ret == 0);
-        }
-        
-        /* Test clear */
-        lpm_result_clear(result);
-        assert(result->count == 0);
-        
-        lpm_result_destroy(result);
-    }
-    
-    printf("Result management fuzzing test passed\n");
-}
-
 /* Test error conditions */
 static void test_error_conditions_fuzz(void) {
     printf("Testing error conditions fuzzing...\n");
@@ -340,17 +236,73 @@ static void test_error_conditions_fuzz(void) {
     assert(lpm_lookup(NULL, (uint8_t[]){192, 168, 0, 1}) == LPM_INVALID_NEXT_HOP);
     assert(lpm_lookup(trie, NULL) == LPM_INVALID_NEXT_HOP);
     
-    /* Test invalid result operations */
-    assert(lpm_result_add(NULL, NULL) == -1);
-    assert(lpm_result_create(0) == NULL);
-    
     lpm_destroy(trie);
     printf("Error conditions fuzzing test passed\n");
+}
+
+/* Test default route handling */
+static void test_default_route_fuzz(void) {
+    printf("Testing default route fuzzing...\n");
+    
+    lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
+    assert(trie != NULL);
+    
+    /* Add default route */
+    const uint8_t default_prefix[] = {0, 0, 0, 0};
+    assert(lpm_add(trie, default_prefix, 0, 999) == 0);
+    
+    /* Add some specific prefixes */
+    const uint8_t prefix1[] = {10, 0, 0, 0};
+    const uint8_t prefix2[] = {192, 168, 0, 0};
+    assert(lpm_add(trie, prefix1, 8, 100) == 0);
+    assert(lpm_add(trie, prefix2, 16, 200) == 0);
+    
+    /* Test lookups */
+    const uint8_t addr1[] = {10, 1, 2, 3};
+    const uint8_t addr2[] = {192, 168, 1, 1};
+    const uint8_t addr3[] = {8, 8, 8, 8};
+    
+    assert(lpm_lookup(trie, addr1) == 100);
+    assert(lpm_lookup(trie, addr2) == 200);
+    assert(lpm_lookup(trie, addr3) == 999);  /* Default route */
+    
+    lpm_destroy(trie);
+    printf("Default route fuzzing test passed\n");
+}
+
+/* Test large scale operations */
+static void test_large_scale_fuzz(void) {
+    printf("Testing large scale fuzzing...\n");
+    
+    lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
+    assert(trie != NULL);
+    
+    /* Add many prefixes */
+    for (int i = 0; i < MAX_PREFIXES; i++) {
+        fuzz_prefix_t prefix;
+        generate_random_prefix(&prefix, LPM_IPV4_MAX_DEPTH);
+        int ret = lpm_add(trie, prefix.prefix, prefix.prefix_len, prefix.next_hop);
+        assert(ret == 0);
+    }
+    
+    /* Perform many lookups */
+    for (int i = 0; i < MAX_LOOKUPS; i++) {
+        fuzz_lookup_t lookup;
+        generate_random_address(&lookup, LPM_IPV4_MAX_DEPTH);
+        uint32_t result = lpm_lookup(trie, lookup.addr);
+        /* Result can be valid or invalid, just ensure no crash */
+        (void)result;
+    }
+    
+    lpm_print_stats(trie);
+    lpm_destroy(trie);
+    printf("Large scale fuzzing test passed\n");
 }
 
 /* Main fuzzing test */
 int main(int argc, char *argv[]) {
     printf("Starting LPM fuzzing tests...\n");
+    printf("Library version: %s\n\n", lpm_get_version());
     
     /* Seed random number generator */
     srand(42);
@@ -359,13 +311,12 @@ int main(int argc, char *argv[]) {
     test_memory_exhaustion();
     test_bitmap_edge_cases();
     test_overlapping_prefixes();
-    test_lookup_all_fuzz();
     test_batch_operations_fuzz();
-    test_custom_allocators_fuzz();
     test_ipv6_fuzz();
-    test_result_management_fuzz();
     test_error_conditions_fuzz();
+    test_default_route_fuzz();
+    test_large_scale_fuzz();
     
-    printf("All fuzzing tests passed!\n");
+    printf("\nAll fuzzing tests passed!\n");
     return 0;
 }

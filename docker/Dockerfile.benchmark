@@ -1,0 +1,155 @@
+# DPDK benchmark container for liblpm
+# Comparison benchmarking: liblpm vs DPDK LPM
+# May require --privileged for hugepages
+
+FROM ubuntu:25.10
+
+LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
+LABEL description="liblpm DPDK benchmark environment for performance comparison"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
+    build-essential \
+    gcc-15 \
+    g++-15 \
+    cmake \
+    ninja-build \
+    make \
+    git \
+    pkg-config \
+    # DPDK dependencies
+    python3 \
+    python3-pip \
+    python3-pyelftools \
+    libnuma-dev \
+    meson \
+    ninja-build \
+    # Download tools
+    wget \
+    curl \
+    tar \
+    # Utilities
+    pciutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set compiler
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100
+
+WORKDIR /build
+
+# Copy source code
+COPY . /build/liblpm/
+
+# Initialize submodules
+RUN cd /build/liblpm && \
+    git config --global --add safe.directory /build/liblpm && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi
+
+# Install DPDK 24.11
+ENV DPDK_VERSION=24.11
+ENV DPDK_DIR=/opt/dpdk
+
+RUN mkdir -p /tmp/dpdk-build && cd /tmp/dpdk-build && \
+    wget -q https://fast.dpdk.org/rel/dpdk-${DPDK_VERSION}.tar.xz && \
+    tar xf dpdk-${DPDK_VERSION}.tar.xz && \
+    cd dpdk-${DPDK_VERSION} && \
+    meson setup build \
+        --prefix=${DPDK_DIR} \
+        -Dexamples="" \
+        -Dtests=false \
+        -Ddisable_drivers="*" \
+        -Denable_drivers="" \
+        -Dplatform=generic \
+        -Dbuildtype=release \
+        -Dc_args="-O3" \
+        -Denable_kmods=false && \
+    ninja -C build && \
+    ninja -C build install && \
+    ldconfig && \
+    cd / && rm -rf /tmp/dpdk-build
+
+# Set PKG_CONFIG_PATH for DPDK
+ENV PKG_CONFIG_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH}"
+ENV LD_LIBRARY_PATH="${DPDK_DIR}/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+
+# Build liblpm without DPDK first
+RUN cd /build/liblpm && \
+    mkdir -p build && cd build && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCHMARKS=ON \
+        -DWITH_DPDK_BENCHMARK=OFF \
+        -DENABLE_NATIVE_ARCH=ON \
+        -GNinja \
+        .. && \
+    ninja
+
+# Build liblpm with DPDK benchmark
+RUN cd /build/liblpm && \
+    mkdir -p build_dpdk && cd build_dpdk && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCHMARKS=ON \
+        -DWITH_DPDK_BENCHMARK=ON \
+        -DENABLE_NATIVE_ARCH=ON \
+        -GNinja \
+        .. && \
+    ninja || echo "DPDK benchmark build attempted (may fail if comparison benchmark not yet implemented)"
+
+# Benchmark runner script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "=== liblpm DPDK Benchmark Comparison ==="\n\
+echo "DPDK Version: $DPDK_VERSION"\n\
+echo "DPDK Install: $DPDK_DIR"\n\
+echo ""\n\
+\n\
+# Show DPDK configuration\n\
+echo "=== DPDK Configuration ==="\n\
+pkg-config --modversion libdpdk 2>/dev/null || echo "DPDK pkg-config not found"\n\
+pkg-config --libs libdpdk 2>/dev/null || echo "DPDK libs not configured"\n\
+echo ""\n\
+\n\
+# Run liblpm benchmarks\n\
+echo "=== Running liblpm Benchmarks ==="\n\
+cd /build/liblpm/build/benchmarks\n\
+\n\
+if [ -f ./bench_lookup ]; then\n\
+    echo "Running lookup benchmark..."\n\
+    ./bench_lookup\n\
+fi\n\
+\n\
+echo ""\n\
+\n\
+# Run DPDK comparison if available\n\
+if [ -f /build/liblpm/build_dpdk/benchmarks/bench_comparison ]; then\n\
+    echo "=== Running DPDK Comparison Benchmark ==="\n\
+    /build/liblpm/build_dpdk/benchmarks/bench_comparison\n\
+else\n\
+    echo "DPDK comparison benchmark not available"\n\
+    echo "This is expected if the DPDK comparison benchmark is not yet implemented"\n\
+fi\n\
+\n\
+echo ""\n\
+echo "=== Benchmark Summary ==="\n\
+echo "Benchmarks completed!"\n\
+' > /build/run_benchmarks.sh && chmod +x /build/run_benchmarks.sh
+
+# Volume for benchmark results
+VOLUME ["/build/results"]
+
+# Default command runs benchmarks
+CMD ["/build/run_benchmarks.sh"]
+
+# Usage:
+# Build: docker build -f docker/Dockerfile.benchmark -t liblpm-benchmark .
+# Run: docker run --rm liblpm-benchmark
+# Run with hugepages: docker run --rm --privileged liblpm-benchmark
+# Save results: docker run --rm -v "$PWD/results:/build/results" liblpm-benchmark

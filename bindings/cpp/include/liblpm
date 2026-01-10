@@ -1,0 +1,349 @@
+// liblpm - C++ Wrapper for liblpm
+// Zero-cost abstraction wrapper around the C library
+// 
+// Usage: #include <liblpm>
+//
+// Features:
+//   - Header-only for maximum performance
+//   - Zero-cost abstraction
+//   - RAII resource management
+//   - Template-based compile-time optimization
+//   - std::span for zero-copy on batch operations
+//   - Hot path (lookup with byte arrays)
+//   - String-based API (small parsing overhead)
+
+#ifndef LIBLPM_HPP_
+#define LIBLPM_HPP_
+
+#include <lpm.h>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <array>
+
+// std::span is C++20, provide a simple backport for C++17
+#if __cplusplus >= 202002L
+#include <span>
+namespace liblpm {
+    template<typename T>
+    using span = std::span<T>;
+}
+#else
+// Simple span implementation for C++17
+namespace liblpm {
+    template<typename T>
+    class span {
+    public:
+        constexpr span() noexcept : data_(nullptr), size_(0) {}
+        
+        constexpr span(T* ptr, std::size_t count) noexcept 
+            : data_(ptr), size_(count) {}
+        
+        template<std::size_t N>
+        constexpr span(T (&arr)[N]) noexcept 
+            : data_(arr), size_(N) {}
+        
+        constexpr T* data() const noexcept { return data_; }
+        constexpr std::size_t size() const noexcept { return size_; }
+        constexpr bool empty() const noexcept { return size_ == 0; }
+        
+        constexpr T& operator[](std::size_t idx) const noexcept {
+            return data_[idx];
+        }
+        
+        constexpr T* begin() const noexcept { return data_; }
+        constexpr T* end() const noexcept { return data_ + size_; }
+        
+    private:
+        T* data_;
+        std::size_t size_;
+    };
+}
+#endif
+
+namespace liblpm {
+
+// ============================================================================
+// Exception Types (optional - can be disabled with -DLIBLPM_NO_EXCEPTIONS)
+// ============================================================================
+
+#ifndef LIBLPM_NO_EXCEPTIONS
+class LpmException : public std::exception {
+    const char* msg_;
+public:
+    explicit LpmException(const char* msg) noexcept : msg_(msg) {}
+    const char* what() const noexcept override { return msg_; }
+};
+
+class InvalidPrefixException : public LpmException {
+public:
+    InvalidPrefixException() noexcept : LpmException("Invalid prefix format") {}
+};
+
+class InsertFailedException : public LpmException {
+public:
+    InsertFailedException() noexcept : LpmException("Insert operation failed") {}
+};
+#endif
+
+// ============================================================================
+// Lightweight Address Types
+// ============================================================================
+
+struct IPv4Address {
+    uint8_t octets[4];
+    
+    constexpr IPv4Address() noexcept : octets{} {}
+    
+    explicit constexpr IPv4Address(uint32_t addr) noexcept 
+        : octets{
+            static_cast<uint8_t>((addr >> 24) & 0xFF),
+            static_cast<uint8_t>((addr >> 16) & 0xFF),
+            static_cast<uint8_t>((addr >> 8) & 0xFF),
+            static_cast<uint8_t>(addr & 0xFF)
+        } {}
+    
+    // Parse from string (implemented in lpm_impl.cpp)
+    explicit IPv4Address(const char* str) noexcept;
+    explicit IPv4Address(const std::string& str) noexcept 
+        : IPv4Address(str.c_str()) {}
+    
+    constexpr const uint8_t* data() const noexcept { return octets; }
+    constexpr uint8_t* data() noexcept { return octets; }
+};
+
+struct IPv6Address {
+    uint8_t octets[16];
+    
+    constexpr IPv6Address() noexcept : octets{} {}
+    
+    // Parse from string (implemented in lpm_impl.cpp)
+    explicit IPv6Address(const char* str) noexcept;
+    explicit IPv6Address(const std::string& str) noexcept 
+        : IPv6Address(str.c_str()) {}
+    
+    constexpr const uint8_t* data() const noexcept { return octets; }
+    constexpr uint8_t* data() noexcept { return octets; }
+};
+
+// ============================================================================
+// LPM Table (Template-based for compile-time optimization)
+// ============================================================================
+
+template<bool IsIPv6>
+class LpmTable {
+public:
+    static constexpr uint8_t MAX_DEPTH = IsIPv6 ? 128 : 32;
+    static constexpr bool is_ipv6 = IsIPv6;
+    
+    // Constructor - creates new LPM trie
+    LpmTable() 
+        : trie_(lpm_create(MAX_DEPTH), Deleter{}) {
+        if (!trie_) {
+#ifndef LIBLPM_NO_EXCEPTIONS
+            throw LpmException("Failed to create LPM trie");
+#endif
+        }
+    }
+    
+    // Destructor - automatic cleanup
+    ~LpmTable() noexcept = default;
+    
+    // Move-only semantics (zero-cost transfers)
+    LpmTable(LpmTable&& other) noexcept = default;
+    LpmTable& operator=(LpmTable&& other) noexcept = default;
+    
+    // Deleted copy (unique ownership)
+    LpmTable(const LpmTable&) = delete;
+    LpmTable& operator=(const LpmTable&) = delete;
+    
+    // ========================================================================
+    // FAST PATH: Direct byte array access (zero parsing overhead)
+    // ========================================================================
+    
+    // Insert with raw bytes - fully inlined for maximum speed
+    inline void insert(const uint8_t* prefix, uint8_t prefix_len, 
+                      uint32_t next_hop) noexcept {
+        lpm_add(trie_.get(), prefix, prefix_len, next_hop);
+    }
+    
+    // Remove with raw bytes
+    inline void remove(const uint8_t* prefix, uint8_t prefix_len) noexcept {
+        lpm_delete(trie_.get(), prefix, prefix_len);
+    }
+    
+    // HOT PATH: Single lookup - fully inlined, zero overhead
+    [[nodiscard]] inline uint32_t lookup(const uint8_t* addr) const noexcept {
+        return lpm_lookup(trie_.get(), addr);
+    }
+    
+    // BATCH: Zero-copy using spans (no vector allocation)
+    inline void lookup_batch(span<const uint8_t* const> addrs,
+                            span<uint32_t> results) const noexcept {
+        const size_t count = std::min(addrs.size(), results.size());
+        for (size_t i = 0; i < count; ++i) {
+            results[i] = lpm_lookup(trie_.get(), addrs[i]);
+        }
+    }
+    
+    // ========================================================================
+    // Convenience: String-based API (slower due to parsing)
+    // ========================================================================
+    
+    // Insert with string (parses prefix)
+    void insert(const char* prefix_str, uint32_t next_hop);
+    void insert(const std::string& prefix_str, uint32_t next_hop) {
+        insert(prefix_str.c_str(), next_hop);
+    }
+    
+    // Remove with string
+    void remove(const char* prefix_str) noexcept;
+    void remove(const std::string& prefix_str) noexcept {
+        remove(prefix_str.c_str());
+    }
+    
+    // Lookup with string
+    [[nodiscard]] uint32_t lookup(const char* addr_str) const noexcept;
+    [[nodiscard]] uint32_t lookup(const std::string& addr_str) const noexcept {
+        return lookup(addr_str.c_str());
+    }
+    
+    // ========================================================================
+    // Statistics and utilities
+    // ========================================================================
+    
+    [[nodiscard]] bool empty() const noexcept {
+        return trie_ && trie_->num_prefixes == 0;
+    }
+    
+    [[nodiscard]] size_t size() const noexcept {
+        return trie_ ? trie_->num_nodes : 0;
+    }
+    
+    [[nodiscard]] size_t num_prefixes() const noexcept {
+        return trie_ ? trie_->num_prefixes : 0;
+    }
+    
+    [[nodiscard]] size_t capacity() const noexcept {
+        return trie_ ? trie_->pool_capacity : 0;
+    }
+    
+    // Direct C handle access
+    [[nodiscard]] lpm_trie_t* handle() noexcept { 
+        return trie_.get(); 
+    }
+    
+    [[nodiscard]] const lpm_trie_t* handle() const noexcept { 
+        return trie_.get(); 
+    }
+    
+    // Check if valid
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return trie_ != nullptr;
+    }
+    
+private:
+    struct Deleter {
+        void operator()(lpm_trie_t* p) const noexcept {
+            if (p) {
+                lpm_destroy(p);
+            }
+        }
+    };
+    
+    std::unique_ptr<lpm_trie_t, Deleter> trie_;
+};
+
+// ============================================================================
+// Type Aliases for convenience
+// ============================================================================
+
+using LpmTableIPv4 = LpmTable<false>;
+using LpmTableIPv6 = LpmTable<true>;
+
+// ============================================================================
+// Helper Functions (implemented in lpm_impl.cpp)
+// ============================================================================
+
+// Parse CIDR prefix string (e.g., "192.168.0.0/16")
+// Returns: {address bytes, prefix_len, is_ipv6}
+std::optional<std::tuple<std::array<uint8_t, 16>, uint8_t, bool>> 
+    parse_prefix(const char* str) noexcept;
+
+// Parse IPv4 address from string
+std::optional<IPv4Address> parse_ipv4(const char* str) noexcept;
+
+// Parse IPv6 address from string
+std::optional<IPv6Address> parse_ipv6(const char* str) noexcept;
+
+}  // namespace liblpm
+
+// ============================================================================
+// Template Implementation
+// ============================================================================
+
+namespace liblpm {
+
+// String-based insert (calls helper function)
+template<bool IsIPv6>
+void LpmTable<IsIPv6>::insert(const char* prefix_str, uint32_t next_hop) {
+    auto parsed = parse_prefix(prefix_str);
+    if (!parsed) {
+#ifndef LIBLPM_NO_EXCEPTIONS
+        throw InvalidPrefixException();
+#endif
+        return;
+    }
+    
+    auto& [addr, prefix_len, is_ipv6] = *parsed;
+    if (is_ipv6 != IsIPv6) {
+#ifndef LIBLPM_NO_EXCEPTIONS
+        throw InvalidPrefixException();
+#endif
+        return;
+    }
+    
+    insert(addr.data(), prefix_len, next_hop);
+}
+
+// String-based remove
+template<bool IsIPv6>
+void LpmTable<IsIPv6>::remove(const char* prefix_str) noexcept {
+    auto parsed = parse_prefix(prefix_str);
+    if (!parsed) {
+        return;
+    }
+    
+    auto& [addr, prefix_len, is_ipv6] = *parsed;
+    if (is_ipv6 != IsIPv6) {
+        return;
+    }
+    
+    remove(addr.data(), prefix_len);
+}
+
+// String-based lookup
+template<bool IsIPv6>
+uint32_t LpmTable<IsIPv6>::lookup(const char* addr_str) const noexcept {
+    if constexpr (IsIPv6) {
+        auto addr = parse_ipv6(addr_str);
+        if (!addr) {
+            return LPM_INVALID_NEXT_HOP;
+        }
+        return lookup(addr->data());
+    } else {
+        auto addr = parse_ipv4(addr_str);
+        if (!addr) {
+            return LPM_INVALID_NEXT_HOP;
+        }
+        return lookup(addr->data());
+    }
+}
+
+}  // namespace liblpm
+
+#endif  // LIBLPM_HPP_
+

@@ -1,0 +1,167 @@
+# Fuzzing container for liblpm with AFL++
+# Pre-instrumented build with AFL++, ready for multicore fuzzing
+# Based on Google's OSS-Fuzz approach
+
+FROM ubuntu:25.10
+
+LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
+LABEL description="liblpm AFL++ fuzzing environment with multicore support"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install AFL++ and build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # AFL++ and dependencies
+    afl++ \
+    # Compilers for AFL instrumentation
+    gcc-15 \
+    g++-15 \
+    clang-21 \
+    llvm-21 \
+    # Build tools
+    cmake \
+    ninja-build \
+    make \
+    git \
+    pkg-config \
+    # Libraries
+    libc6-dev \
+    libnuma-dev \
+    # Python
+    python3 \
+    python3-pip \
+    # Utilities
+    screen \
+    tmux \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up AFL++ environment
+ENV AFL_SKIP_CPUFREQ=1 \
+    AFL_NO_AFFINITY=1 \
+    AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+    AFL_TMPDIR=/tmp
+
+# Set compiler for AFL instrumentation (use afl-gcc for compatibility with libdynemit)
+ENV CC=afl-gcc \
+    CXX=afl-g++
+
+WORKDIR /fuzz
+
+# Copy source code
+COPY . /fuzz/
+
+# Initialize git submodules
+RUN git config --global --add safe.directory /fuzz && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi
+
+# Build with AFL instrumentation
+RUN mkdir -p build_afl && cd build_afl && \
+    cmake \
+        -DCMAKE_C_COMPILER=afl-gcc \
+        -DCMAKE_CXX_COMPILER=afl-g++ \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DBUILD_TESTS=ON \
+        -DBUILD_BENCHMARKS=OFF \
+        -DENABLE_NATIVE_ARCH=OFF \
+        -GNinja \
+        .. && \
+    ninja
+
+# Create fuzzing directories
+RUN mkdir -p /fuzz/fuzz_input /fuzz/fuzz_output
+
+# Copy existing fuzz inputs if available
+RUN if [ -d /fuzz/tests/fuzz_input ]; then \
+        cp -r /fuzz/tests/fuzz_input/* /fuzz/fuzz_input/ 2>/dev/null || true; \
+    fi && \
+    if [ -d /fuzz/fuzz_input ]; then \
+        cp -r /fuzz/fuzz_input/* /fuzz/fuzz_input/ 2>/dev/null || true; \
+    fi
+
+# Create seed inputs if none exist
+RUN if [ -z "$(ls -A /fuzz/fuzz_input)" ]; then \
+        echo "Creating default seed inputs..."; \
+        mkdir -p /fuzz/fuzz_input; \
+        # Create some basic test cases
+        echo -ne '\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x64\xc0\xa8\x00\x00\xc0\xa8\x01\x01\x00\x00\x00\x64' > /fuzz/fuzz_input/test1.bin; \
+        echo -ne '\x00\x00\x00\x02\x00\x00\x00\x02\x10\x00\x00\x00\x64\xc0\xa8\x00\x00\x18\x00\x00\x00\xc8\n\x00\x00\x00\xc0\xa8\x01\x01\x00\x00\x00\x64\n\x00\x00\x01\x00\x00\x00\xc8' > /fuzz/fuzz_input/test2.bin; \
+    fi
+
+# AFL++ multicore fuzzing script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+CORES=${AFL_CORES:-4}\n\
+INPUT_DIR=/fuzz/fuzz_input\n\
+OUTPUT_DIR=/fuzz/fuzz_output\n\
+TARGET=/fuzz/build_afl/tests/test_fuzz_advanced\n\
+\n\
+echo "=== AFL++ Multicore Fuzzing for liblpm ==="\n\
+echo "Cores: $CORES"\n\
+echo "Input: $INPUT_DIR"\n\
+echo "Output: $OUTPUT_DIR"\n\
+echo "Target: $TARGET"\n\
+echo ""\n\
+\n\
+# Check if target exists\n\
+if [ ! -f "$TARGET" ]; then\n\
+    echo "Error: Fuzz target not found at $TARGET"\n\
+    exit 1\n\
+fi\n\
+\n\
+# Check for seed inputs\n\
+if [ -z "$(ls -A $INPUT_DIR)" ]; then\n\
+    echo "Error: No seed inputs found in $INPUT_DIR"\n\
+    exit 1\n\
+fi\n\
+\n\
+# Create output directory\n\
+mkdir -p "$OUTPUT_DIR"\n\
+\n\
+# Start AFL++ in multicore mode\n\
+echo "Starting AFL++ fuzzer..."\n\
+\n\
+# Master instance\n\
+afl-fuzz -i "$INPUT_DIR" -o "$OUTPUT_DIR" -M fuzzer01 -m none "$TARGET" @@ &\n\
+\n\
+# Secondary instances\n\
+for i in $(seq 2 $CORES); do\n\
+    FUZZER_ID=$(printf "fuzzer%02d" $i)\n\
+    afl-fuzz -i "$INPUT_DIR" -o "$OUTPUT_DIR" -S "$FUZZER_ID" -m none "$TARGET" @@ &\n\
+    sleep 1\n\
+done\n\
+\n\
+echo ""\n\
+echo "AFL++ is now running with $CORES instances"\n\
+echo "Press Ctrl+C to stop fuzzing"\n\
+echo ""\n\
+echo "Monitor with: afl-whatsup $OUTPUT_DIR"\n\
+\n\
+# Wait for all background jobs\n\
+wait\n\
+' > /fuzz/run_fuzz.sh && chmod +x /fuzz/run_fuzz.sh
+
+# Single-core fuzzing script for simple usage
+RUN echo '#!/bin/bash\n\
+set -e\n\
+INPUT_DIR=/fuzz/fuzz_input\n\
+OUTPUT_DIR=/fuzz/fuzz_output\n\
+TARGET=/fuzz/build_afl/tests/test_fuzz_advanced\n\
+\n\
+mkdir -p "$OUTPUT_DIR"\n\
+echo "Running single-core AFL++ fuzzing..."\n\
+afl-fuzz -i "$INPUT_DIR" -o "$OUTPUT_DIR" -m none "$TARGET" @@\n\
+' > /fuzz/run_fuzz_single.sh && chmod +x /fuzz/run_fuzz_single.sh
+
+# Volume for persistent fuzzing results
+VOLUME ["/fuzz/fuzz_output"]
+
+# Default: Run multicore fuzzing with 4 cores
+ENV AFL_CORES=4
+CMD ["/fuzz/run_fuzz.sh"]
+
+# Usage:
+# Build: docker build -f docker/Dockerfile.fuzz -t liblpm-fuzz .
+# Run single: docker run --rm liblpm-fuzz /fuzz/run_fuzz_single.sh
+# Run multicore: docker run --rm --cpus=4 -e AFL_CORES=4 liblpm-fuzz
+# Run with output: docker run --rm -v "$PWD/fuzz_output:/fuzz/fuzz_output" liblpm-fuzz

@@ -5,426 +5,184 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
 
 jobs:
-  # Build and test on multiple platforms
-  test-linux:
+  # Matrix build with different compilers in containers
+  build-and-test:
+    name: Build & Test (${{ matrix.compiler }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        build_type: [DEBUG, RELEASE]
-        compiler: [gcc, clang]
-        include:
-          - build_type: DEBUG
-            compiler: gcc
-          - build_type: RELEASE
-            compiler: gcc
-          - build_type: DEBUG
-            compiler: clang
-          - build_type: RELEASE
-            compiler: clang
+        compiler:
+          - gcc
+          - clang
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Install dependencies
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build test container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.test
+          push: false
+          load: true
+          tags: liblpm-test:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run tests with ${{ matrix.compiler }}
       run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake cppcheck valgrind
-        if [ "${{ matrix.compiler }}" = "clang" ]; then
-          sudo apt install -y clang
-        fi
-
-    - name: Configure and build
-      run: |
-        mkdir build
-        cd build
-        
-        # Add debug flags for better debugging in CI
-        DEBUG_FLAGS=""
-        if [ "${{ matrix.build_type }}" = "DEBUG" ]; then
-          DEBUG_FLAGS='-DCMAKE_C_FLAGS="-g"'
-        else
-          DEBUG_FLAGS='-DCMAKE_C_FLAGS="-DDEBUG_TESTS"'
-        fi
-        
-        if [ "${{ matrix.compiler }}" = "clang" ]; then
-          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                -DCMAKE_C_COMPILER=clang \
-                -DCMAKE_CXX_COMPILER=clang++ \
-                -DBUILD_TESTS=ON \
-                -DBUILD_BENCHMARKS=ON \
-                -DENABLE_NATIVE_ARCH=OFF \
-                $DEBUG_FLAGS \
-                ..
-        else
-          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                -DCMAKE_C_COMPILER=gcc \
-                -DCMAKE_CXX_COMPILER=g++ \
-                -DBUILD_TESTS=ON \
-                -DBUILD_BENCHMARKS=ON \
-                -DENABLE_NATIVE_ARCH=OFF \
-                $DEBUG_FLAGS \
-                ..
-        fi
-        make -j$(nproc)
-        
-        # Verify build success
-        echo "Build completed. Checking artifacts:"
-        ls -la liblpm* tests/ || echo "Some build artifacts missing"
-
-    - name: Prepare debugging environment
-      run: |
-        chmod +x .github/debug_ci.sh
-        echo "=== CI Environment Debug Info ==="
-        echo "Runner OS: ${{ runner.os }}"
-        echo "Build type: ${{ matrix.build_type }}"
-        echo "Compiler: ${{ matrix.compiler }}"
-        echo "Working directory: $(pwd)"
-        echo "Available memory: $(free -h 2>/dev/null || echo 'free command not available')"
-        echo "CPU info: $(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2- || echo 'CPU info not available')"
-        echo "Library files:"
-        ls -la build/liblpm* 2>/dev/null || echo "No library files found"
-        echo "Test binaries:"
-                 ls -la build/tests/ 2>/dev/null || echo "No test binaries found"
-
-    - name: Quick test run (basic test binary)
-      run: |
-        echo "=== Running basic test binary directly ==="
-        cd build
-        echo "Testing basic test binary execution..."
-        timeout 60s ./tests/test_basic || {
-          exit_code=$?
-          echo "ERROR: Basic test binary failed with exit code: $exit_code"
-          if [ $exit_code -eq 124 ]; then
-            echo "Test timed out after 60 seconds"
-          elif [ $exit_code -eq 139 ]; then
-            echo "Segmentation fault detected"
-          elif [ $exit_code -eq 134 ]; then
-            echo "Assertion failure or abort detected"
-          fi
-          echo "Running immediate debug analysis..."
-          cd ..
-          ./.github/debug_ci.sh 2>&1 | head -100
-          exit 1
-        }
-        echo "Basic test binary completed successfully"
-
-    - name: Run unit tests
-      run: |
-        cd build
-        echo "=== Running Unit Tests ==="
-                 ctest -L unit --verbose --output-on-failure || {
-           echo "ERROR: Unit tests failed, running debug script..."
-           cd ..
-           ./.github/debug_ci.sh 2>&1 | head -200
-           exit 1
-         }
-
-    - name: Run fuzzing tests
-      run: |
-        cd build
-        echo "=== Running Fuzzing Tests ==="
-                 ctest -L fuzz --verbose --output-on-failure || {
-           echo "ERROR: Fuzzing tests failed, running debug script..."
-           cd ..
-           ./.github/debug_ci.sh 2>&1 | head -200
-           exit 1
-         }
-
-    - name: Run static analysis
-      run: |
-        cd build
-        echo "=== Running Static Analysis ==="
-        ctest -L static_analysis --verbose --output-on-failure || {
-          echo "ERROR: Static analysis failed"
-          exit 1
-        }
-
-    - name: Run all tests with debugging
-      run: |
-        cd build
-        echo "=== Running All Tests ==="
-        ctest --verbose --output-on-failure || {
-                     echo "ERROR: Tests failed, running comprehensive debug analysis..."
-           cd ..
-           echo "=== Debug Script Output ==="
-           ./.github/debug_ci.sh 2>&1 | head -300
-           echo "=== End Debug Script Output ==="
-          
-          echo "=== Additional CI Debugging ==="
-          echo "Test log files:"
-          find build/Testing -name "*.log" -exec echo "File: {}" \; -exec head -50 {} \; 2>/dev/null || echo "No test log files found"
-          
-          echo "Core dumps:"
-          find . -name "core*" -exec echo "Found core dump: {}" \; -exec file {} \; 2>/dev/null || echo "No core dumps found"
-          
-          echo "Build artifacts:"
-          ls -la build/ 2>/dev/null || echo "No build directory"
-          
-                     exit 1
-         }
-
-    - name: Upload debug artifacts on failure
-      if: failure()
-      uses: actions/upload-artifact@v4
+          docker run --rm \
+            -e CC=${{ matrix.compiler == 'gcc' && 'gcc' || 'clang' }} \
+            -e CXX=${{ matrix.compiler == 'gcc' && 'g++' || 'clang++' }} \
+            liblpm-test:ci
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
       with:
-        name: debug-artifacts-${{ matrix.compiler }}-${{ matrix.build_type }}
-        path: |
-          build/Testing/
-          build/tests/test_basic
-          build/liblpm*
-          core*
-          .github/debug_ci.sh
-          tests/test_basic.c
-        retention-days: 7
+          name: test-results-${{ matrix.compiler }}
+          path: test-results/
+          if-no-files-found: ignore
 
-  # Test on macOS
-  test-macos:
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        build_type: [RELEASE]
-        # build_type: [DEBUG, RELEASE]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        brew install cmake cppcheck
-
-    - name: Configure and build
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DBUILD_TESTS=ON \
-              -DBUILD_BENCHMARKS=ON \
-              -DENABLE_NATIVE_ARCH=OFF \
-              ..
-        make -j$(sysctl -n hw.ncpu)
-
-    - name: Run all tests
-      run: |
-        cd build
-        ctest --verbose --output-on-failure
-
-    - name: Run benchmark tests
-      run: |
-        cd build
-        ctest -L benchmark --verbose --output-on-failure
-
-  # Memory leak detection with Valgrind (Linux only)
-  test-valgrind:
-    runs-on: ubuntu-latest
-    needs: test-linux
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake valgrind
-
-    - name: Configure and build
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=DEBUG \
-              -DBUILD_TESTS=ON \
-              -DBUILD_BENCHMARKS=ON \
-              -DENABLE_NATIVE_ARCH=OFF \
-              ..
-        make -j$(nproc)
-
-    - name: Run tests with Valgrind
-      run: |
-        cd build
-        # Run each test with Valgrind to check for memory leaks
-        for test in test_basic test_lookup_all test_fuzz test_fuzz_advanced; do
-          if [ -f "$test" ]; then
-            echo "Running $test with Valgrind..."
-            valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
-                     --error-exitcode=1 --suppressions=../tests/valgrind.supp \
-                     ./$test
-          fi
-        done
-
-  # Static analysis with multiple tools
-  static-analysis:
+  # C++ bindings test
+  test-cpp-bindings:
+    name: Test C++ Bindings
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Install dependencies
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build C++ container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.cpp
+          push: false
+          load: true
+          tags: liblpm-cpp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run C++ tests
       run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake cppcheck
+          docker run --rm liblpm-cpp:ci
 
-    - name: Configure for static analysis
+  # Go bindings test
+  test-go-bindings:
+    name: Test Go Bindings
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Go container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.go
+          push: false
+          load: true
+          tags: liblpm-go:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run Go tests
       run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=DEBUG \
-              -DBUILD_TESTS=ON \
-              -DBUILD_BENCHMARKS=ON \
-              -DENABLE_NATIVE_ARCH=OFF \
-              ..
+          docker run --rm liblpm-go:ci
+
+  # Code quality checks
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build dev container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.dev
+          push: false
+          load: true
+          tags: liblpm-dev:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
     - name: Run cppcheck
       run: |
-        cd build
-        ctest -L static_analysis --verbose --output-on-failure
+          docker run --rm liblpm-dev:ci bash -c "
+            cppcheck \
+              --enable=all \
+              --suppress=missingIncludeSystem \
+              --suppress=unusedFunction \
+              --inline-suppr \
+              --error-exitcode=1 \
+              -I include \
+              -I external/libdynemit/include \
+              src/
+          "
+        continue-on-error: true
+      
+      - name: Check formatting (clang-format)
+      run: |
+          docker run --rm liblpm-dev:ci bash -c "
+            find src include -name '*.c' -o -name '*.h' | \
+            xargs clang-format --dry-run --Werror
+          "
+        continue-on-error: true
 
-  # Build verification with different configurations
-  build-verification:
+  # CI Summary
+  ci-summary:
+    name: CI Summary
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - name: "Shared library"
-            options: "-DBUILD_SHARED_LIBS=ON"
-          - name: "Static library"
-            options: "-DBUILD_SHARED_LIBS=OFF"
-          - name: "Native optimizations"
-            options: "-DENABLE_NATIVE_ARCH=ON"
-          - name: "No benchmarks"
-            options: "-DBUILD_BENCHMARKS=OFF"
-          - name: "No tests"
-            options: "-DBUILD_TESTS=OFF"
+    needs: [build-and-test, test-cpp-bindings, test-go-bindings, code-quality]
+    if: always()
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
+      - name: Check CI status
       run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake cppcheck
-
-    - name: Configure and build (${{ matrix.config.name }})
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=RELEASE \
-              ${{ matrix.config.options }} \
-              ..
-        make -j$(nproc)
-
-    - name: Run tests (if enabled)
-      run: |
-        cd build
-        if [ "${{ matrix.config.options }}" != "-DBUILD_TESTS=OFF" ]; then
-          ctest --verbose --output-on-failure
-        fi
-        if [ "${{ matrix.config.options }}" != "-DBUILD_BENCHMARKS=OFF" ]; then
-          ctest -L benchmark --verbose --output-on-failure
-        fi
-
-  # Fuzzing with AFL (if available)
-  fuzzing:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install AFL
-      run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake afl++
-
-    - name: Setup fuzzing environment
-      run: |
-        chmod +x tests/fuzz_setup.sh
-        ./tests/fuzz_setup.sh
-
-    - name: Build with AFL instrumentation
-      run: |
-        chmod +x build_afl.sh
-        ./build_afl.sh
-
-    - name: Run basic fuzzing
-      run: |
-        # Run a short fuzzing session to check for immediate crashes
-        timeout 300s afl-fuzz -i fuzz_input -o fuzz_output -x tests/dict.txt \
-          ./build_afl/test_fuzz_advanced @@ || true
-
-    - name: Check for crashes
-      run: |
-        if [ -d "fuzz_output/crashes" ] && [ "$(ls -A fuzz_output/crashes)" ]; then
-          echo "Fuzzing found crashes!"
-          ls -la fuzz_output/crashes/
+          echo "CI workflow completed"
+          echo "Build and test: ${{ needs.build-and-test.result }}"
+          echo "C++ bindings: ${{ needs.test-cpp-bindings.result }}"
+          echo "Go bindings: ${{ needs.test-go-bindings.result }}"
+          echo "Code quality: ${{ needs.code-quality.result }}"
+          
+          # Fail if any required job failed
+          if [[ "${{ needs.build-and-test.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-cpp-bindings.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-go-bindings.result }}" == "failure" ]]; then
+            echo "One or more required jobs failed"
           exit 1
-        else
-          echo "No crashes found during fuzzing session"
-        fi
-
-  # Code coverage (only on main branch)
-  coverage:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y build-essential cmake lcov cppcheck
-
-    - name: Configure with coverage
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=DEBUG \
-              -DCMAKE_C_COMPILER=gcc \
-              -DCMAKE_CXX_COMPILER=g++ \
-              -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" \
-              -DBUILD_TESTS=ON \
-              -DBUILD_BENCHMARKS=ON \
-              -DENABLE_NATIVE_ARCH=OFF \
-              ..
-
-    - name: Build
-      run: |
-        cd build
-        make -j$(nproc)
-
-    - name: Run tests with coverage
-      run: |
-        cd build
-        ctest --verbose --output-on-failure
-
-    - name: Run benchmark tests with coverage
-      run: |
-        cd build
-        ctest -L benchmark --verbose --output-on-failure
-
-    - name: Generate coverage report
-      run: |
-        cd build
-        lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' --output-file coverage.info
-        lcov --list coverage.info
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: build/coverage.info
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+          fi

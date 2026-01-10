@@ -14,7 +14,7 @@ A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv
 
 - **High Performance**: Multi-bit trie with 8-bit stride reduces trie depth and improves cache.
 - **Dual Stack Support**: Native support for both IPv4 (32-bit) and IPv6 (128-bit) addresses.
-- **SIMD Optimizations**: Automatic detection and use of CPU features. (SSE2, AVX, AVX2, AVX512F)
+- **SIMD Optimizations**: Dynamic dispatching via [libdynemit](https://github.com/MuriloChianfa/libdynemit). (SSE2, SSE4.2, AVX, AVX2, AVX512F)
 - **Batch Processing**: Vectorized batch lookup for processing multiple addresses simultaneously.
 - **Branchless Design**: Optimized lookup paths with minimal branch mispredictions.
 - **Cache-Friendly**: Aligned data structures and prefetching for optimal cache utilization.
@@ -28,37 +28,39 @@ A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv
   <summary style="font-size: 16px;"><strong>Ubuntu/Debian</strong></summary>
 
   ```bash
-  apt install build-essential cmake gcc-11 g++-11 libc6-dev clang lldb-18 lld-18 python3 python3-pip afl++ libasan6 libubsan1 cppcheck valgrind gdb strace ltrace
+  apt install build-essential cmake libc6-dev
   ```
 </details>
-<details open>
+<details>
   <summary style="font-size: 16px;"><strong>CentOS/RHEL/Rocky Linux</strong></summary>
 
   ```bash
-  yum install cmake3 gcc-c++ libc-devel clang lldb lld python3 python3-pip afl++ libasan libubsan cppcheck valgrind gdb strace ltrace
+  yum install gcc gcc-c++ make cmake3 glibc-devel
   ```
 </details>
-<details open>
+<details>
   <summary style="font-size: 16px;"><strong>Fedora</strong></summary>
 
   ```bash
-  dnf install cmake gcc-c++ glibc-devel clang lldb lld python3 python3-pip afl++ libasan libubsan cppcheck valgrind gdb strace ltrace
+  dnf install gcc gcc-c++ make cmake glibc-devel
   ```
 </details>
 
 ### Build & Install
 ```bash
+# Clone with submodules
+git clone --recursive https://github.com/MuriloChianfa/liblpm.git
+cd liblpm
+
+# Or if already cloned, initialize submodules
+git submodule update --init --recursive
+
+# Build
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
 sudo make install
 ```
-
-### Build flags
-- `BUILD_SHARED_LIBS`: Build shared libraries (default: ON)
-- `BUILD_TESTS`: Build test programs (default: ON)
-- `BUILD_BENCHMARKS`: Build benchmark programs (default: ON)
-- `ENABLE_NATIVE_ARCH`: Enable native architecture optimizations (default: ON)
 
 ## Usage
 
@@ -94,30 +96,15 @@ int main() {
 - `lpm_lookup_ipv6(trie, addr)` - IPv6-specific lookup
 - `lpm_lookup_all(trie, addr)` - Lookup for multiple match
 
-## Performance benchmarks
+## Language Bindings
 
-> Simple Github runner, AVX2 enabled, Clang *RELEASE* build
+liblpm provides idiomatic bindings for multiple languages:
 
-| Operation | Protocol | Performance | Latency |
-|-----------|----------|-------------|---------|
-| Batch Lookup | IPv4 | 71.99M lookups/s | ~13 ns |
-| Batch Lookup | IPv6 | 55.89M lookups/s | ~17 ns |
-| Single Lookup | IPv4 | 54.72M lookups/s | ~18 ns |
-| Single Lookup | IPv6 | 45.51M lookups/s | ~21 ns |
-| All Matches | IPv4 | 8.14M lookups/s | ~122 ns |
-| All Matches | IPv6 | 6.66M lookups/s | ~150 ns |
-| Batch All | IPv4 | 5.75M lookups/s | ~173 ns |
-| Batch All | IPv6 | 5.77M lookups/s | ~173 ns |
+- **C** - Native library (see [include/lpm.h](include/lpm.h))
+- **C++** - Modern C++17 wrapper with zero-cost abstraction (see [bindings/cpp/README.md](bindings/cpp/README.md))
+- **Go** - Go binding with cgo (see [bindings/go/README.md](bindings/go/README.md))
 
-<small>
-
-**Time Complexity**: O(k) where k is the prefix length in bits<br>
-**Space Complexity**: O(n × k) where n is number of prefixes, k is average prefix length<br>
-**Lookup Performance**: Constant time per trie level (8-bit stride)<br>
-**Memory Usage IPv4**: - ~4.9 KB per prefix scaling linearly<br>
-**Memory Usage IPv6**: - ~6.1 KB per prefix scaling linearly
-
-</small>
+**Note:** All bindings use network byte order (big-endian) for IP addresses, which is the internet standard. See [docs/BYTE_ORDER.md](docs/BYTE_ORDER.md) for details on data formats and integration.
 
 ## Tests and Fuzzing
 
@@ -134,6 +121,97 @@ ctest --verbose            # Run test suite
 ```
 
 For detailed information about the fuzzing tests, coverage areas,<br> and advanced fuzzing techniques, see [tests/FUZZING.md](tests/FUZZING.md).
+
+## Development
+
+For a reproducible development environment with the latest toolchain (GCC 15.2, Clang 21.1, CMake 4.2), you can use Docker containers:
+
+### Quick Start with Docker
+
+```bash
+# Build all containers
+./scripts/docker-build.sh all
+
+# Interactive development
+docker run -it --rm -v "$PWD:/workspace" liblpm-dev
+
+# Run tests
+docker run --rm liblpm-test
+
+# Run fuzzing
+docker run --rm --cpus=4 liblpm-fuzz
+```
+
+### Available Containers
+
+- **liblpm-dev**: Complete development environment
+- **liblpm-test**: Automated testing with valgrind and cppcheck
+- **liblpm-fuzz**: AFL++ fuzzing for security testing
+- **liblpm-cpp**: C++ bindings development and testing
+- **liblpm-go**: Go bindings development and testing
+- **liblpm-benchmark**: DPDK rte_lpm performance comparison
+
+For complete documentation, see [docs/DOCKER.md](docs/DOCKER.md).
+
+## Verifying Binary Signatures
+
+liblpm binaries are cryptographically signed with GPG for authenticity verification. To verify a downloaded binary:
+
+### 1. Import the Public Key
+
+Import the maintainer's public key directly from the keyserver using the key fingerprint:
+
+```bash
+gpg --keyserver keys.openpgp.org --recv-keys 3E1A1F401A1C47BC77D1705612D0D82387FC53B0
+```
+
+<details>
+<summary><b>Alternative options</b></summary>
+
+Using the shorter key ID:
+
+```bash
+gpg --keyserver keys.openpgp.org --recv-keys 12D0D82387FC53B0
+```
+
+**Alternative keyserver** (if `keys.openpgp.org` is unavailable):
+
+```bash
+gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 3E1A1F401A1C47BC77D1705612D0D82387FC53B0
+```
+
+</details>
+
+You should see output confirming the key was imported:
+```
+gpg: key 12D0D82387FC53B0: public key "MuriloChianfa <murilo.chianfa@outlook.com>" imported
+gpg: Total number processed: 1
+gpg:               imported: 1
+```
+
+### 2. Verify the Signature
+
+Assuming you have downloaded both the binary (`liblpm.so` or `liblpm.a`) and its signature file (`liblpm.so.asc` or `liblpm.a.asc`):
+
+```bash
+gpg --verify liblpm.so.asc liblpm.so
+```
+
+If the signature is valid, you should see:
+```
+gpg: Signature made [date and time]
+gpg:                using EDDSA key 3E1A1F401A1C47BC77D1705612D0D82387FC53B0
+gpg: Good signature from "MuriloChianfa <murilo.chianfa@outlook.com>"
+```
+
+If you see "BAD signature", **do not use** the binary - it may have been tampered with or corrupted.
+
+## Documentation
+
+Additional documentation:
+- [Byte Order and Data Format](docs/BYTE_ORDER.md) - Endianness, IP address storage, and integration guide
+- [C++ API Reference](bindings/cpp/README.md) - C++ wrapper documentation
+- [Go API Reference](bindings/go/README.md) - Go bindings documentation
 
 ## License
 

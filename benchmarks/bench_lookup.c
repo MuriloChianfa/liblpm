@@ -256,8 +256,8 @@ static void benchmark_memory_usage(void)
     lpm_trie_t *trie = lpm_create(LPM_IPV4_MAX_DEPTH);
     
     /* Add prefixes and track node count */
-    printf("Prefixes | Nodes | Bytes/Prefix | Total Memory (MB)\n");
-    printf("---------|-------|--------------|------------------\n");
+    printf("Prefixes | Nodes | Node Size | Bytes/Prefix | Total Memory (MB)\n");
+    printf("---------|-------|-----------|--------------|------------------\n");
     
     for (int count = 1000; count <= 100000; count *= 10) {
         /* Clear trie */
@@ -278,8 +278,8 @@ static void benchmark_memory_usage(void)
         double bytes_per_prefix = (double)total_memory / count;
         double total_mb = total_memory / (1024.0 * 1024.0);
         
-        printf("%8d | %5lu | %12.1f | %17.2f\n", 
-               count, num_nodes, bytes_per_prefix, total_mb);
+        printf("%8d | %5lu | %9zu | %12.1f | %17.2f\n", 
+               count, (unsigned long)num_nodes, node_size, bytes_per_prefix, total_mb);
     }
     
     lpm_destroy(trie);
@@ -292,9 +292,6 @@ int main(void)
     
     /* Seed random number generator */
     srand(time(NULL));
-    
-    /* Show CPU features */
-    printf("\nCPU features: Using __builtin_cpu_supports() for runtime detection\n");
     
     /* Run benchmarks */
     benchmark_ipv4_single_lookup();

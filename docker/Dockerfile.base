@@ -1,0 +1,85 @@
+# Multi-stage base image for liblpm
+# Stage 1: Builder - Full build environment
+# Stage 2: Runtime - Minimal runtime environment
+
+# ============================================================================
+# Stage 1: Builder
+# ============================================================================
+FROM ubuntu:25.10 AS builder
+
+LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
+LABEL description="liblpm builder base image"
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies and latest toolchain
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core build tools
+    build-essential \
+    ca-certificates \
+    wget \
+    curl \
+    git \
+    pkg-config \
+    # Compilers and build systems
+    gcc-15 \
+    g++-15 \
+    clang-21 \
+    lldb-21 \
+    lld-21 \
+    cmake \
+    ninja-build \
+    make \
+    # Libraries
+    libc6-dev \
+    libnuma-dev \
+    # Python for build scripts
+    python3 \
+    python3-pip \
+    python3-pyelftools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set compiler alternatives to use latest versions
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
+
+# Verify compiler versions
+RUN gcc --version && \
+    g++ --version && \
+    clang --version && \
+    cmake --version
+
+# Set working directory
+WORKDIR /build
+
+# ============================================================================
+# Stage 2: Runtime
+# ============================================================================
+FROM ubuntu:25.10 AS runtime
+
+LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
+LABEL description="liblpm minimal runtime base image"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libc6 \
+    libgcc-s1 \
+    libstdc++6 \
+    libnuma1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for running applications
+RUN useradd -m -u 1001 -s /bin/bash liblpm
+
+WORKDIR /app
+USER liblpm
+
+# Default command
+CMD ["/bin/bash"]

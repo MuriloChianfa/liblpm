@@ -96,6 +96,10 @@ vendor/
 go.sum
 **/vendor/
 
+# Ensure Go module files are included
+!bindings/go/go.mod
+!bindings/go/
+
 # Logs and temporary files
 *.log
 *.tmp

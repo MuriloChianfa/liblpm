@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ninja-build \
     make \
     git \
+    cppcheck \
     pkg-config \
     # Libraries
     libc6-dev \

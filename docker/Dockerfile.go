@@ -66,8 +66,16 @@ RUN ldconfig
 
 WORKDIR /go/src/liblpm
 
-# Copy Go source
-COPY bindings/go /go/src/liblpm/
+# Copy Go module file first
+COPY bindings/go/go.mod ./
+
+# Copy Go source directories
+COPY bindings/go/liblpm ./liblpm/
+COPY bindings/go/benchmarks ./benchmarks/
+COPY bindings/go/examples ./examples/
+
+# Verify go.mod exists and show module info
+RUN echo "=== Go module file ===" && cat go.mod && echo ""
 
 # Download Go dependencies (if any exist)
 RUN go mod download || true

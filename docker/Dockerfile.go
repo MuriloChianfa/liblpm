@@ -72,8 +72,8 @@ COPY bindings/go /go/src/liblpm/
 # Download Go dependencies (if any exist)
 RUN go mod download || true
 
-# Build Go bindings (build the main liblpm package)
-RUN cd liblpm && go build -v .
+# Build Go bindings
+RUN go build -v ./liblpm
 
 # Test script
 RUN echo '#!/bin/bash\n\

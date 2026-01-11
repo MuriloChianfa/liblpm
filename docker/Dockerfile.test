@@ -77,7 +77,7 @@ cd /build/build\n\
 \n\
 echo ""\n\
 echo "=== Running Basic Tests ==="\n\
-ctest --output-on-failure --verbose\n\
+ctest --output-on-failure --verbose -LE benchmark\n\
 \n\
 echo ""\n\
 echo "=== Running Valgrind Memory Check ==="\n\

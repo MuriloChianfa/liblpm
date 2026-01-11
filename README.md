@@ -19,6 +19,29 @@ A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv
 - **Cache-Friendly**: Aligned data structures and prefetching for optimal cache utilization.
 - **C23 Standard**: Written in modern C with best practices.
 
+## Performance
+
+<p align="center">
+<img src="docs/images/4stride8_ipv4_single_cpu_comparison.png" width="48%" alt="4stride8 IPv4 Single Lookup">
+<img src="docs/images/wide16_ipv6_single_cpu_comparison.png" width="48%" alt="wide16 IPv6 Single Lookup"><br>
+<sub><i>IPv4 and IPv6 single lookup comparison among different CPU architectures</i></sub>
+</p>
+
+<p align="center">
+<img src="docs/images/amd_ryzen_9_9950x3d_16_core_ipv4_batch.png" width="48%" alt="Ryzen 9 9950X3D IPv4 Batch">
+<img src="docs/images/intelr_xeonr_gold_6426y_ipv6_batch.png" width="48%" alt="Xeon Gold 6426Y IPv6 Batch"><br>
+<sub><i>Batch lookups leverage SIMD vectorization for even higher throughput</i></sub>
+</p>
+
+<p align="center">
+<img src="docs/images/algorithm_ranking_ipv4.png" width="48%" alt="IPv4 Algorithm Ranking">
+<img src="docs/images/algorithm_ranking_ipv6.png" width="48%" alt="IPv6 Algorithm Ranking"><br>
+<sub><i>Algorithm rankings showing mean throughput at small prefixes sets</i></sub>
+</p>
+
+For detailed benchmarks and methodology, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md).<br>
+Browse all benchmark charts in [docs/images/](docs/images/README.md).
+
 ## Building
 
 ### Requirements

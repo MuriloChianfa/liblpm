@@ -49,32 +49,8 @@ jobs:
         cd build
         ctest -L fuzz --verbose --output-on-failure
 
-  # Quick macOS check
-  pr-macos:
-    runs-on: macos-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Install dependencies
-      run: |
-        brew install cmake cppcheck
-
-    - name: Configure and build
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=Release \
-              -DBUILD_TESTS=ON \
-              -DBUILD_BENCHMARKS=ON \
-              -DENABLE_NATIVE_ARCH=OFF \
-              ..
-        make -j$(sysctl -n hw.ncpu)
-
-    - name: Run tests
-      run: |
-        cd build
-        ctest --verbose --output-on-failure
+  # TODO: Add macOS support once libdynemit supports AppleClang or we configure GCC
+  # pr-macos:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - Requires GCC 13+ for C23 support in libdynemit

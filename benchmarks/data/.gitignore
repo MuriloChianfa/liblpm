@@ -1,0 +1,7 @@
+# Ignore all CSV benchmark results
+# *.csv
+
+# Keep the directory structure
+!.gitignore
+!cpu_comparison/.gitkeep
+!algorithm_comparison/.gitkeep

@@ -1,0 +1,182 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies + DPDK from Ubuntu repos (much faster than compiling!)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    pkg-config \
+    dpdk \
+    dpdk-dev \
+    libdpdk-dev \
+    libnuma-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "DPDK installed from Ubuntu packages!" \
+    && dpkg -l | grep dpdk
+
+# ============================================================================
+# Clone and build external LPM libraries for benchmarking
+# ============================================================================
+ENV EXTERNAL_LPM_DIR=/opt/external
+
+# 1. rmind/liblpm - Simple LPM library (C)
+# Build with renamed symbols to avoid conflicts with our liblpm
+RUN git clone --depth 1 https://github.com/rmind/liblpm.git ${EXTERNAL_LPM_DIR}/rmindlpm && \
+    cd ${EXTERNAL_LPM_DIR}/rmindlpm/src && \
+    # Compile with -fvisibility=hidden and use objcopy to rename symbols
+    gcc -O3 -fPIC -c lpm.c -o lpm.o && \
+    # Create symbol rename map
+    echo 'lpm_create rmind_lpm_create' > symbol_rename.txt && \
+    echo 'lpm_destroy rmind_lpm_destroy' >> symbol_rename.txt && \
+    echo 'lpm_clear rmind_lpm_clear' >> symbol_rename.txt && \
+    echo 'lpm_insert rmind_lpm_insert' >> symbol_rename.txt && \
+    echo 'lpm_remove rmind_lpm_remove' >> symbol_rename.txt && \
+    echo 'lpm_lookup rmind_lpm_lookup' >> symbol_rename.txt && \
+    echo 'lpm_lookup_prefix rmind_lpm_lookup_prefix' >> symbol_rename.txt && \
+    echo 'lpm_strtobin rmind_lpm_strtobin' >> symbol_rename.txt && \
+    # Rename symbols using objcopy
+    objcopy --redefine-syms=symbol_rename.txt lpm.o lpm_renamed.o && \
+    ar rcs librmindlpm.a lpm_renamed.o && \
+    cp librmindlpm.a ${EXTERNAL_LPM_DIR}/ && \
+    # Create a header with the renamed function declarations
+    echo '#ifndef RMIND_LPM_H' > ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo '#define RMIND_LPM_H' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo '#include <stddef.h>' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'typedef struct lpm rmind_lpm_t;' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'rmind_lpm_t *rmind_lpm_create(void);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'void rmind_lpm_destroy(rmind_lpm_t *);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'void rmind_lpm_clear(rmind_lpm_t *, void (*)(void *, const void *, size_t, void *), void *);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'int rmind_lpm_insert(rmind_lpm_t *, const void *, size_t, unsigned, void *);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'int rmind_lpm_remove(rmind_lpm_t *, const void *, size_t, unsigned);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'void *rmind_lpm_lookup(rmind_lpm_t *, const void *, size_t);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'int rmind_lpm_lookup_prefix(rmind_lpm_t *, const void *, size_t, void **);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo 'int rmind_lpm_strtobin(const char *, void *, size_t *, unsigned *);' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo '#endif' >> ${EXTERNAL_LPM_DIR}/rmind_lpm.h && \
+    echo "rmind/liblpm built successfully with renamed symbols"
+
+# 2. libpatricia (brandt/network-patricia) - C implementation
+RUN git clone --depth 1 https://github.com/brandt/network-patricia.git ${EXTERNAL_LPM_DIR}/libpatricia && \
+    cd ${EXTERNAL_LPM_DIR}/libpatricia && \
+    gcc -O3 -fPIC -c patricia.c -o patricia.o && \
+    ar rcs libpatricia.a patricia.o && \
+    cp libpatricia.a ${EXTERNAL_LPM_DIR}/ && \
+    cp patricia.h ${EXTERNAL_LPM_DIR}/ && \
+    echo "libpatricia built successfully"
+
+# Note: SAIL and XorOffsetTrie are C++ libraries and are skipped.
+
+# Create include directory with all headers
+RUN mkdir -p ${EXTERNAL_LPM_DIR}/include && \
+    cp ${EXTERNAL_LPM_DIR}/*.h ${EXTERNAL_LPM_DIR}/include/ 2>/dev/null || true && \
+    ls -la ${EXTERNAL_LPM_DIR}/ && \
+    echo "External LPM libraries ready"
+
+# Create workspace
+WORKDIR /workspace
+
+# Copy liblpm source
+COPY . /workspace/
+
+# Build liblpm with DPDK support and external LPM benchmarks
+RUN echo "Building liblpm with DPDK and external LPM support..." && \
+    mkdir -p build && cd build && \
+    PKG_CONFIG_PATH=/usr/local/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib64/pkgconfig \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWITH_DPDK_BENCHMARK=ON \
+        -DWITH_EXTERNAL_LPM_BENCHMARK=ON \
+        -DEXTERNAL_LPM_DIR=${EXTERNAL_LPM_DIR} \
+        -DBUILD_TESTS=OFF \
+        .. && \
+    make bench_comparison bench_algorithm_scaling_dpdk -j$(nproc) && \
+    echo "Build complete!" && \
+    echo "Checking DPDK linkage:" && \
+    (ldd benchmarks/bench_comparison | grep -E "dpdk|rte" || echo "  DPDK may be statically linked") && \
+    (ldd benchmarks/bench_algorithm_scaling_dpdk | grep -E "dpdk|rte" || echo "  DPDK may be statically linked")
+
+# Create output directory for benchmark results
+RUN mkdir -p /output
+
+# Create entrypoint script that supports multiple benchmark modes
+RUN cat > /entrypoint.sh << 'ENTRYPOINT_EOF'
+#!/bin/bash
+set -e
+
+echo "=========================================="
+echo "  liblpm vs DPDK Benchmark Suite"
+echo "=========================================="
+echo ""
+echo "CPU: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
+echo "Cores: $(nproc)"
+echo ""
+
+cd /workspace/build/benchmarks
+
+# Default mode is algorithm_scaling
+MODE="${1:-algorithm_scaling}"
+
+case "$MODE" in
+    algorithm_scaling|scaling|algo)
+        echo "Running Algorithm Scaling Benchmark..."
+        echo ""
+        # Use /output if mounted, otherwise use default directory
+        if [ -d "/output" ] && [ -w "/output" ]; then
+            OUTPUT_DIR="/output"
+        else
+            OUTPUT_DIR="/workspace/benchmarks/data/algorithm_comparison"
+        fi
+        mkdir -p "$OUTPUT_DIR"
+        ./bench_algorithm_scaling_dpdk -o "$OUTPUT_DIR" "${@:2}"
+        echo ""
+        echo "Results saved to: $OUTPUT_DIR"
+        ;;
+    comparison|compare)
+        echo "Running Comparison Benchmark..."
+        echo ""
+        ./bench_comparison "${@:2}"
+        ;;
+    both)
+        echo "Running both benchmarks..."
+        echo ""
+        echo "=== Algorithm Scaling Benchmark ==="
+        if [ -d "/output" ] && [ -w "/output" ]; then
+            OUTPUT_DIR="/output"
+        else
+            OUTPUT_DIR="/workspace/benchmarks/data/algorithm_comparison"
+        fi
+        mkdir -p "$OUTPUT_DIR"
+        ./bench_algorithm_scaling_dpdk -o "$OUTPUT_DIR"
+        echo ""
+        echo "=== Comparison Benchmark ==="
+        ./bench_comparison
+        echo ""
+        echo "Results saved to: $OUTPUT_DIR"
+        ;;
+    *)
+        echo "Usage: $0 [algorithm_scaling|comparison|both] [additional options]"
+        echo ""
+        echo "Modes:"
+        echo "  algorithm_scaling  Run algorithm scaling benchmark with DPDK (default)"
+        echo "  comparison         Run simple comparison benchmark"
+        echo "  both               Run both benchmarks"
+        echo ""
+        echo "Additional options are passed to the benchmark program."
+        echo ""
+        echo "Examples:"
+        echo "  docker run liblpm-dpdk algorithm_scaling"
+        echo "  docker run liblpm-dpdk comparison"
+        echo "  docker run -v \$(pwd)/results:/output liblpm-dpdk algorithm_scaling"
+        exit 1
+        ;;
+esac
+
+echo ""
+echo "Benchmark complete!"
+ENTRYPOINT_EOF
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /workspace/build/benchmarks
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["algorithm_scaling"]

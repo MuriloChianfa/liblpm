@@ -1,0 +1,6 @@
+# This directory stores benchmark results for cross-algorithm comparisons
+# Each subdirectory is named: {hostname}_{ip_version}_{lookup_type}
+# Example: my_cpu_ipv4_single/
+#
+# Files in each subdirectory are named after the algorithm
+# Example: dir24.csv, 4stride8.csv, wide16.csv, 6stride8.csv

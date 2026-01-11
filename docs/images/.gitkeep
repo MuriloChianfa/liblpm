@@ -1,0 +1,13 @@
+# This directory stores generated benchmark visualization charts
+# 
+# Generated charts are named based on their comparison type:
+#   - {algorithm}_{ip_version}_{lookup_type}_cpu_comparison.png
+#   - {ip_version}_{lookup_type}_algorithm_comparison.png
+#
+# Examples:
+#   - dir24_ipv4_single_cpu_comparison.png
+#   - ipv4_single_algorithm_comparison.png
+#   - ipv6_batch_algorithm_comparison.png
+#
+# To generate charts, use:
+#   python scripts/plot_lpm_benchmark.py benchmarks/data/.../*.csv --output docs/images/chart.png

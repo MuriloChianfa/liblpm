@@ -55,9 +55,6 @@ int rmind_lpm_insert(rmind_lpm_t *, const void *, size_t, unsigned, void *);
 void *rmind_lpm_lookup(rmind_lpm_t *, const void *, size_t);
 #endif
 
-/* Note: SAIL and XorOffsetTrie are C++ libraries
- * and are not currently supported in this C benchmark. */
-
 #ifdef HAVE_LIBPATRICIA
 #include "patricia.h"
 #endif

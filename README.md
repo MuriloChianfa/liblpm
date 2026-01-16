@@ -7,7 +7,7 @@
 [![CI](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/MuriloChianfa/liblpm/actions/workflows/codeql.yml/badge.svg)](https://github.com/MuriloChianfa/liblpm/actions/workflows/codeql.yml)
 
-A optimized C library for Longest Prefix Match (LPM) lookups supporting both IPv4 and IPv6 addresses. The library uses multi-bit trie with 8-bit stride for optimal performance and supports CPU vectorization.
+A high-performance C library for Longest Prefix Match (LPM) lookups, supporting both a multi-bit trie of 8-bit stride for IPv4 and a wide multi-level 16-bit stride for IPv6, featuring runtime dynamic SIMD dispatching (SSE2, SSE4.2, AVX, AVX2, AVX512F) for optimal performance and throughput on any CPU architecture.
 
 ## Features
 
@@ -116,17 +116,6 @@ int main() {
 - `lpm_lookup(trie, addr)` - Single address lookup
 - `lpm_lookup_ipv4(trie, addr)` - IPv4-specific lookup
 - `lpm_lookup_ipv6(trie, addr)` - IPv6-specific lookup
-- `lpm_lookup_all(trie, addr)` - Lookup for multiple match
-
-## Language Bindings
-
-liblpm provides idiomatic bindings for multiple languages:
-
-- **C** - Native library (see [include/lpm.h](include/lpm.h))
-- **C++** - Modern C++17 wrapper with zero-cost abstraction (see [bindings/cpp/README.md](bindings/cpp/README.md))
-- **Go** - Go binding with cgo (see [bindings/go/README.md](bindings/go/README.md))
-
-**Note:** All bindings use network byte order (big-endian) for IP addresses, which is the internet standard. See [docs/BYTE_ORDER.md](docs/BYTE_ORDER.md) for details on data formats and integration.
 
 ## Tests and Fuzzing
 
@@ -240,28 +229,13 @@ Additional documentation:
 - [C++ API Reference](bindings/cpp/README.md) - C++ wrapper documentation
 - [Go API Reference](bindings/go/README.md) - Go bindings documentation
 
-## Contributing
-
-We welcome contributions from the community! Whether you're fixing bugs, adding features, improving documentation, or reporting issues, your help is appreciated.
-
-- **[Contributing Guide](.github/CONTRIBUTING.md)** - How to contribute, coding standards, and development workflow
-- **[Code of Conduct](.github/CODE_OF_CONDUCT.md)** - Community guidelines and expected behavior
-- **[Issue Templates](.github/ISSUE_TEMPLATE/)** - Report bugs or request features
-- **[Pull Request Templates](.github/PULL_REQUEST_TEMPLATE/)** - Submit changes with our PR templates
-
-Before contributing, please read our [Contributing Guide](.github/CONTRIBUTING.md) and [Code of Conduct](.github/CODE_OF_CONDUCT.md).
-
 ## Security
 
-If you discover any security vulnerabilities, please **DO NOT** open a public issue. Instead, refer to our [Security Policy](.github/SECURITY.md) for instructions on how to report security issues responsibly.
+If you discover any security vulnerabilities, please **DO NOT** use or open a public issue or discussion. Instead, read and refer to our [Security Policy](.github/SECURITY.md) for instructions on how to report security issues responsibly.
 
 ## License
 
-This project is licensed under the Boost Software License 1.0 - see the [LICENSE](LICENSE) file for details.
-
-## Citation
-
-If you use liblpm in your research or project, please cite it using the information in [CITATION.cff](CITATION.cff).
+This project is licensed under the Boost Software License 1.0, see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 

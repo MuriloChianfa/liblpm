@@ -5,7 +5,6 @@
  * Uses 16-16-16-8-8-8... stride pattern for IPv6:
  * - First 48 bits: 3 levels of 16-bit stride (covers common /48 allocations)
  * - Remaining 80 bits: 10 levels of 8-bit stride
- * - Total: 13 levels instead of 16 (18.75% reduction)
  */
 
 #define _GNU_SOURCE

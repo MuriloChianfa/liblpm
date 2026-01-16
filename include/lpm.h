@@ -16,8 +16,8 @@ extern "C" {
 
 /* 
  * Note: SIMD feature detection is handled at runtime via libdynemit.
- * All SIMD variants (SSE2, AVX2, AVX512) are compiled and the optimal
- * implementation is selected at program load time using GNU ifunc.
+ * All SIMD variants are compiled and the optimal implementation
+ * is selected at program load time using GNU ifunc.
  */
 
 /* ============================================================================
@@ -27,19 +27,17 @@ extern "C" {
 #define LPM_CACHE_LINE_SIZE 64
 #define LPM_ALIGN_CACHE __attribute__((aligned(LPM_CACHE_LINE_SIZE)))
 
-/* 8-bit stride for MAXIMUM SPEED (256 entries/node) */
+/* 8-bit stride (256 entries/node) */
 #define LPM_STRIDE_BITS_8 8
 #define LPM_STRIDE_SIZE_8 256
 
-/* 16-bit stride for IPv6 optimization (65536 entries/node) */
+/* 16-bit stride (65536 entries/node) */
 #define LPM_STRIDE_BITS_16 16
 #define LPM_STRIDE_SIZE_16 65536
 
 /* IPv6 Variable Stride Configuration: 16-8-8-8...
  * First 16 bits: 1 level of 16-bit stride (512KB)
  * Remaining 112 bits: 14 levels of 8-bit stride
- * Total: 15 levels instead of 16 (6.25% reduction)
- * Memory: ~100MB instead of 8GB!
  */
 #define LPM_IPV6_WIDE_STRIDE_LEVELS 1
 
@@ -104,7 +102,6 @@ struct lpm_node_16 {
 
 /* 24-bit DIR table for IPv4: 16.7M entries * 4 bytes = 64 MB
  * Format: bit 31 = valid, bit 30 = tbl8 extended flag, bits 0-29 = next_hop or tbl8_idx
- * This compact 4-byte format matches DPDK's design for optimal cache efficiency.
  */
 struct lpm_dir24_entry {
     uint32_t data;  /* All info packed in one 32-bit word */
@@ -120,7 +117,7 @@ struct lpm_tbl8_entry {
 #define LPM_DIR24_EXT_FLAG      (1U << 30)  /* Extended to tbl8 */
 #define LPM_DIR24_NH_MASK       0x3FFFFFFF  /* Lower 30 bits for next_hop/tbl8_idx */
 
-/* Legacy compatibility - keep original struct as lpm_node */
+/* Legacy compatibility */
 struct lpm_node {
     struct lpm_entry entries[LPM_STRIDE_SIZE_8];
 } LPM_ALIGN_CACHE;

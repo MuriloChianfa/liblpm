@@ -22,7 +22,7 @@ set(CMAKE_C_EXTENSIONS ON)
 # Algorithm Selection Options
 # ============================================================================
 
-set(LPM_IPV4_DEFAULT "dir24" CACHE STRING "Default IPv4 algorithm (dir24, stride8)")
+set(LPM_IPV4_DEFAULT "stride8" CACHE STRING "Default IPv4 algorithm (dir24, stride8)")
 set_property(CACHE LPM_IPV4_DEFAULT PROPERTY STRINGS "dir24" "stride8")
 
 set(LPM_IPV6_DEFAULT "wide16" CACHE STRING "Default IPv6 algorithm (wide16, stride8)")

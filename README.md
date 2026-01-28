@@ -46,6 +46,8 @@ Browse all benchmark charts in [docs/images/](docs/images/README.md).
 
 ### Requirements
 
+**Compiler:** GCC 13+ or Clang 16+ (for C23 support)
+
 <details open>
   <summary style="font-size: 16px;"><strong>Ubuntu/Debian</strong></summary>
 

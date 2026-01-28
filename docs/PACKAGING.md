@@ -7,15 +7,17 @@ This guide explains how to build DEB and RPM packages for liblpm using Docker.
 liblpm provides Docker-based package building for multiple Linux distributions:
 
 **DEB Packages:**
-- Debian Bookworm (12)
-- Debian Bullseye (11)
+- Debian Trixie (13)
 - Ubuntu 24.04 (Noble Numbat)
 - Ubuntu 22.04 (Jammy Jellyfish)
 
 **RPM Packages:**
 - Rocky Linux 9
 - Rocky Linux 8
-- Fedora (latest)
+- Fedora 41
+- Fedora 40
+
+**Note:** Only distributions with GCC 13+ support are included (required for C23 standard).
 
 ## Quick Start
 
@@ -36,8 +38,8 @@ This will build packages for all supported distributions and place them in the `
 # Build only RPM packages
 ./scripts/docker-build-packages.sh rpm
 
-# Build for Debian Bookworm
-./scripts/docker-build-packages.sh debian-bookworm
+# Build for Debian Trixie
+./scripts/docker-build-packages.sh debian-trixie
 
 # Build for Rocky Linux 9
 ./scripts/docker-build-packages.sh rocky-9
@@ -109,17 +111,17 @@ ls -lh packages/*.rpm
 
 ### Build for Specific Distribution
 
-#### Debian Bullseye
+#### Debian Trixie
 
 ```bash
 docker build -f docker/Dockerfile.deb \
-    --build-arg DEBIAN_VERSION=bullseye \
-    -t liblpm-deb:bullseye .
+    --build-arg DEBIAN_VERSION=trixie \
+    -t liblpm-deb:trixie .
 
 docker run --rm \
     -v "$PWD:/workspace:ro" \
-    -v "$PWD/packages/debian-bullseye:/packages" \
-    liblpm-deb:bullseye
+    -v "$PWD/packages/debian-trixie:/packages" \
+    liblpm-deb:trixie
 ```
 
 #### Ubuntu 24.04
@@ -154,14 +156,14 @@ docker run --rm \
 
 ```bash
 # Install runtime package
-sudo dpkg -i packages/debian-bookworm/liblpm_2.0.0_amd64.deb
+sudo dpkg -i packages/debian-trixie/liblpm_2.0.0_amd64.deb
 
 # Check installation
 dpkg -L liblpm
 ldconfig -p | grep liblpm
 
 # Install development package
-sudo dpkg -i packages/debian-bookworm/liblpm-dev_2.0.0_amd64.deb
+sudo dpkg -i packages/debian-trixie/liblpm-dev_2.0.0_amd64.deb
 
 # Verify headers
 ls -la /usr/include/lpm/
@@ -208,11 +210,11 @@ sudo rpm -e liblpm-devel liblpm
 
 ```bash
 # List files
-dpkg-deb -c packages/debian-bookworm/liblpm_2.0.0_amd64.deb
-dpkg-deb -c packages/debian-bookworm/liblpm-dev_2.0.0_amd64.deb
+dpkg-deb -c packages/debian-trixie/liblpm_2.0.0_amd64.deb
+dpkg-deb -c packages/debian-trixie/liblpm-dev_2.0.0_amd64.deb
 
 # Show package info
-dpkg-deb -I packages/debian-bookworm/liblpm_2.0.0_amd64.deb
+dpkg-deb -I packages/debian-trixie/liblpm_2.0.0_amd64.deb
 ```
 
 #### RPM Package
@@ -253,7 +255,7 @@ rpm -qip packages/rocky-9/liblpm-2.0.0.x86_64.rpm
 
 ```bash
 # Build for multiple distributions at once
-./scripts/docker-build-packages.sh debian-bookworm rocky-9 ubuntu-24.04
+./scripts/docker-build-packages.sh debian-trixie rocky-9 ubuntu-24.04
 ```
 
 ## Package Repository Deployment
@@ -397,8 +399,7 @@ Main script for building packages across distributions.
 - `all`: All distributions
 - `deb`: All DEB packages
 - `rpm`: All RPM packages
-- `debian-bookworm`: Debian 12
-- `debian-bullseye`: Debian 11
+- `debian-trixie`: Debian 13
 - `ubuntu-24.04`: Ubuntu 24.04
 - `ubuntu-22.04`: Ubuntu 22.04
 - `rocky-9`: Rocky Linux 9
@@ -426,8 +427,7 @@ liblpm/
 ├── scripts/
 │   └── docker-build-packages.sh  # Main package build script
 ├── packages/                    # Output directory (created)
-│   ├── debian-bookworm/
-│   ├── debian-bullseye/
+│   ├── debian-trixie/
 │   ├── ubuntu-24.04/
 │   ├── ubuntu-22.04/
 │   ├── rocky-9/

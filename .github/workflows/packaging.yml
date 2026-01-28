@@ -37,12 +37,6 @@ jobs:
           - distro: ubuntu-24.04
             image: ubuntu:24.04
             codename: noble
-          - distro: debian-11
-            image: debian:bullseye
-            codename: bullseye
-          - distro: debian-12
-            image: debian:bookworm
-            codename: bookworm
           - distro: debian-13
             image: debian:trixie
             codename: trixie
@@ -52,7 +46,6 @@ jobs:
         run: |
           apt-get update
           apt-get install -y \
-            software-properties-common \
             build-essential \
             cmake \
             git \
@@ -61,30 +54,15 @@ jobs:
             debhelper
 
       - name: Install GCC 13 (for older distros)
-        if: matrix.distro == 'ubuntu-22.04' || matrix.distro == 'debian-11' || matrix.distro == 'debian-12'
+        if: matrix.distro == 'ubuntu-22.04'
         run: |
-          if [ "${{ matrix.distro }}" = "ubuntu-22.04" ]; then
-            # Ubuntu 22.04: Add toolchain PPA for GCC 13
-            add-apt-repository -y ppa:ubuntu-toolchain-r/test
-            apt-get update
-            apt-get install -y gcc-13 g++-13
-            update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-            update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
-          elif [ "${{ matrix.distro }}" = "debian-11" ]; then
-            # Debian 11: Add backports for newer GCC
-            echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
-            apt-get update
-            apt-get install -y -t bullseye-backports gcc-13 g++-13
-            update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-            update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
-          elif [ "${{ matrix.distro }}" = "debian-12" ]; then
-            # Debian 12: Add backports for GCC 13
-            echo "deb http://deb.debian.org/debian bookworm-backports main" >> /etc/apt/sources.list
-            apt-get update
-            apt-get install -y -t bookworm-backports gcc-13 g++-13
-            update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-            update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
-          fi
+          # Ubuntu 22.04: Add toolchain PPA for GCC 13
+          apt-get install -y software-properties-common
+          add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          apt-get update
+          apt-get install -y gcc-13 g++-13
+          update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
           gcc --version
 
       - name: Checkout code
@@ -337,9 +315,9 @@ jobs:
           - distro: ubuntu-24.04
             image: ubuntu:24.04
             codename: noble
-          - distro: debian-12
-            image: debian:bookworm
-            codename: bookworm
+          - distro: debian-13
+            image: debian:trixie
+            codename: trixie
 
     steps:
       - name: Download DEB artifacts

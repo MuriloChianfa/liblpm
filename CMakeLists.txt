@@ -55,7 +55,7 @@ endif()
 # ============================================================================
 
 option(BUILD_TESTS "Build test programs" ON)
-option(BUILD_BENCHMARKS "Build benchmark programs" ON)
+option(BUILD_BENCHMARKS "Build benchmark programs" OFF)
 option(ENABLE_NATIVE_ARCH "Enable native architecture optimizations" OFF)
 option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF)
 option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)

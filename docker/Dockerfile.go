@@ -59,7 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy liblpm from previous stage
 COPY --from=liblpm-builder /usr/local/lib/liblpm* /usr/local/lib/
-COPY --from=liblpm-builder /usr/local/include/lpm.h /usr/local/include/
+COPY --from=liblpm-builder /usr/local/include/lpm /usr/local/include/lpm
 
 # Update library cache
 RUN ldconfig
@@ -122,7 +122,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy liblpm runtime libraries and headers
 COPY --from=liblpm-builder /usr/local/lib/liblpm.so* /usr/local/lib/
-COPY --from=liblpm-builder /usr/local/include/lpm.h /usr/local/include/
+COPY --from=liblpm-builder /usr/local/include/lpm /usr/local/include/lpm
 
 RUN ldconfig
 

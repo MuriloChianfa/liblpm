@@ -22,13 +22,15 @@ if(NOT TARGET lpm)
             INTERFACE_INCLUDE_DIRECTORIES "${LPM_ROOT_DIR}/include"
         )
     else()
+        # Try to find installed liblpm
         find_library(LPM_LIBRARY NAMES lpm)
-        find_path(LPM_INCLUDE_DIR lpm.h)
+        # Headers are now in lpm/ subdirectory
+        find_path(LPM_INCLUDE_DIR lpm/lpm.h)
         if(LPM_LIBRARY AND LPM_INCLUDE_DIR)
             add_library(lpm SHARED IMPORTED)
             set_target_properties(lpm PROPERTIES
                 IMPORTED_LOCATION "${LPM_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}"
+                INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}/lpm"
             )
         else()
             message(FATAL_ERROR "liblpm not found. Build the main project first or install liblpm.")

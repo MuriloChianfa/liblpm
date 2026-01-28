@@ -233,6 +233,28 @@ push-images:
    - Package managers (apt, yum, homebrew)?
    - Language-specific registries (Go modules, etc.)?
 
+## Man Pages
+
+**Status:** Implemented (January 2026)
+
+**Description:**
+Comprehensive man pages for the library API, accessible via `man liblpm`.
+
+**Implemented:**
+- [x] Main overview (`liblpm.3`)
+- [x] Core API docs (`lpm_create.3`, `lpm_lookup.3`, `lpm_add.3`, `lpm_delete.3`, `lpm_destroy.3`)
+- [x] Algorithm reference (`lpm_algorithms.3`)
+- [x] Redirect aliases for all function variants
+- [x] CMake installation to `${CMAKE_INSTALL_MANDIR}/man3/`
+- [x] Included in devel packages (liblpm-dev, liblpm-devel)
+
+**Future Enhancements:**
+- [ ] Gzip compression for installed man pages
+- [ ] Localization (translations)
+- [ ] Man page linting in CI
+
+**Location:** `docs/man/man3/`
+
 ## Related Documentation
 
 - [docs/DOCKER.md](docs/DOCKER.md) - Container usage guide

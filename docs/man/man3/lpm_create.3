@@ -1,0 +1,180 @@
+.\" lpm_create.3 - Trie creation functions
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LPM_CREATE 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+lpm_create_ipv4, lpm_create_ipv6, lpm_create_ipv4_dir24, lpm_create_ipv4_8stride, lpm_create_ipv6_wide16, lpm_create_ipv6_8stride, lpm_create \- create LPM trie structures
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.B "/* Generic API (uses compile-time selected algorithm) */"
+.BI "lpm_trie_t *lpm_create_ipv4(void);"
+.BI "lpm_trie_t *lpm_create_ipv6(void);"
+.PP
+.B "/* Algorithm-specific API */"
+.BI "lpm_trie_t *lpm_create_ipv4_dir24(void);"
+.BI "lpm_trie_t *lpm_create_ipv4_8stride(void);"
+.BI "lpm_trie_t *lpm_create_ipv6_wide16(void);"
+.BI "lpm_trie_t *lpm_create_ipv6_8stride(void);"
+.PP
+.B "/* Legacy API */"
+.BI "lpm_trie_t *lpm_create(uint8_t " max_depth ");"
+.fi
+.SH DESCRIPTION
+These functions allocate and initialize a new LPM trie structure for
+storing IP routing prefixes.
+.SS Generic Functions
+.TP
+.BR lpm_create_ipv4 ()
+Creates an IPv4 trie using the compile-time selected algorithm
+(DIR-24-8 by default, configurable via CMake).
+.TP
+.BR lpm_create_ipv6 ()
+Creates an IPv6 trie using the compile-time selected algorithm
+(Wide 16-bit stride by default, configurable via CMake).
+.SS Algorithm-Specific Functions
+.TP
+.BR lpm_create_ipv4_dir24 ()
+Creates an IPv4 trie using the DIR-24-8 algorithm. This algorithm uses
+a 24-bit direct lookup table (~64 MB) with 8-bit extension tables for
+prefixes longer than /24. Achieves 1-2 memory accesses per lookup.
+Best for typical IPv4 routing tables.
+.TP
+.BR lpm_create_ipv4_8stride ()
+Creates an IPv4 trie using an 8-bit stride multi-bit trie. Each node
+contains 256 entries. Maximum depth is 4 levels. Lower memory usage
+than DIR-24-8 for small prefix sets.
+.TP
+.BR lpm_create_ipv6_wide16 ()
+Creates an IPv6 trie using a 16-bit stride for the first level
+(65536 entries, ~512 KB), then 8-bit stride for remaining levels.
+Optimized for common /48 prefix allocations.
+.TP
+.BR lpm_create_ipv6_8stride ()
+Creates an IPv6 trie using a uniform 8-bit stride. Maximum depth is
+16 levels. Memory-efficient for sparse prefix sets.
+.SS Legacy Function
+.TP
+.BR lpm_create ()
+Creates a trie with the specified maximum depth. Use
+.I max_depth
+= 32 for IPv4 or
+.I max_depth
+= 128 for IPv6. This function uses the 8-bit stride algorithm and is
+provided for backward compatibility.
+.SH RETURN VALUE
+All functions return a pointer to a newly allocated
+.B lpm_trie_t
+structure on success. On failure (memory allocation error), they return
+.BR NULL .
+.SH EXAMPLES
+.SS Creating IPv4 and IPv6 Tries
+.EX
+#include <lpm.h>
+#include <stdio.h>
+
+int main(void) {
+    // Create IPv4 trie (uses default algorithm)
+    lpm_trie_t *ipv4_trie = lpm_create_ipv4();
+    if (!ipv4_trie) {
+        fprintf(stderr, "Failed to create IPv4 trie\\n");
+        return 1;
+    }
+
+    // Create IPv6 trie (uses default algorithm)
+    lpm_trie_t *ipv6_trie = lpm_create_ipv6();
+    if (!ipv6_trie) {
+        fprintf(stderr, "Failed to create IPv6 trie\\n");
+        lpm_destroy(ipv4_trie);
+        return 1;
+    }
+
+    // Use tries...
+
+    // Cleanup
+    lpm_destroy(ipv4_trie);
+    lpm_destroy(ipv6_trie);
+    return 0;
+}
+.EE
+.SS Explicit Algorithm Selection
+.EX
+#include <lpm.h>
+
+int main(void) {
+    // Explicitly use DIR-24-8 for IPv4
+    lpm_trie_t *fast_ipv4 = lpm_create_ipv4_dir24();
+
+    // Explicitly use 8-bit stride for memory efficiency
+    lpm_trie_t *small_ipv4 = lpm_create_ipv4_8stride();
+
+    // Explicitly use wide stride for IPv6
+    lpm_trie_t *ipv6 = lpm_create_ipv6_wide16();
+
+    // ... use tries ...
+
+    lpm_destroy(fast_ipv4);
+    lpm_destroy(small_ipv4);
+    lpm_destroy(ipv6);
+    return 0;
+}
+.EE
+.SS Legacy API Usage
+.EX
+#include <lpm.h>
+
+int main(void) {
+    // Legacy: create IPv4 trie with max depth 32
+    lpm_trie_t *trie = lpm_create(32);
+    
+    // Legacy: create IPv6 trie with max depth 128
+    lpm_trie_t *trie6 = lpm_create(128);
+
+    // ... use tries ...
+
+    lpm_destroy(trie);
+    lpm_destroy(trie6);
+    return 0;
+}
+.EE
+.SH NOTES
+.SS Algorithm Selection at Compile Time
+The default algorithms for
+.BR lpm_create_ipv4 ()
+and
+.BR lpm_create_ipv6 ()
+can be configured via CMake options:
+.PP
+.RS
+.nf
+cmake -DLPM_IPV4_DEFAULT=stride8 ..  # Use 8-bit stride for IPv4
+cmake -DLPM_IPV6_DEFAULT=stride8 ..  # Use 8-bit stride for IPv6
+.fi
+.RE
+.PP
+Default values are:
+.IP \(bu 2
+.B LPM_IPV4_DEFAULT=dir24
+.IP \(bu 2
+.B LPM_IPV6_DEFAULT=wide16
+.SS Memory Allocation
+Tries use dynamic memory allocation. The initial allocation is minimal,
+and memory grows as prefixes are added. For DIR-24-8, the 24-bit table
+(~64 MB) is allocated upfront for consistent performance.
+.SS Thread Safety
+The returned trie pointer can be used from any thread, but concurrent
+access to the same trie requires external synchronization.
+.SH SEE ALSO
+.BR liblpm (3),
+.BR lpm_add (3),
+.BR lpm_lookup (3),
+.BR lpm_destroy (3),
+.BR lpm_algorithms (3)
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+Licensed under the Boost Software License 1.0.

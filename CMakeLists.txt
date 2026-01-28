@@ -279,6 +279,13 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liblpm.pc
     COMPONENT devel
 )
 
+# Install man pages (devel component)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/docs/man/man3
+    DESTINATION ${CMAKE_INSTALL_MANDIR}
+    COMPONENT devel
+    FILES_MATCHING PATTERN "*.3"
+)
+
 # Tests
 if(BUILD_TESTS)
     enable_testing()

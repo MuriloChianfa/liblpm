@@ -1,0 +1,217 @@
+.\" lpm_add.3 - Route addition functions
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LPM_ADD 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+lpm_add, lpm_add_ipv4_dir24, lpm_add_ipv4_8stride, lpm_add_ipv6_wide16, lpm_add_ipv6_8stride \- add prefixes to LPM trie
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.B "/* Generic API */"
+.BI "int lpm_add(lpm_trie_t *" trie ", const uint8_t *" prefix ", uint8_t " prefix_len ","
+.BI "            uint32_t " next_hop ");"
+.PP
+.B "/* Algorithm-specific API */"
+.BI "int lpm_add_ipv4_dir24(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                       uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_add_ipv4_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                         uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_add_ipv6_wide16(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                        uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_add_ipv6_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                         uint8_t " prefix_len ", uint32_t " next_hop ");"
+.fi
+.SH DESCRIPTION
+These functions add a network prefix and its associated next-hop value
+to an LPM trie. If the prefix already exists, its next-hop value is
+updated.
+.SS Parameters
+.TP
+.I trie
+Pointer to the LPM trie structure, previously created with one of the
+.BR lpm_create* ()
+functions.
+.TP
+.I prefix
+Pointer to the network prefix in
+.B network byte order
+(most significant byte first). For IPv4, this is a 4-byte array.
+For IPv6, this is a 16-byte array. Only the bits covered by
+.I prefix_len
+are used; remaining bits are ignored.
+.TP
+.I prefix_len
+The prefix length in bits. Valid ranges:
+.RS
+.IP \(bu 2
+IPv4: 0 to 32
+.IP \(bu 2
+IPv6: 0 to 128
+.RE
+.IP
+A prefix length of 0 installs a default route.
+.TP
+.I next_hop
+A 32-bit value to associate with this prefix. This is typically a
+next-hop identifier, interface index, or pointer cast to uint32_t.
+The special value
+.B LPM_INVALID_NEXT_HOP
+(0xFFFFFFFF) should not be used as it indicates "no match" in lookups.
+.SS Generic Function
+.TP
+.BR lpm_add ()
+Works with any trie type. Automatically dispatches to the appropriate
+algorithm based on the trie's configuration. This is the recommended
+function for most use cases.
+.SS Algorithm-Specific Functions
+These functions are provided for cases where you need explicit control
+over the algorithm being used. They must be called with a trie created
+by the corresponding
+.BR lpm_create_* ()
+function.
+.SH RETURN VALUE
+Returns
+.B 0
+on success.
+.PP
+Returns
+.B \-1
+on error. Errors include:
+.IP \(bu 2
+.I trie
+is NULL
+.IP \(bu 2
+.I prefix
+is NULL
+.IP \(bu 2
+.I prefix_len
+exceeds the trie's maximum depth
+.IP \(bu 2
+Memory allocation failure (when new trie nodes are needed)
+.SH EXAMPLES
+.SS Adding IPv4 Routes
+.EX
+#include <lpm.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+    int ret;
+
+    // Add 0.0.0.0/0 as default route -> next hop 1
+    uint8_t default_route[] = {0, 0, 0, 0};
+    ret = lpm_add(trie, default_route, 0, 1);
+
+    // Add 10.0.0.0/8 -> next hop 10
+    uint8_t private_a[] = {10, 0, 0, 0};
+    ret = lpm_add(trie, private_a, 8, 10);
+
+    // Add 192.168.1.0/24 -> next hop 100
+    uint8_t lan[] = {192, 168, 1, 0};
+    ret = lpm_add(trie, lan, 24, 100);
+
+    // Add host route 192.168.1.1/32 -> next hop 101
+    uint8_t host[] = {192, 168, 1, 1};
+    ret = lpm_add(trie, host, 32, 101);
+
+    // Update existing prefix (192.168.1.0/24 -> new next hop 200)
+    ret = lpm_add(trie, lan, 24, 200);
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Adding IPv6 Routes
+.EX
+#include <lpm.h>
+#include <string.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv6();
+
+    // Add ::/0 default route
+    uint8_t default6[16] = {0};
+    lpm_add(trie, default6, 0, 1);
+
+    // Add 2001:db8::/32 documentation prefix
+    uint8_t doc[16] = {0x20, 0x01, 0x0d, 0xb8};
+    lpm_add(trie, doc, 32, 100);
+
+    // Add 2001:db8:1234::/48 more specific
+    uint8_t net48[16] = {0x20, 0x01, 0x0d, 0xb8, 0x12, 0x34};
+    lpm_add(trie, net48, 48, 200);
+
+    // Add fe80::/10 link-local
+    uint8_t linklocal[16] = {0xfe, 0x80};
+    lpm_add(trie, linklocal, 10, 300);
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Error Handling
+.EX
+#include <lpm.h>
+#include <stdio.h>
+#include <errno.h>
+
+int add_route(lpm_trie_t *trie, const char *name,
+              const uint8_t *prefix, uint8_t len, uint32_t nh) {
+    if (lpm_add(trie, prefix, len, nh) != 0) {
+        fprintf(stderr, "Failed to add route %s/%u\\n", name, len);
+        return -1;
+    }
+    return 0;
+}
+.EE
+.SH NOTES
+.SS Overlapping Prefixes
+Multiple prefixes can overlap. When looking up an address, the longest
+(most specific) matching prefix wins. For example:
+.RS
+.IP \(bu 2
+10.0.0.0/8 -> 1
+.IP \(bu 2
+10.1.0.0/16 -> 2
+.IP \(bu 2
+10.1.2.0/24 -> 3
+.RE
+.PP
+Looking up 10.1.2.3 returns 3 (the /24 is longest match).
+.SS Default Routes
+A prefix length of 0 creates a default route that matches all addresses.
+This is useful as a fallback when no more specific prefix matches.
+.SS Memory Growth
+Adding prefixes may cause the trie to allocate additional memory for
+new nodes. The
+.B lpm_add()
+function may fail if memory allocation fails.
+.SS Update Semantics
+If a prefix already exists in the trie, calling
+.BR lpm_add ()
+with the same prefix updates the next-hop value. No duplicate entries
+are created.
+.SS Thread Safety
+The
+.BR lpm_add ()
+function is
+.B not
+thread-safe. Do not call it concurrently with other
+.BR lpm_add (),
+.BR lpm_delete (),
+or
+.BR lpm_lookup* ()
+calls on the same trie without external synchronization.
+.SH SEE ALSO
+.BR liblpm (3),
+.BR lpm_create (3),
+.BR lpm_lookup (3),
+.BR lpm_delete (3),
+.BR lpm_destroy (3)
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+Licensed under the Boost Software License 1.0.

@@ -254,7 +254,22 @@ If you see "BAD signature", **do not use** the binary - it may have been tampere
 
 ## Documentation
 
-Additional documentation:
+### Manual Pages
+
+After installation, comprehensive man pages are available:
+
+```bash
+man liblpm          # Library overview and getting started
+man lpm_create      # Trie creation functions
+man lpm_lookup      # Lookup functions (single and batch)
+man lpm_add         # Adding prefixes
+man lpm_delete      # Removing prefixes
+man lpm_destroy     # Cleanup and utilities
+man lpm_algorithms  # Algorithm-specific APIs
+```
+
+### Additional Documentation
+
 - [Byte Order and Data Format](docs/BYTE_ORDER.md) - Endianness, IP address storage, and integration guide
 - [C++ API Reference](bindings/cpp/README.md) - C++ wrapper documentation
 - [Go API Reference](bindings/go/README.md) - Go bindings documentation

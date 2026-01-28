@@ -1,0 +1,190 @@
+.\" lpm_delete.3 - Route deletion functions
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LPM_DELETE 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+lpm_delete, lpm_delete_ipv4_dir24, lpm_delete_ipv4_8stride, lpm_delete_ipv6_wide16, lpm_delete_ipv6_8stride \- remove prefixes from LPM trie
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.B "/* Generic API */"
+.BI "int lpm_delete(lpm_trie_t *" trie ", const uint8_t *" prefix ", uint8_t " prefix_len ");"
+.PP
+.B "/* Algorithm-specific API */"
+.BI "int lpm_delete_ipv4_dir24(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                          uint8_t " prefix_len ");"
+.BI "int lpm_delete_ipv4_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                            uint8_t " prefix_len ");"
+.BI "int lpm_delete_ipv6_wide16(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                           uint8_t " prefix_len ");"
+.BI "int lpm_delete_ipv6_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                            uint8_t " prefix_len ");"
+.fi
+.SH DESCRIPTION
+These functions remove a network prefix from an LPM trie. After deletion,
+lookups that previously matched this prefix will fall back to the next
+longest matching prefix (or return
+.B LPM_INVALID_NEXT_HOP
+if no other prefix matches).
+.SS Parameters
+.TP
+.I trie
+Pointer to the LPM trie structure.
+.TP
+.I prefix
+Pointer to the network prefix in
+.B network byte order
+(most significant byte first). This must match exactly the prefix
+that was previously added.
+.TP
+.I prefix_len
+The prefix length in bits. Must match exactly the prefix length that
+was used when the prefix was added.
+.SS Generic Function
+.TP
+.BR lpm_delete ()
+Works with any trie type. This is the recommended function for most
+use cases.
+.SS Algorithm-Specific Functions
+Provided for explicit algorithm control. Must be used with the
+corresponding trie type.
+.SH RETURN VALUE
+Returns
+.B 0
+on success (prefix was found and deleted).
+.PP
+Returns
+.B \-1
+on error. Errors include:
+.IP \(bu 2
+.I trie
+is NULL
+.IP \(bu 2
+.I prefix
+is NULL
+.IP \(bu 2
+The specified prefix was not found in the trie
+.IP \(bu 2
+.I prefix_len
+exceeds the trie's maximum depth
+.SH EXAMPLES
+.SS Deleting Routes
+.EX
+#include <lpm.h>
+#include <stdio.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+
+    // Add some routes
+    uint8_t net1[] = {192, 168, 0, 0};
+    uint8_t net2[] = {192, 168, 1, 0};
+    lpm_add(trie, net1, 16, 100);  // 192.168.0.0/16
+    lpm_add(trie, net2, 24, 200);  // 192.168.1.0/24
+
+    // Delete the /24 route
+    if (lpm_delete(trie, net2, 24) == 0) {
+        printf("Deleted 192.168.1.0/24\\n");
+    }
+
+    // Now lookups for 192.168.1.x fall back to /16
+    uint32_t addr = (192U << 24) | (168U << 16) | (1U << 8) | 50U;
+    uint32_t nh = lpm_lookup_ipv4(trie, addr);
+    printf("Next hop: %u\\n", nh);  // Prints: 100
+
+    // Try to delete non-existent route
+    uint8_t net3[] = {10, 0, 0, 0};
+    if (lpm_delete(trie, net3, 8) != 0) {
+        printf("Route 10.0.0.0/8 not found\\n");
+    }
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Route Table Management
+.EX
+#include <lpm.h>
+
+// Structure to track routes
+typedef struct {
+    uint8_t prefix[16];
+    uint8_t prefix_len;
+    uint32_t next_hop;
+} route_entry_t;
+
+// Remove a route and verify
+int remove_route(lpm_trie_t *trie, route_entry_t *route) {
+    int ret = lpm_delete(trie, route->prefix, route->prefix_len);
+    if (ret != 0) {
+        // Route not found - may have been already deleted
+        return -1;
+    }
+    return 0;
+}
+
+// Replace a route (delete + add with new next hop)
+int replace_route(lpm_trie_t *trie, const uint8_t *prefix,
+                  uint8_t prefix_len, uint32_t new_next_hop) {
+    // Note: lpm_add() updates existing entries, so delete is optional
+    // But explicit delete + add ensures clean replacement
+    lpm_delete(trie, prefix, prefix_len);  // Ignore if not found
+    return lpm_add(trie, prefix, prefix_len, new_next_hop);
+}
+.EE
+.SH NOTES
+.SS Exact Match Required
+The
+.I prefix
+and
+.I prefix_len
+must exactly match what was used in
+.BR lpm_add ().
+For example, if you added 192.168.0.0/16, you must delete with
+exactly the same prefix bytes and length 16.
+.SS Memory Reclamation
+Deleting a prefix marks it as removed but may not immediately free
+the underlying trie nodes. Memory is typically reclaimed when:
+.IP \(bu 2
+The trie is destroyed with
+.BR lpm_destroy ()
+.IP \(bu 2
+The node becomes completely empty (implementation-dependent)
+.SS Fallback Behavior
+After deleting a prefix, lookups that matched it will now match the
+next longest prefix in the trie, or return
+.B LPM_INVALID_NEXT_HOP
+if no prefix matches.
+.PP
+Example:
+.RS
+.nf
+Add: 10.0.0.0/8 -> 1
+Add: 10.1.0.0/16 -> 2
+Lookup 10.1.2.3 -> returns 2
+
+Delete: 10.1.0.0/16
+Lookup 10.1.2.3 -> now returns 1 (falls back to /8)
+.fi
+.RE
+.SS Thread Safety
+The
+.BR lpm_delete ()
+function is
+.B not
+thread-safe. Do not call it concurrently with other trie operations
+without external synchronization.
+.SH SEE ALSO
+.BR liblpm (3),
+.BR lpm_create (3),
+.BR lpm_add (3),
+.BR lpm_lookup (3),
+.BR lpm_destroy (3)
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+Licensed under the Boost Software License 1.0.

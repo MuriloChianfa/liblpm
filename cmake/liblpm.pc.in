@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: liblpm
+Description: High-performance Longest Prefix Match library for IP routing
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -llpm
+Libs.private: -lm
+Cflags: -I${includedir}/lpm

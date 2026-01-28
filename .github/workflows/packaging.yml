@@ -1,0 +1,382 @@
+name: Build Packages
+
+on:
+  #push:
+  #  tags:
+  #    - 'v*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'repo/**'
+      - '.github/workflows/packaging.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish packages to repository'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # ============================================================================
+  # Build DEB packages for Debian/Ubuntu
+  # ============================================================================
+  build-deb:
+    name: Build DEB (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-22.04
+            image: ubuntu:22.04
+            codename: jammy
+          - distro: ubuntu-24.04
+            image: ubuntu:24.04
+            codename: noble
+          - distro: debian-13
+            image: debian:trixie
+            codename: trixie
+
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            build-essential \
+            cmake \
+            git \
+            file \
+            dpkg-dev \
+            debhelper
+
+      - name: Install GCC 13 (for older distros)
+        if: matrix.distro == 'ubuntu-22.04'
+        run: |
+          # Ubuntu 22.04: Add toolchain PPA for GCC 13
+          apt-get install -y software-properties-common
+          add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          apt-get update
+          apt-get install -y gcc-13 g++-13
+          update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+          gcc --version
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_BENCHMARKS=OFF \
+            -DBUILD_GO_WRAPPER=OFF \
+            -DBUILD_CPP_WRAPPER=OFF
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Build DEB packages
+        run: |
+          cd build
+          cpack -G DEB
+          ls -la *.deb
+
+      - name: Upload DEB artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.codename }}
+          path: build/*.deb
+          retention-days: 7
+
+  # ============================================================================
+  # Build RPM packages for EL (Rocky/RHEL)
+  # ============================================================================
+  build-rpm-el:
+    name: Build RPM (EL ${{ matrix.version }})
+    runs-on: ubuntu-latest
+    container: rockylinux:${{ matrix.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 8
+            family: el
+          - version: 9
+            family: el
+
+    steps:
+      - name: Install dependencies
+        run: |
+          # Enable EPEL and PowerTools/CRB for additional packages
+          dnf install -y epel-release
+          if [ "${{ matrix.version }}" = "8" ]; then
+            dnf config-manager --set-enabled powertools || dnf config-manager --set-enabled PowerTools
+          else
+            dnf config-manager --set-enabled crb || dnf config-manager --set-enabled CRB
+          fi
+          
+          dnf install -y \
+            gcc \
+            gcc-c++ \
+            cmake \
+            git \
+            rpm-build \
+            make
+
+      - name: Install GCC 13 (for EL systems)
+        run: |
+          if [ "${{ matrix.version }}" = "8" ]; then
+            # EL 8: Install GCC Toolset 13
+            dnf install -y gcc-toolset-13-gcc gcc-toolset-13-gcc-c++
+            echo "source /opt/rh/gcc-toolset-13/enable" >> ~/.bashrc
+            source /opt/rh/gcc-toolset-13/enable
+          elif [ "${{ matrix.version }}" = "9" ]; then
+            # EL 9: Install GCC Toolset 13
+            dnf install -y gcc-toolset-13-gcc gcc-toolset-13-gcc-c++
+            echo "source /opt/rh/gcc-toolset-13/enable" >> ~/.bashrc
+            source /opt/rh/gcc-toolset-13/enable
+          fi
+          gcc --version
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: |
+          # Enable GCC toolset for EL systems
+          if [ -f /opt/rh/gcc-toolset-13/enable ]; then
+            source /opt/rh/gcc-toolset-13/enable
+          fi
+          
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_BENCHMARKS=OFF \
+            -DBUILD_GO_WRAPPER=OFF \
+            -DBUILD_CPP_WRAPPER=OFF
+
+      - name: Build
+        run: |
+          # Enable GCC toolset for EL systems
+          if [ -f /opt/rh/gcc-toolset-13/enable ]; then
+            source /opt/rh/gcc-toolset-13/enable
+          fi
+          
+          cmake --build build --parallel $(nproc)
+
+      - name: Build RPM packages
+        run: |
+          # Enable GCC toolset for EL systems
+          if [ -f /opt/rh/gcc-toolset-13/enable ]; then
+            source /opt/rh/gcc-toolset-13/enable
+          fi
+          
+          cd build
+          cpack -G RPM
+          ls -la *.rpm
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-el${{ matrix.version }}
+          path: build/*.rpm
+          retention-days: 7
+
+  # ============================================================================
+  # Build RPM packages for Fedora
+  # ============================================================================
+  build-rpm-fedora:
+    name: Build RPM (Fedora ${{ matrix.version }})
+    runs-on: ubuntu-latest
+    container: fedora:${{ matrix.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 40
+            family: fedora
+          - version: 41
+            family: fedora
+
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc \
+            gcc-c++ \
+            cmake \
+            git \
+            rpm-build \
+            make
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_BENCHMARKS=OFF \
+            -DBUILD_GO_WRAPPER=OFF \
+            -DBUILD_CPP_WRAPPER=OFF
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Build RPM packages
+        run: |
+          cd build
+          cpack -G RPM
+          ls -la *.rpm
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-fedora${{ matrix.version }}
+          path: build/*.rpm
+          retention-days: 7
+
+  # ============================================================================
+  # Create release with all packages (only on tag push)
+  # ============================================================================
+  release:
+    name: Create Release
+    needs: [build-deb, build-rpm-el, build-rpm-fedora]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: packages
+
+      - name: Organize packages
+        run: |
+          mkdir -p release/deb release/rpm/el/8/x86_64 release/rpm/el/9/x86_64
+          mkdir -p release/rpm/fedora/40/x86_64 release/rpm/fedora/41/x86_64
+          
+          # Copy DEB packages
+          cp packages/deb-*/*.deb release/deb/ || true
+          
+          # Copy EL RPM packages
+          cp packages/rpm-el8/*.rpm release/rpm/el/8/x86_64/ || true
+          cp packages/rpm-el9/*.rpm release/rpm/el/9/x86_64/ || true
+          
+          # Copy Fedora RPM packages
+          cp packages/rpm-fedora40/*.rpm release/rpm/fedora/40/x86_64/ || true
+          cp packages/rpm-fedora41/*.rpm release/rpm/fedora/41/x86_64/ || true
+          
+          # Create checksums
+          cd release
+          find . -name "*.deb" -o -name "*.rpm" | while read f; do
+            sha256sum "$f" >> SHA256SUMS
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/deb/*.deb
+            release/rpm/**/*.rpm
+            release/SHA256SUMS
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # Test package installation
+  # ============================================================================
+  test-deb-install:
+    name: Test DEB Install (${{ matrix.distro }})
+    needs: build-deb
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-22.04
+            image: ubuntu:22.04
+            codename: jammy
+          - distro: ubuntu-24.04
+            image: ubuntu:24.04
+            codename: noble
+          - distro: debian-13
+            image: debian:trixie
+            codename: trixie
+
+    steps:
+      - name: Download DEB artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-${{ matrix.codename }}
+          path: packages
+
+      - name: Install packages
+        run: |
+          apt-get update
+          apt-get install -y ./packages/liblpm_*.deb ./packages/liblpm-dev_*.deb
+
+      - name: Verify installation
+        run: |
+          # Check library is installed
+          ldconfig -p | grep liblpm
+          
+          # Check headers are installed
+          ls -la /usr/include/lpm/
+          
+          # Check pkg-config
+          apt-get install -y pkg-config
+          pkg-config --modversion liblpm
+          pkg-config --libs liblpm
+          pkg-config --cflags liblpm
+
+  test-rpm-install:
+    name: Test RPM Install (EL ${{ matrix.version }})
+    needs: build-rpm-el
+    runs-on: ubuntu-latest
+    container: rockylinux:${{ matrix.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 8
+          - version: 9
+
+    steps:
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-el${{ matrix.version }}
+          path: packages
+
+      - name: Install packages
+        run: |
+          dnf install -y ./packages/liblpm-*.rpm ./packages/liblpm-devel-*.rpm
+
+      - name: Verify installation
+        run: |
+          # Check library is installed
+          ldconfig -p | grep liblpm
+          
+          # Check headers are installed
+          ls -la /usr/include/lpm/
+          
+          # Check pkg-config
+          dnf install -y pkgconfig
+          pkg-config --modversion liblpm
+          pkg-config --libs liblpm
+          pkg-config --cflags liblpm

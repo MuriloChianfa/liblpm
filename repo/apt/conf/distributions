@@ -1,0 +1,52 @@
+# liblpm APT repository distributions configuration
+# Managed by reprepro
+
+# Ubuntu 22.04 LTS (Jammy Jellyfish)
+Origin: liblpm
+Label: liblpm
+Suite: jammy
+Codename: jammy
+Architectures: amd64 source
+Components: main
+Description: liblpm packages for Ubuntu 22.04 LTS (Jammy)
+SignWith: default
+
+# Ubuntu 24.04 LTS (Noble Numbat)
+Origin: liblpm
+Label: liblpm
+Suite: noble
+Codename: noble
+Architectures: amd64 source
+Components: main
+Description: liblpm packages for Ubuntu 24.04 LTS (Noble)
+SignWith: default
+
+# Debian 11 (Bullseye)
+Origin: liblpm
+Label: liblpm
+Suite: bullseye
+Codename: bullseye
+Architectures: amd64 source
+Components: main
+Description: liblpm packages for Debian 11 (Bullseye)
+SignWith: default
+
+# Debian 12 (Bookworm)
+Origin: liblpm
+Label: liblpm
+Suite: bookworm
+Codename: bookworm
+Architectures: amd64 source
+Components: main
+Description: liblpm packages for Debian 12 (Bookworm)
+SignWith: default
+
+# Debian 13 (Trixie)
+Origin: liblpm
+Label: liblpm
+Suite: trixie
+Codename: trixie
+Architectures: amd64 source
+Components: main
+Description: liblpm packages for Debian 13 (Trixie)
+SignWith: default

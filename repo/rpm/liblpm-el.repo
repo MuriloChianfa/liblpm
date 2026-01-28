@@ -1,0 +1,11 @@
+# liblpm repository for Enterprise Linux (RHEL, Rocky Linux, AlmaLinux, CentOS Stream)
+# Install with: sudo dnf config-manager --add-repo https://archive.example.com.br/rpm/el/liblpm-el.repo
+# Or copy this file to /etc/yum.repos.d/liblpm.repo
+
+[liblpm-el]
+name=liblpm for EL $releasever - $basearch
+baseurl=https://archive.example.com.br/rpm/el/$releasever/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://archive.example.com.br/rpm/RPM-GPG-KEY-liblpm
+metadata_expire=1d

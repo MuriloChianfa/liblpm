@@ -64,9 +64,12 @@ docs/_build/
 docs/html/
 docs/latex/
 
-# Docker files (we're already in Docker context)
-docker/
-Dockerfile*
+# Docker files (selective - keep packaging Dockerfiles and scripts)
+# Exclude most docker files but keep the ones needed for packaging
+!docker/Dockerfile.deb
+!docker/Dockerfile.rpm
+!docker/scripts/build-deb.sh
+!docker/scripts/build-rpm.sh
 .dockerignore
 
 # Scripts (selective)
@@ -77,11 +80,14 @@ scripts/compare_compilers.sh
 compiler_comparison_results.txt
 benchmark_results.txt
 
-# Package manager artifacts
+# Package manager artifacts (exclude generated packages but keep them out of git)
 *.deb
 *.rpm
 *.tar.gz
 *.zip
+packages/
+repo/*.deb
+repo/*.rpm
 
 # Python
 __pycache__/

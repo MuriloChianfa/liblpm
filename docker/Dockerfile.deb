@@ -1,0 +1,33 @@
+# Dockerfile for building DEB packages for liblpm
+# Supports multiple Debian/Ubuntu versions
+
+ARG DEBIAN_VERSION=bookworm
+FROM debian:${DEBIAN_VERSION}
+
+# Set non-interactive mode for apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    dpkg-dev \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy build script
+COPY docker/scripts/build-deb.sh /usr/local/bin/build-deb.sh
+RUN chmod +x /usr/local/bin/build-deb.sh
+
+# Create output directory for packages
+RUN mkdir -p /packages
+
+# Volume mount points
+VOLUME ["/workspace", "/packages"]
+
+# Default command
+CMD ["/usr/local/bin/build-deb.sh"]

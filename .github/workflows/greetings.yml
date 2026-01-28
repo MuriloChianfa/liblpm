@@ -17,8 +17,8 @@ jobs:
       - name: Greet first-time contributors
         uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: |
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
             👋 Thanks for opening your first issue in liblpm!
             
             We appreciate you taking the time to contribute. A maintainer will review your issue and respond as soon as possible.
@@ -29,7 +29,7 @@ jobs:
             - Feel free to join the [Discussions](https://github.com/MuriloChianfa/liblpm/discussions) for questions
             
             Thanks for helping make liblpm better! 🚀
-          pr-message: |
+          pr_message: |
             🎉 Thanks for opening your first pull request in liblpm!
             
             We're excited to review your contribution. Here's what happens next:

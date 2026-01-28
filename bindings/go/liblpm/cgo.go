@@ -1,7 +1,7 @@
 package liblpm
 
 /*
-#cgo CFLAGS: -I/usr/local/include -I../../include
+#cgo CFLAGS: -I/usr/local/include/lpm -I../../include
 #cgo LDFLAGS: -L/usr/local/lib -L../../build -llpm -Wl,-rpath,/usr/local/lib -Wl,-rpath,${SRCDIR}/../../build
 
 #include <lpm.h>

@@ -1,0 +1,41 @@
+# Dockerfile for building RPM packages for liblpm
+# Supports multiple RHEL/Rocky Linux/Fedora versions
+
+ARG DISTRO=rockylinux
+ARG VERSION=9
+FROM ${DISTRO}:${VERSION}
+
+# Install build dependencies
+RUN dnf install -y \
+    gcc \
+    gcc-c++ \
+    make \
+    cmake \
+    git \
+    rpm-build \
+    file \
+    && dnf clean all
+
+# For Rocky Linux 9 / EL9, install GCC toolset 13 for better C23 support
+# Fedora already has GCC 13+ built-in
+ARG DISTRO=rockylinux
+ARG VERSION=9
+RUN if [ "${DISTRO}" = "rockylinux" ] && [ "${VERSION}" = "9" ]; then \
+        dnf install -y gcc-toolset-13 && dnf clean all; \
+    fi
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy build script
+COPY docker/scripts/build-rpm.sh /usr/local/bin/build-rpm.sh
+RUN chmod +x /usr/local/bin/build-rpm.sh
+
+# Create output directory for packages
+RUN mkdir -p /packages
+
+# Volume mount points
+VOLUME ["/workspace", "/packages"]
+
+# Default command
+CMD ["/usr/local/bin/build-rpm.sh"]

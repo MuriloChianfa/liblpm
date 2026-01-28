@@ -1,0 +1,11 @@
+# liblpm repository for Fedora
+# Install with: sudo dnf config-manager --add-repo https://archive.example.com.br/rpm/fedora/liblpm-fedora.repo
+# Or copy this file to /etc/yum.repos.d/liblpm.repo
+
+[liblpm-fedora]
+name=liblpm for Fedora $releasever - $basearch
+baseurl=https://archive.example.com.br/rpm/fedora/$releasever/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://archive.example.com.br/rpm/RPM-GPG-KEY-liblpm
+metadata_expire=1d

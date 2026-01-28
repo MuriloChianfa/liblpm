@@ -69,20 +69,48 @@ Browse all benchmark charts in [docs/images/](docs/images/README.md).
 </details>
 
 ### Build & Install
-```bash
-# Clone with submodules
-git clone --recursive https://github.com/MuriloChianfa/liblpm.git
-cd liblpm
 
-# Or if already cloned, initialize submodules
-git submodule update --init --recursive
+<details open>
+  <summary style="font-size: 16px;"><strong>From Source</strong></summary>
 
-# Build
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
-sudo make install
-```
+  ```bash
+  # Clone with submodules
+  git clone --recursive https://github.com/MuriloChianfa/liblpm.git
+  cd liblpm
+  
+  # Or if already cloned, initialize submodules
+  git submodule update --init --recursive
+  
+  # Build
+  mkdir build && cd build
+  cmake ..
+  make -j$(nproc)
+  sudo make install
+  ```
+</details>
+
+<details open>
+  <summary style="font-size: 16px;"><strong>From Package Repository</strong></summary>
+
+  **Ubuntu/Debian:**
+  ```bash
+  curl -fsSL https://archive.made4it.com.br/apt/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/liblpm.gpg
+  echo "deb [signed-by=/usr/share/keyrings/liblpm.gpg] https://archive.made4it.com.br/apt $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/liblpm.list
+  sudo apt update && sudo apt install liblpm liblpm-dev
+  ```
+
+  **Fedora:**
+  ```bash
+  sudo curl -fsSL https://archive.made4it.com.br/rpm/liblpm-fedora.repo -o /etc/yum.repos.d/liblpm-fedora.repo
+  sudo dnf install liblpm liblpm-devel
+  ```
+
+  **RHEL/Rocky/AlmaLinux:**
+  ```bash
+  sudo curl -fsSL https://archive.made4it.com.br/rpm/liblpm-fedora.repo -o /etc/yum.repos.d/liblpm-el.repo
+  sudo dnf install liblpm liblpm-devel
+  ```
+</details>
 
 ## Usage
 

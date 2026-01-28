@@ -1,0 +1,6 @@
+# reprepro options
+# Set basedir to the apt repository root
+# This should be overridden when running reprepro with -b option
+
+verbose
+ask-passphrase

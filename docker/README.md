@@ -13,6 +13,8 @@ Quick reference for liblpm Docker images.
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
+| `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
+| `liblpm-rpm` | RPM package builder | Building RHEL/Fedora/Rocky packages |
 
 ## Quick Start
 
@@ -87,6 +89,29 @@ docker run --rm liblpm-benchmark
 
 # With results output
 docker run --rm -v "$PWD/results:/build/results" liblpm-benchmark
+```
+
+### Package Building
+
+```bash
+# Build DEB packages (Debian/Ubuntu)
+docker build -f docker/Dockerfile.deb -t liblpm-deb .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb
+
+# Build DEB packages for specific Debian version
+docker build -f docker/Dockerfile.deb --build-arg DEBIAN_VERSION=bullseye -t liblpm-deb:bullseye .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb:bullseye
+
+# Build RPM packages (RHEL/Rocky Linux/Fedora)
+docker build -f docker/Dockerfile.rpm -t liblpm-rpm .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm
+
+# Build RPM packages for specific Rocky Linux version
+docker build -f docker/Dockerfile.rpm --build-arg ROCKYLINUX_VERSION=8 -t liblpm-rpm:rocky8 .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm:rocky8
+
+# Packages will be available in ./packages/ directory
+ls -lh packages/
 ```
 
 ## Image Details
@@ -185,6 +210,66 @@ DPDK 24.11 integration for performance comparison.
 docker run --rm --privileged liblpm-benchmark
 ```
 
+### liblpm-deb
+
+Debian/Ubuntu package builder using CPack.
+
+**Size:** ~400MB
+
+**Base images:** Debian (bookworm, bullseye) / Ubuntu (latest, 24.04, 22.04)
+
+**Output:** `.deb` packages for runtime and development
+
+**Usage:**
+
+```bash
+# Build for Debian Bookworm (default)
+docker build -f docker/Dockerfile.deb -t liblpm-deb .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb
+
+# Build for Debian Bullseye
+docker build -f docker/Dockerfile.deb --build-arg DEBIAN_VERSION=bullseye -t liblpm-deb:bullseye .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb:bullseye
+
+# Build for Ubuntu 24.04
+docker build -f docker/Dockerfile.deb --build-arg DEBIAN_VERSION=ubuntu:24.04 -t liblpm-deb:ubuntu24.04 .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb:ubuntu24.04
+```
+
+**Generated packages:**
+- `liblpm_2.0.0_amd64.deb` - Runtime library
+- `liblpm-dev_2.0.0_amd64.deb` - Development files
+
+### liblpm-rpm
+
+RHEL/Rocky Linux/Fedora package builder using CPack.
+
+**Size:** ~500MB
+
+**Base images:** Rocky Linux (9, 8) / Fedora (latest)
+
+**Output:** `.rpm` packages for runtime and development
+
+**Usage:**
+
+```bash
+# Build for Rocky Linux 9 (default)
+docker build -f docker/Dockerfile.rpm -t liblpm-rpm .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm
+
+# Build for Rocky Linux 8
+docker build -f docker/Dockerfile.rpm --build-arg ROCKYLINUX_VERSION=8 -t liblpm-rpm:rocky8 .
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm:rocky8
+
+# Build for Fedora
+docker build -f docker/Dockerfile.rpm --build-arg ROCKYLINUX_VERSION=latest -t liblpm-rpm:fedora . --build-arg BASE_IMAGE=fedora
+docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm:fedora
+```
+
+**Generated packages:**
+- `liblpm-2.0.0.x86_64.rpm` - Runtime library
+- `liblpm-devel-2.0.0.x86_64.rpm` - Development files
+
 ## Build Options
 
 ### Custom Tags
@@ -226,8 +311,10 @@ Approximate sizes (uncompressed):
 | liblpm-cpp | ~800MB |
 | liblpm-go | ~600MB |
 | liblpm-benchmark | ~1.5GB |
+| liblpm-deb | ~400MB |
+| liblpm-rpm | ~500MB |
 
-**Total:** ~6.5GB for all images
+**Total:** ~7.4GB for all images
 
 ## Toolchain Versions
 

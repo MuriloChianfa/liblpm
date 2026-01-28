@@ -1,0 +1,91 @@
+services:
+  # Ubuntu 24.04 DEB builder
+  ubuntu-noble:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.deb
+      args:
+        DISTRO: ubuntu
+        VERSION: "24.04"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-deb:ubuntu-24.04
+
+  # Ubuntu 22.04 DEB builder
+  ubuntu-jammy:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.deb
+      args:
+        DISTRO: ubuntu
+        VERSION: "22.04"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-deb:ubuntu-22.04
+
+  # Debian 12 DEB builder
+  debian-bookworm:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.deb
+      args:
+        DISTRO: debian
+        VERSION: "12"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-deb:debian-12
+
+  # Rocky Linux 9 RPM builder
+  rocky-9:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.rpm
+      args:
+        DISTRO: rockylinux
+        VERSION: "9"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-rpm:rockylinux-9
+
+  # Rocky Linux 8 RPM builder
+  rocky-8:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.rpm
+      args:
+        DISTRO: rockylinux
+        VERSION: "8"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-rpm:rockylinux-8
+
+  # Fedora 41 RPM builder
+  fedora-41:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.rpm
+      args:
+        DISTRO: fedora
+        VERSION: "41"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-rpm:fedora-41
+
+  # Fedora 40 RPM builder
+  fedora-40:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.rpm
+      args:
+        DISTRO: fedora
+        VERSION: "40"
+    volumes:
+      - ..:/workspace
+      - ../packages:/packages
+    image: liblpm-builder-rpm:fedora-40

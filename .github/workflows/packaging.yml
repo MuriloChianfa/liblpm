@@ -259,7 +259,7 @@ jobs:
     
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: packages
 
@@ -320,7 +320,7 @@ jobs:
 
     steps:
       - name: Download DEB artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: deb-${{ matrix.codename }}
           path: packages
@@ -358,7 +358,7 @@ jobs:
 
     steps:
       - name: Download RPM artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: rpm-el${{ matrix.version }}
           path: packages

@@ -72,7 +72,7 @@ jobs:
     
     steps:
       - name: Download benchmark image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: docker-image-benchmark
       

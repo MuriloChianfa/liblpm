@@ -210,66 +210,6 @@ DPDK 24.11 integration for performance comparison.
 docker run --rm --privileged liblpm-benchmark
 ```
 
-### liblpm-deb
-
-Debian/Ubuntu package builder using CPack.
-
-**Size:** ~400MB
-
-**Base images:** Debian (bookworm, bullseye) / Ubuntu (latest, 24.04, 22.04)
-
-**Output:** `.deb` packages for runtime and development
-
-**Usage:**
-
-```bash
-# Build for Debian Bookworm (default)
-docker build -f docker/Dockerfile.deb -t liblpm-deb .
-docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb
-
-# Build for Debian Bullseye
-docker build -f docker/Dockerfile.deb --build-arg DEBIAN_VERSION=bullseye -t liblpm-deb:bullseye .
-docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb:bullseye
-
-# Build for Ubuntu 24.04
-docker build -f docker/Dockerfile.deb --build-arg DEBIAN_VERSION=ubuntu:24.04 -t liblpm-deb:ubuntu24.04 .
-docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-deb:ubuntu24.04
-```
-
-**Generated packages:**
-- `liblpm_2.0.0_amd64.deb` - Runtime library
-- `liblpm-dev_2.0.0_amd64.deb` - Development files
-
-### liblpm-rpm
-
-RHEL/Rocky Linux/Fedora package builder using CPack.
-
-**Size:** ~500MB
-
-**Base images:** Rocky Linux (9, 8) / Fedora (latest)
-
-**Output:** `.rpm` packages for runtime and development
-
-**Usage:**
-
-```bash
-# Build for Rocky Linux 9 (default)
-docker build -f docker/Dockerfile.rpm -t liblpm-rpm .
-docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm
-
-# Build for Rocky Linux 8
-docker build -f docker/Dockerfile.rpm --build-arg ROCKYLINUX_VERSION=8 -t liblpm-rpm:rocky8 .
-docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm:rocky8
-
-# Build for Fedora
-docker build -f docker/Dockerfile.rpm --build-arg ROCKYLINUX_VERSION=latest -t liblpm-rpm:fedora . --build-arg BASE_IMAGE=fedora
-docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm:fedora
-```
-
-**Generated packages:**
-- `liblpm-2.0.0.x86_64.rpm` - Runtime library
-- `liblpm-devel-2.0.0.x86_64.rpm` - Development files
-
 ## Build Options
 
 ### Custom Tags

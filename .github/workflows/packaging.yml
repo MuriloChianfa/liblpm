@@ -1,9 +1,15 @@
 name: Build Packages
 
 on:
-  #push:
-  #  tags:
-  #    - 'v*'
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+    paths:
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'repo/**'
+      - '.github/workflows/packaging.yml'
   pull_request:
     branches: [main]
     paths:
@@ -247,54 +253,6 @@ jobs:
           name: rpm-fedora${{ matrix.version }}
           path: build/*.rpm
           retention-days: 7
-
-  # ============================================================================
-  # Create release with all packages (only on tag push)
-  # ============================================================================
-  release:
-    name: Create Release
-    needs: [build-deb, build-rpm-el, build-rpm-fedora]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: packages
-
-      - name: Organize packages
-        run: |
-          mkdir -p release/deb release/rpm/el/8/x86_64 release/rpm/el/9/x86_64
-          mkdir -p release/rpm/fedora/40/x86_64 release/rpm/fedora/41/x86_64
-          
-          # Copy DEB packages
-          cp packages/deb-*/*.deb release/deb/ || true
-          
-          # Copy EL RPM packages
-          cp packages/rpm-el8/*.rpm release/rpm/el/8/x86_64/ || true
-          cp packages/rpm-el9/*.rpm release/rpm/el/9/x86_64/ || true
-          
-          # Copy Fedora RPM packages
-          cp packages/rpm-fedora40/*.rpm release/rpm/fedora/40/x86_64/ || true
-          cp packages/rpm-fedora41/*.rpm release/rpm/fedora/41/x86_64/ || true
-          
-          # Create checksums
-          cd release
-          find . -name "*.deb" -o -name "*.rpm" | while read f; do
-            sha256sum "$f" >> SHA256SUMS
-          done
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            release/deb/*.deb
-            release/rpm/**/*.rpm
-            release/SHA256SUMS
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================================
   # Test package installation

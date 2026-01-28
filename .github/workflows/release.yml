@@ -1,0 +1,109 @@
+name: Create Release
+
+on:
+  workflow_run:
+    workflows: ["Build Packages"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Workflow run ID to get artifacts from latest commit'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    # Only create release on tag push and if the packaging workflow succeeded
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && 
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    
+    steps:
+      - name: Get workflow run ID
+        id: get_run_id
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.run_id }}" ]; then
+              echo "run_id=${{ inputs.run_id }}" >> $GITHUB_OUTPUT
+            else
+              # Get the latest successful packaging workflow run
+              RUN_ID=$(gh api repos/${{ github.repository }}/actions/workflows/packaging.yml/runs \
+                --jq '.workflow_runs | map(select(.conclusion == "success")) | .[0].id')
+              echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts from packaging workflow
+        uses: actions/download-artifact@v5
+        with:
+          run-id: ${{ steps.get_run_id.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: packages
+
+      - name: Organize packages
+        run: |
+          mkdir -p release/deb release/rpm/el/8/x86_64 release/rpm/el/9/x86_64
+          mkdir -p release/rpm/fedora/40/x86_64 release/rpm/fedora/41/x86_64
+          
+          # Copy DEB packages
+          cp packages/deb-*/*.deb release/deb/ || true
+          
+          # Copy EL RPM packages
+          cp packages/rpm-el8/*.rpm release/rpm/el/8/x86_64/ || true
+          cp packages/rpm-el9/*.rpm release/rpm/el/9/x86_64/ || true
+          
+          # Copy Fedora RPM packages
+          cp packages/rpm-fedora40/*.rpm release/rpm/fedora/40/x86_64/ || true
+          cp packages/rpm-fedora41/*.rpm release/rpm/fedora/41/x86_64/ || true
+          
+          # TODO: Add more artifact types here as needed
+          # Example:
+          # cp packages/macos-*/*.tar.gz release/macos/ || true
+          # cp packages/windows-*/*.zip release/windows/ || true
+          # cp packages/docs-*/*.pdf release/docs/ || true
+          
+          # Create checksums
+          cd release
+          find . -name "*.deb" -o -name "*.rpm" | while read f; do
+            sha256sum "$f" >> SHA256SUMS
+          done
+          
+          # Show what we're releasing
+          echo "=== Release contents ==="
+          ls -lR
+
+      - name: Get tag name
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # For manual dispatch, try to get tag from the workflow run
+            TAG=$(gh api repos/${{ github.repository }}/actions/runs/${{ steps.get_run_id.outputs.run_id }} \
+              --jq '.head_branch')
+          else
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          files: |
+            release/deb/*.deb
+            release/rpm/**/*.rpm
+            release/SHA256SUMS
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

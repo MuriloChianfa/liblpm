@@ -61,6 +61,7 @@ Each build produces two packages:
    - Header files: `/usr/include/lpm/*.h`
    - pkg-config file: `/usr/lib/x86_64-linux-gnu/pkgconfig/liblpm.pc`
    - CMake config files: `/usr/lib/x86_64-linux-gnu/cmake/liblpm/`
+   - Man pages: `/usr/share/man/man3/liblpm.3`, `lpm_*.3`
 
 ### RPM Packages
 
@@ -74,6 +75,7 @@ Each build produces two packages:
    - Header files: `/usr/include/lpm/*.h`
    - pkg-config file: `/usr/lib64/pkgconfig/liblpm.pc`
    - CMake config files: `/usr/lib64/cmake/liblpm/`
+   - Man pages: `/usr/share/man/man3/liblpm.3`, `lpm_*.3`
 
 ## Manual Building
 

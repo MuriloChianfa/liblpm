@@ -1,0 +1,230 @@
+.\" liblpm.3 - Main library overview man page
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LIBLPM 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+liblpm \- High-Performance Longest Prefix Match Library for IP Routing
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.BI "lpm_trie_t *lpm_create_ipv4(void);"
+.BI "lpm_trie_t *lpm_create_ipv6(void);"
+.PP
+.BI "int lpm_add(lpm_trie_t *" trie ", const uint8_t *" prefix ", uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_delete(lpm_trie_t *" trie ", const uint8_t *" prefix ", uint8_t " prefix_len ");"
+.PP
+.BI "uint32_t lpm_lookup_ipv4(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv6(const lpm_trie_t *" trie ", const uint8_t " addr "[16]);"
+.PP
+.BI "void lpm_destroy(lpm_trie_t *" trie ");"
+.PP
+.BI "const char *lpm_get_version(void);"
+.fi
+.PP
+Link with \fI\-llpm\fP or \fI$(pkg\-config \-\-libs liblpm)\fP
+.SH DESCRIPTION
+.B liblpm
+is a high-performance C library for Longest Prefix Match (LPM) lookups,
+optimized for IP routing table operations. It supports both IPv4 (32-bit)
+and IPv6 (128-bit) addresses with multiple algorithm implementations.
+.PP
+The library features:
+.IP \(bu 2
+\fBMulti-bit trie algorithms\fP with configurable stride sizes
+.IP \(bu 2
+\fBSIMD optimizations\fP via runtime CPU feature detection (SSE2, SSE4.2, AVX, AVX2, AVX512F)
+.IP \(bu 2
+\fBBatch processing\fP for high-throughput scenarios
+.IP \(bu 2
+\fBCache-friendly\fP data structures with aligned memory
+.IP \(bu 2
+\fBBranchless lookup paths\fP to minimize branch mispredictions
+.SS Available Algorithms
+.TP
+.B IPv4 DIR-24-8 (default)
+Uses a 24-bit direct table plus 8-bit extension tables.
+Achieves 1-2 memory accesses per lookup for most routes.
+Optimal for typical IPv4 routing tables.
+.TP
+.B IPv4 8-bit Stride
+Standard multi-bit trie with 8-bit stride (256 entries per node).
+Maximum 4 levels. Good for diverse prefix distributions.
+.TP
+.B IPv6 Wide 16-bit Stride (default)
+Uses 16-bit stride for the first level, then 8-bit for remaining levels.
+Optimized for common /48 allocations.
+.TP
+.B IPv6 8-bit Stride
+Standard 8-bit stride trie for IPv6. Maximum 16 levels.
+Memory-efficient for sparse prefix sets.
+.SS Generic vs Algorithm-Specific API
+The library provides both generic functions that dispatch to compile-time
+selected algorithms, and algorithm-specific functions for explicit control:
+.PP
+.B Generic API
+(dispatches based on CMake configuration):
+.RS
+.nf
+lpm_create_ipv4(), lpm_create_ipv6()
+lpm_lookup_ipv4(), lpm_lookup_ipv6()
+lpm_add(), lpm_delete()
+.fi
+.RE
+.PP
+.B Algorithm-Specific API
+(explicit algorithm selection):
+.RS
+.nf
+lpm_create_ipv4_dir24(), lpm_lookup_ipv4_dir24()
+lpm_create_ipv4_8stride(), lpm_lookup_ipv4_8stride()
+lpm_create_ipv6_wide16(), lpm_lookup_ipv6_wide16()
+lpm_create_ipv6_8stride(), lpm_lookup_ipv6_8stride()
+.fi
+.RE
+.SH RETURN VALUE
+.TP
+.B lpm_create_*()
+Returns a pointer to a newly allocated trie structure, or
+.B NULL
+on allocation failure.
+.TP
+.B lpm_add()
+Returns 0 on success, or -1 on error (invalid parameters or allocation failure).
+.TP
+.B lpm_delete()
+Returns 0 on success, or -1 if the prefix was not found.
+.TP
+.B lpm_lookup_*()
+Returns the next-hop value associated with the longest matching prefix, or
+.B LPM_INVALID_NEXT_HOP
+(0xFFFFFFFF) if no match is found.
+.TP
+.B lpm_get_version()
+Returns a pointer to a static string containing the library version.
+.SH EXAMPLES
+.SS Basic IPv4 Usage
+.EX
+#include <lpm.h>
+#include <stdio.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+    if (!trie) return 1;
+
+    // Add 192.168.0.0/16 -> next hop 100
+    uint8_t prefix[] = {192, 168, 0, 0};
+    lpm_add(trie, prefix, 16, 100);
+
+    // Add 192.168.1.0/24 -> next hop 200
+    uint8_t prefix2[] = {192, 168, 1, 0};
+    lpm_add(trie, prefix2, 24, 200);
+
+    // Lookup 192.168.1.50 -> returns 200 (longest match)
+    uint32_t addr = (192 << 24) | (168 << 16) | (1 << 8) | 50;
+    uint32_t next_hop = lpm_lookup_ipv4(trie, addr);
+    printf("Next hop: %u\\n", next_hop);
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS IPv6 Usage
+.EX
+#include <lpm.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv6();
+    if (!trie) return 1;
+
+    // Add 2001:db8::/32 -> next hop 100
+    uint8_t prefix[16] = {0x20, 0x01, 0x0d, 0xb8};
+    lpm_add(trie, prefix, 32, 100);
+
+    // Lookup
+    uint8_t addr[16] = {0x20, 0x01, 0x0d, 0xb8, 0x00, 0x01};
+    uint32_t next_hop = lpm_lookup_ipv6(trie, addr);
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Batch Lookup for High Throughput
+.EX
+#include <lpm.h>
+
+void process_packets(lpm_trie_t *trie, uint32_t *addrs, size_t count) {
+    uint32_t next_hops[count];
+    
+    // Process multiple addresses in a single call
+    lpm_lookup_batch_ipv4(trie, addrs, next_hops, count);
+    
+    // next_hops[] now contains results for all addresses
+}
+.EE
+.SS Compiling
+.EX
+# Using pkg-config (recommended)
+gcc -o myapp myapp.c $(pkg-config --cflags --libs liblpm)
+
+# Manual linking
+gcc -o myapp myapp.c -llpm -lm
+.EE
+.SH NOTES
+.SS SIMD Optimization
+The library automatically detects CPU features at program load time using
+GNU ifunc and selects the optimal SIMD implementation. No compile-time
+configuration is needed. Supported instruction sets:
+.IP \(bu 2
+SSE2 (baseline for x86_64)
+.IP \(bu 2
+SSE4.2
+.IP \(bu 2
+AVX
+.IP \(bu 2
+AVX2
+.IP \(bu 2
+AVX512F
+.SS Byte Order
+IP addresses are stored in network byte order (big-endian). When using
+the
+.B uint32_t
+variants for IPv4, ensure the address is in host byte order as shown
+in the examples. See the BYTE_ORDER documentation for details.
+.SS Thread Safety
+The trie structure is
+.B not
+thread-safe. Use external synchronization (mutexes, RCU, etc.) when
+sharing a trie between threads, or maintain separate tries per thread.
+.SS Memory Usage
+Memory consumption varies by algorithm:
+.IP \(bu 2
+DIR-24-8: ~64 MB base + extensions for /25-/32 routes
+.IP \(bu 2
+8-bit stride: ~2 KB per node, grows with prefix count
+.IP \(bu 2
+Wide 16-bit stride: ~512 KB for first level
+.SH SEE ALSO
+.BR lpm_create (3),
+.BR lpm_lookup (3),
+.BR lpm_add (3),
+.BR lpm_delete (3),
+.BR lpm_destroy (3),
+.BR lpm_algorithms (3)
+.PP
+Project documentation:
+.I https://github.com/MuriloChianfa/liblpm
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+.PP
+Licensed under the Boost Software License 1.0.
+See
+.I https://www.boost.org/LICENSE_1_0.txt
+for details.
+.SH BUGS
+Report bugs at:
+.I https://github.com/MuriloChianfa/liblpm/issues

@@ -49,6 +49,19 @@ jobs:
         cd build
         ctest -L fuzz --verbose --output-on-failure
 
+  # Man page linting
+  lint-manpages:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Install mandoc
+      run: sudo apt-get update && sudo apt-get install -y mandoc
+
+    - name: Lint man pages
+      run: ./scripts/lint-manpages.sh
+
   # TODO: Add macOS support once libdynemit supports AppleClang or we configure GCC
   # pr-macos:
   #   runs-on: macos-latest

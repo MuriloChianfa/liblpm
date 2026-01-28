@@ -1,0 +1,210 @@
+.\" lpm_destroy.3 - Resource cleanup functions
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LPM_DESTROY 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+lpm_destroy, lpm_print_stats, lpm_get_version \- LPM trie cleanup and utility functions
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.BI "void lpm_destroy(lpm_trie_t *" trie ");"
+.BI "void lpm_print_stats(const lpm_trie_t *" trie ");"
+.BI "const char *lpm_get_version(void);"
+.fi
+.SH DESCRIPTION
+.SS lpm_destroy
+Frees all memory associated with an LPM trie, including:
+.IP \(bu 2
+All trie nodes
+.IP \(bu 2
+Direct lookup tables (DIR-24 table, tbl8 groups)
+.IP \(bu 2
+Wide stride nodes (for IPv6)
+.IP \(bu 2
+Hot cache structures
+.IP \(bu 2
+The trie structure itself
+.PP
+After calling
+.BR lpm_destroy (),
+the
+.I trie
+pointer is invalid and must not be used.
+.PP
+It is safe to call
+.BR lpm_destroy ()
+with a NULL pointer; the function simply returns without action.
+.SS lpm_print_stats
+Prints statistics about the trie to standard output, including:
+.IP \(bu 2
+Number of prefixes stored
+.IP \(bu 2
+Number of nodes allocated
+.IP \(bu 2
+Memory usage estimates
+.IP \(bu 2
+Cache hit/miss statistics (if applicable)
+.PP
+This function is useful for debugging and performance analysis.
+.SS lpm_get_version
+Returns the library version string in the format "X.Y.Z" (e.g., "2.0.0").
+.SH RETURN VALUE
+.TP
+.BR lpm_destroy ()
+No return value (void).
+.TP
+.BR lpm_print_stats ()
+No return value (void).
+.TP
+.BR lpm_get_version ()
+Returns a pointer to a static string containing the version. This pointer
+remains valid for the lifetime of the program. Never returns NULL.
+.SH EXAMPLES
+.SS Basic Cleanup
+.EX
+#include <lpm.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+    if (!trie) return 1;
+
+    // Add routes and perform lookups...
+    uint8_t prefix[] = {192, 168, 0, 0};
+    lpm_add(trie, prefix, 16, 100);
+
+    // Cleanup when done
+    lpm_destroy(trie);
+    trie = NULL;  // Good practice: nullify after destroy
+
+    return 0;
+}
+.EE
+.SS Using Statistics for Debugging
+.EX
+#include <lpm.h>
+#include <stdio.h>
+
+void load_routing_table(lpm_trie_t *trie) {
+    // ... load many routes ...
+}
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+
+    load_routing_table(trie);
+
+    // Print stats after loading
+    printf("Routing table statistics:\\n");
+    lpm_print_stats(trie);
+
+    // ... use trie ...
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Version Checking
+.EX
+#include <lpm.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(void) {
+    const char *version = lpm_get_version();
+    printf("liblpm version: %s\\n", version);
+
+    // Check minimum version
+    int major, minor, patch;
+    if (sscanf(version, "%d.%d.%d", &major, &minor, &patch) == 3) {
+        if (major < 2) {
+            fprintf(stderr, "Warning: liblpm 2.0+ recommended\\n");
+        }
+    }
+
+    return 0;
+}
+.EE
+.SS Resource Management Pattern
+.EX
+#include <lpm.h>
+
+typedef struct {
+    lpm_trie_t *ipv4_trie;
+    lpm_trie_t *ipv6_trie;
+} routing_context_t;
+
+routing_context_t *context_create(void) {
+    routing_context_t *ctx = malloc(sizeof(*ctx));
+    if (!ctx) return NULL;
+
+    ctx->ipv4_trie = lpm_create_ipv4();
+    ctx->ipv6_trie = lpm_create_ipv6();
+
+    if (!ctx->ipv4_trie || !ctx->ipv6_trie) {
+        lpm_destroy(ctx->ipv4_trie);  // Safe even if NULL
+        lpm_destroy(ctx->ipv6_trie);  // Safe even if NULL
+        free(ctx);
+        return NULL;
+    }
+
+    return ctx;
+}
+
+void context_destroy(routing_context_t *ctx) {
+    if (ctx) {
+        lpm_destroy(ctx->ipv4_trie);
+        lpm_destroy(ctx->ipv6_trie);
+        free(ctx);
+    }
+}
+.EE
+.SH NOTES
+.SS Memory Release
+All memory allocated by
+.BR lpm_create* ()
+and
+.BR lpm_add ()
+is released by
+.BR lpm_destroy ().
+There is no need to delete individual prefixes before destroying the trie.
+.SS Huge Pages
+If the trie was configured to use huge pages, those pages are properly
+unmapped during destruction.
+.SS Thread Safety
+.BR lpm_destroy ()
+is
+.B not
+thread-safe. Ensure no other threads are accessing the trie when
+destroying it.
+.PP
+.BR lpm_get_version ()
+is thread-safe and can be called from any thread at any time.
+.PP
+.BR lpm_print_stats ()
+should not be called while other threads are modifying the trie.
+.SS Use After Free
+After calling
+.BR lpm_destroy (),
+the trie pointer becomes invalid. Accessing it results in undefined
+behavior. Set the pointer to NULL after destruction as a safeguard:
+.PP
+.RS
+.nf
+lpm_destroy(trie);
+trie = NULL;
+.fi
+.RE
+.SH SEE ALSO
+.BR liblpm (3),
+.BR lpm_create (3),
+.BR lpm_add (3),
+.BR lpm_delete (3),
+.BR lpm_lookup (3)
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+Licensed under the Boost Software License 1.0.

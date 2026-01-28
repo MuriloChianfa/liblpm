@@ -1,0 +1,192 @@
+.\" liblpm.3 - Tradução para Português (Brasil)
+.\" Traduzido da versão em inglês 2.0.0
+.\" Tradutor: Murilo Chianfa <murilo.chianfa@outlook.com>
+.\"
+.\" Copyright (c) 2024-2026 Murilo Chianfa
+.\" Licenciado sob Boost Software License 1.0
+.\"
+.TH LIBLPM 3 "2026-01-28" "liblpm 2.0.0" "Funções da Biblioteca liblpm"
+.SH NOME
+liblpm \- Biblioteca de Alta Performance para Longest Prefix Match em Roteamento IP
+.SH SINOPSE
+.nf
+.B #include <lpm.h>
+.PP
+.BI "lpm_trie_t *lpm_create_ipv4(void);"
+.BI "lpm_trie_t *lpm_create_ipv6(void);"
+.PP
+.BI "int lpm_add(lpm_trie_t *" trie ", const uint8_t *" prefix ", uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_delete(lpm_trie_t *" trie ", const uint8_t *" prefix ", uint8_t " prefix_len ");"
+.PP
+.BI "uint32_t lpm_lookup_ipv4(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv6(const lpm_trie_t *" trie ", const uint8_t " addr "[16]);"
+.PP
+.BI "void lpm_destroy(lpm_trie_t *" trie ");"
+.PP
+.BI "const char *lpm_get_version(void);"
+.fi
+.PP
+Linkar com \fI\-llpm\fP ou \fI$(pkg\-config \-\-libs liblpm)\fP
+.SH DESCRIÇÃO
+.B liblpm
+é uma biblioteca C de alta performance para consultas de Longest Prefix Match (LPM),
+otimizada para operações em tabelas de roteamento IP. Suporta endereços IPv4 (32-bit)
+e IPv6 (128-bit) com múltiplas implementações de algoritmos.
+.PP
+A biblioteca oferece:
+.IP \(bu 2
+\fBAlgoritmos multi-bit trie\fP com tamanhos de stride configuráveis
+.IP \(bu 2
+\fBOtimizações SIMD\fP via detecção de recursos de CPU em tempo de execução (SSE2, SSE4.2, AVX, AVX2, AVX512F)
+.IP \(bu 2
+\fBProcessamento em lote\fP para cenários de alto throughput
+.IP \(bu 2
+\fBDesign sem branches\fP para minimizar erros de predição
+.IP \(bu 2
+\fBEstruturas cache-friendly\fP com memória alinhada
+.SS Algoritmos Disponíveis
+.TP
+.B IPv4 DIR-24-8 (padrão)
+Usa uma tabela direta de 24 bits mais tabelas de extensão de 8 bits.
+Alcança 1-2 acessos à memória por consulta para a maioria das rotas.
+Otimizado para tabelas de roteamento IPv4 típicas.
+.TP
+.B IPv4 8-bit Stride
+Trie multi-bit padrão com stride de 8 bits (256 entradas por nó).
+Máximo de 4 níveis. Bom para distribuições diversas de prefixos.
+.TP
+.B IPv6 Wide 16-bit Stride (padrão)
+Usa stride de 16 bits para o primeiro nível, depois 8 bits para os demais.
+Otimizado para alocações comuns de /48.
+.TP
+.B IPv6 8-bit Stride
+Trie com stride uniforme de 8 bits para IPv6. Máximo de 16 níveis.
+Eficiente em memória para conjuntos esparsos de prefixos.
+.SS API Genérica vs Específica por Algoritmo
+A biblioteca fornece funções genéricas que despacham para algoritmos selecionados
+em tempo de compilação, e funções específicas para controle explícito:
+.PP
+.B API Genérica
+(despacha baseado na configuração CMake):
+.RS
+.nf
+lpm_create_ipv4(), lpm_create_ipv6()
+lpm_lookup_ipv4(), lpm_lookup_ipv6()
+lpm_add(), lpm_delete()
+.fi
+.RE
+.PP
+.B API Específica por Algoritmo
+(seleção explícita):
+.RS
+.nf
+lpm_create_ipv4_dir24(), lpm_lookup_ipv4_dir24()
+lpm_create_ipv4_8stride(), lpm_lookup_ipv4_8stride()
+lpm_create_ipv6_wide16(), lpm_lookup_ipv6_wide16()
+lpm_create_ipv6_8stride(), lpm_lookup_ipv6_8stride()
+.fi
+.RE
+.SH VALOR DE RETORNO
+.TP
+.B lpm_create_*()
+Retorna um ponteiro para uma estrutura trie alocada, ou
+.B NULL
+em caso de falha na alocação.
+.TP
+.B lpm_add()
+Retorna 0 em sucesso, ou -1 em erro (parâmetros inválidos ou falha de alocação).
+.TP
+.B lpm_delete()
+Retorna 0 em sucesso, ou -1 se o prefixo não foi encontrado.
+.TP
+.B lpm_lookup_*()
+Retorna o valor next-hop associado ao prefixo mais longo correspondente, ou
+.B LPM_INVALID_NEXT_HOP
+(0xFFFFFFFF) se nenhuma correspondência for encontrada.
+.TP
+.B lpm_get_version()
+Retorna um ponteiro para uma string estática contendo a versão da biblioteca.
+.SH EXEMPLOS
+.SS Uso Básico IPv4
+.EX
+#include <lpm.h>
+#include <stdio.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+    if (!trie) return 1;
+
+    // Adiciona 192.168.0.0/16 -> next hop 100
+    uint8_t prefix[] = {192, 168, 0, 0};
+    lpm_add(trie, prefix, 16, 100);
+
+    // Adiciona 192.168.1.0/24 -> next hop 200
+    uint8_t prefix2[] = {192, 168, 1, 0};
+    lpm_add(trie, prefix2, 24, 200);
+
+    // Consulta 192.168.1.50 -> retorna 200 (maior correspondência)
+    uint32_t addr = (192 << 24) | (168 << 16) | (1 << 8) | 50;
+    uint32_t next_hop = lpm_lookup_ipv4(trie, addr);
+    printf("Next hop: %u\\n", next_hop);
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Compilação
+.EX
+# Usando pkg-config (recomendado)
+gcc -o meuapp meuapp.c $(pkg-config --cflags --libs liblpm)
+
+# Linkagem manual
+gcc -o meuapp meuapp.c -llpm -lm
+.EE
+.SH NOTAS
+.SS Otimização SIMD
+A biblioteca detecta automaticamente os recursos da CPU no carregamento do programa
+usando GNU ifunc e seleciona a implementação SIMD ideal. Nenhuma configuração
+em tempo de compilação é necessária. Conjuntos de instruções suportados:
+.IP \(bu 2
+SSE2 (baseline para x86_64)
+.IP \(bu 2
+SSE4.2
+.IP \(bu 2
+AVX
+.IP \(bu 2
+AVX2
+.IP \(bu 2
+AVX512F
+.SS Ordem de Bytes
+Endereços IP são armazenados em network byte order (big-endian). Ao usar
+as variantes
+.B uint32_t
+para IPv4, certifique-se de que o endereço está em host byte order conforme
+mostrado nos exemplos.
+.SS Thread Safety
+A estrutura trie
+.B não é
+thread-safe. Use sincronização externa (mutexes, RCU, etc.) ao
+compartilhar uma trie entre threads, ou mantenha tries separadas por thread.
+.SH VEJA TAMBÉM
+.BR lpm_create (3),
+.BR lpm_lookup (3),
+.BR lpm_add (3),
+.BR lpm_delete (3),
+.BR lpm_destroy (3),
+.BR lpm_algorithms (3)
+.PP
+Documentação do projeto:
+.I https://github.com/MuriloChianfa/liblpm
+.SH AUTORES
+.B liblpm
+foi escrita por Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+.PP
+Licenciado sob Boost Software License 1.0.
+Veja
+.I https://www.boost.org/LICENSE_1_0.txt
+para detalhes.
+.SH BUGS
+Reporte bugs em:
+.I https://github.com/MuriloChianfa/liblpm/issues

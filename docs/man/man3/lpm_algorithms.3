@@ -1,0 +1,276 @@
+.\" lpm_algorithms.3 - Algorithm-specific APIs
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LPM_ALGORITHMS 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+lpm_algorithms \- overview of LPM algorithm implementations
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.B "/* IPv4 DIR-24-8 Algorithm */"
+.BI "lpm_trie_t *lpm_create_ipv4_dir24(void);"
+.BI "int lpm_add_ipv4_dir24(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                       uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_delete_ipv4_dir24(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                          uint8_t " prefix_len ");"
+.BI "uint32_t lpm_lookup_ipv4_dir24(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv4_dir24_bytes(const lpm_trie_t *" trie ","
+.BI "                                      const uint8_t " addr "[4]);"
+.BI "void lpm_lookup_batch_ipv4_dir24(const lpm_trie_t *" trie ","
+.BI "                                  const uint32_t *" addrs ","
+.BI "                                  uint32_t *" next_hops ", size_t " count ");"
+.BI "void lpm_lookup_batch_ipv4_dir24_bytes(const lpm_trie_t *" trie ","
+.BI "                                        const uint8_t (*" addrs ")[4],"
+.BI "                                        uint32_t *" next_hops ", size_t " count ");"
+.BI "void lpm_lookup_batch_ipv4_dir24_ptrs(const lpm_trie_t *" trie ","
+.BI "                                       const uint8_t **" addrs ","
+.BI "                                       uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* IPv4 8-bit Stride Algorithm */"
+.BI "lpm_trie_t *lpm_create_ipv4_8stride(void);"
+.BI "int lpm_add_ipv4_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                         uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_delete_ipv4_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                            uint8_t " prefix_len ");"
+.BI "uint32_t lpm_lookup_ipv4_8stride(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv4_8stride_bytes(const lpm_trie_t *" trie ","
+.BI "                                        const uint8_t *" addr ");"
+.BI "void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *" trie ","
+.BI "                                    const uint32_t *" addrs ","
+.BI "                                    uint32_t *" next_hops ", size_t " count ");"
+.BI "void lpm_lookup_batch_ipv4_8stride_bytes(const lpm_trie_t *" trie ","
+.BI "                                          const uint8_t **" addrs ","
+.BI "                                          uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* IPv6 Wide 16-bit Stride Algorithm */"
+.BI "lpm_trie_t *lpm_create_ipv6_wide16(void);"
+.BI "int lpm_add_ipv6_wide16(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                        uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_delete_ipv6_wide16(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                           uint8_t " prefix_len ");"
+.BI "uint32_t lpm_lookup_ipv6_wide16(const lpm_trie_t *" trie ","
+.BI "                                 const uint8_t " addr "[16]);"
+.BI "void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *" trie ","
+.BI "                                   const uint8_t (*" addrs ")[16],"
+.BI "                                   uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* IPv6 8-bit Stride Algorithm */"
+.BI "lpm_trie_t *lpm_create_ipv6_8stride(void);"
+.BI "int lpm_add_ipv6_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                         uint8_t " prefix_len ", uint32_t " next_hop ");"
+.BI "int lpm_delete_ipv6_8stride(lpm_trie_t *" trie ", const uint8_t *" prefix ","
+.BI "                            uint8_t " prefix_len ");"
+.BI "uint32_t lpm_lookup_ipv6_8stride(const lpm_trie_t *" trie ","
+.BI "                                  const uint8_t " addr "[16]);"
+.BI "void lpm_lookup_batch_ipv6_8stride(const lpm_trie_t *" trie ","
+.BI "                                    const uint8_t (*" addrs ")[16],"
+.BI "                                    uint32_t *" next_hops ", size_t " count ");"
+.fi
+.SH DESCRIPTION
+The liblpm library provides multiple algorithm implementations optimized
+for different use cases. This page describes each algorithm and when to
+use it.
+.SS IPv4 DIR-24-8 (Default for IPv4)
+The DIR-24-8 algorithm uses a two-level lookup structure:
+.IP \(bu 2
+\fBLevel 1 (DIR-24)\fP: A 16.7 million entry table indexed by the first
+24 bits of the address. Each entry is 4 bytes.
+.IP \(bu 2
+\fBLevel 2 (TBL8)\fP: 256-entry extension tables for prefixes longer
+than /24, indexed by the last 8 bits.
+.PP
+\fBCharacteristics:\fP
+.IP \(bu 2
+Memory: ~64 MB base + ~1 KB per /25-/32 prefix group
+.IP \(bu 2
+Lookup: 1 memory access for /0-/24 prefixes, 2 for /25-/32
+.IP \(bu 2
+Best for: Large routing tables, high-throughput packet processing
+.PP
+This is the default IPv4 algorithm and provides the best lookup
+performance for typical routing tables.
+.SS IPv4 8-bit Stride
+A multi-bit trie with 8-bit stride (256 entries per node):
+.IP \(bu 2
+Maximum 4 levels (one per octet)
+.IP \(bu 2
+Each node is 2048 bytes (256 entries × 8 bytes)
+.IP \(bu 2
+Memory grows with prefix count
+.PP
+\fBCharacteristics:\fP
+.IP \(bu 2
+Memory: ~2 KB per node, grows dynamically
+.IP \(bu 2
+Lookup: 1-4 memory accesses depending on prefix length
+.IP \(bu 2
+Best for: Small to medium prefix sets, memory-constrained environments
+.SS IPv6 Wide 16-bit Stride (Default for IPv6)
+A hybrid algorithm optimized for IPv6 prefix distributions:
+.IP \(bu 2
+\fBLevel 1\fP: 16-bit stride (65536 entries, ~512 KB)
+.IP \(bu 2
+\fBRemaining levels\fP: 8-bit stride
+.PP
+\fBCharacteristics:\fP
+.IP \(bu 2
+Memory: ~512 KB base + 2 KB per node
+.IP \(bu 2
+Lookup: Fewer memory accesses for common /48 allocations
+.IP \(bu 2
+Best for: Typical IPv6 routing tables with /48 customer allocations
+.SS IPv6 8-bit Stride
+Uniform 8-bit stride trie for IPv6:
+.IP \(bu 2
+Maximum 16 levels (128 bits / 8 bits per level)
+.IP \(bu 2
+Each node is 2048 bytes
+.PP
+\fBCharacteristics:\fP
+.IP \(bu 2
+Memory: Most efficient for sparse prefix sets
+.IP \(bu 2
+Lookup: 1-16 memory accesses
+.IP \(bu 2
+Best for: Sparse IPv6 prefix sets, memory optimization
+.SH ALGORITHM SELECTION
+.SS Compile-Time Defaults
+The generic API functions
+.RB ( lpm_create_ipv4 ", " lpm_lookup_ipv4 ", etc.)"
+dispatch to algorithms selected at compile time via CMake:
+.PP
+.RS
+.nf
+cmake -DLPM_IPV4_DEFAULT=dir24 ..   # Default
+cmake -DLPM_IPV4_DEFAULT=stride8 ..
+cmake -DLPM_IPV6_DEFAULT=wide16 ..  # Default
+cmake -DLPM_IPV6_DEFAULT=stride8 ..
+.fi
+.RE
+.SS Runtime Selection
+Use algorithm-specific functions for explicit control:
+.PP
+.RS
+.nf
+// Explicitly use DIR-24-8 for IPv4
+lpm_trie_t *trie = lpm_create_ipv4_dir24();
+uint32_t nh = lpm_lookup_ipv4_dir24(trie, addr);
+
+// Explicitly use 8-bit stride
+lpm_trie_t *trie2 = lpm_create_ipv4_8stride();
+uint32_t nh2 = lpm_lookup_ipv4_8stride(trie2, addr);
+.fi
+.RE
+.SH EXAMPLES
+.SS Choosing Algorithm Based on Use Case
+.EX
+#include <lpm.h>
+
+// High-performance packet processing
+lpm_trie_t *create_fast_ipv4_table(void) {
+    return lpm_create_ipv4_dir24();
+}
+
+// Memory-constrained embedded system
+lpm_trie_t *create_small_ipv4_table(void) {
+    return lpm_create_ipv4_8stride();
+}
+
+// Standard IPv6 routing
+lpm_trie_t *create_ipv6_table(void) {
+    return lpm_create_ipv6_wide16();
+}
+
+// Sparse IPv6 with few prefixes
+lpm_trie_t *create_sparse_ipv6_table(void) {
+    return lpm_create_ipv6_8stride();
+}
+.EE
+.SS Benchmarking Different Algorithms
+.EX
+#include <lpm.h>
+#include <time.h>
+#include <stdio.h>
+
+void benchmark_lookup(const char *name, lpm_trie_t *trie,
+                      const uint32_t *addrs, size_t count,
+                      uint32_t (*lookup_fn)(const lpm_trie_t*, uint32_t)) {
+    clock_t start = clock();
+    volatile uint32_t sum = 0;
+
+    for (size_t i = 0; i < count; i++) {
+        sum += lookup_fn(trie, addrs[i]);
+    }
+
+    clock_t end = clock();
+    double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
+    printf("%s: %.2f Mlps\\n", name, count / elapsed / 1e6);
+}
+
+int main(void) {
+    // Create test data...
+    uint32_t addrs[1000000];
+    // ... populate addrs ...
+
+    // Compare algorithms
+    lpm_trie_t *dir24 = lpm_create_ipv4_dir24();
+    lpm_trie_t *stride8 = lpm_create_ipv4_8stride();
+    // ... populate both with same routes ...
+
+    benchmark_lookup("DIR-24-8", dir24, addrs, 1000000,
+                     lpm_lookup_ipv4_dir24);
+    benchmark_lookup("8-stride", stride8, addrs, 1000000,
+                     lpm_lookup_ipv4_8stride);
+
+    lpm_destroy(dir24);
+    lpm_destroy(stride8);
+    return 0;
+}
+.EE
+.SH PERFORMANCE COMPARISON
+.TS
+center box;
+cb | cb | cb | cb
+l | l | l | l.
+Algorithm	Memory	Lookup Accesses	Best For
+_
+IPv4 DIR-24-8	~64 MB	1-2	Large tables, speed
+IPv4 8-stride	Dynamic	1-4	Small tables, memory
+IPv6 Wide-16	~512 KB+	2-15	Standard IPv6
+IPv6 8-stride	Dynamic	1-16	Sparse IPv6
+.TE
+.SH NOTES
+.SS SIMD Optimization
+All algorithms benefit from SIMD optimizations in batch operations.
+The library automatically selects the best implementation based on
+detected CPU features.
+.SS Mixing Algorithms
+Do not mix algorithm-specific functions with incompatible tries:
+.PP
+.RS
+.nf
+// WRONG: Using DIR-24 lookup with 8-stride trie
+lpm_trie_t *trie = lpm_create_ipv4_8stride();
+uint32_t nh = lpm_lookup_ipv4_dir24(trie, addr);  // Undefined!
+.fi
+.RE
+.PP
+The generic API
+.RB ( lpm_add ", " lpm_delete ", " lpm_lookup )
+works correctly with any trie type.
+.SS Memory Considerations
+DIR-24-8 allocates the 64 MB table upfront, regardless of prefix count.
+For applications with few prefixes, 8-bit stride may be more appropriate.
+.SH SEE ALSO
+.BR liblpm (3),
+.BR lpm_create (3),
+.BR lpm_lookup (3),
+.BR lpm_add (3)
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+Licensed under the Boost Software License 1.0.

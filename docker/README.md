@@ -276,7 +276,6 @@ docker run --rm -v "$PWD:/workspace" -v "$PWD/packages:/packages" liblpm-rpm:fed
 
 ```bash
 ./scripts/docker-build.sh --tag v1.2.0 all
-./scripts/docker-build.sh --tag dev-2024-01 dev
 ```
 
 ### Multi-Architecture

@@ -1,0 +1,244 @@
+.\" lpm_lookup.3 - Lookup functions
+.\" Copyright (c) 2025-2026 Murilo Chianfa
+.\" Licensed under Boost Software License 1.0
+.\"
+.TH LPM_LOOKUP 3 "2026-01-28" "liblpm 2.0.0" "liblpm Library Functions"
+.SH NAME
+lpm_lookup_ipv4, lpm_lookup_ipv6, lpm_lookup_batch_ipv4, lpm_lookup_batch_ipv6, lpm_lookup, lpm_lookup_batch \- perform longest prefix match lookups
+.SH SYNOPSIS
+.nf
+.B #include <lpm.h>
+.PP
+.B "/* Generic single lookups */"
+.BI "uint32_t lpm_lookup_ipv4(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv6(const lpm_trie_t *" trie ", const uint8_t " addr "[16]);"
+.PP
+.B "/* Generic batch lookups */"
+.BI "void lpm_lookup_batch_ipv4(const lpm_trie_t *" trie ", const uint32_t *" addrs ","
+.BI "                           uint32_t *" next_hops ", size_t " count ");"
+.BI "void lpm_lookup_batch_ipv6(const lpm_trie_t *" trie ", const uint8_t (*" addrs ")[16],"
+.BI "                           uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* Algorithm-specific IPv4 DIR-24-8 */"
+.BI "uint32_t lpm_lookup_ipv4_dir24(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv4_dir24_bytes(const lpm_trie_t *" trie ", const uint8_t " addr "[4]);"
+.BI "void lpm_lookup_batch_ipv4_dir24(const lpm_trie_t *" trie ", const uint32_t *" addrs ","
+.BI "                                  uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* Algorithm-specific IPv4 8-bit stride */"
+.BI "uint32_t lpm_lookup_ipv4_8stride(const lpm_trie_t *" trie ", uint32_t " addr ");"
+.BI "uint32_t lpm_lookup_ipv4_8stride_bytes(const lpm_trie_t *" trie ", const uint8_t *" addr ");"
+.BI "void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *" trie ", const uint32_t *" addrs ","
+.BI "                                    uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* Algorithm-specific IPv6 wide 16-bit stride */"
+.BI "uint32_t lpm_lookup_ipv6_wide16(const lpm_trie_t *" trie ", const uint8_t " addr "[16]);"
+.BI "void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *" trie ", const uint8_t (*" addrs ")[16],"
+.BI "                                   uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* Algorithm-specific IPv6 8-bit stride */"
+.BI "uint32_t lpm_lookup_ipv6_8stride(const lpm_trie_t *" trie ", const uint8_t " addr "[16]);"
+.BI "void lpm_lookup_batch_ipv6_8stride(const lpm_trie_t *" trie ", const uint8_t (*" addrs ")[16],"
+.BI "                                    uint32_t *" next_hops ", size_t " count ");"
+.PP
+.B "/* Legacy API */"
+.BI "uint32_t lpm_lookup(const lpm_trie_t *" trie ", const uint8_t *" addr ");"
+.BI "void lpm_lookup_batch(const lpm_trie_t *" trie ", const uint8_t **" addrs ","
+.BI "                      uint32_t *" next_hops ", size_t " count ");"
+.fi
+.SH DESCRIPTION
+These functions perform longest prefix match (LPM) lookups against a
+previously populated trie. LPM finds the most specific (longest) prefix
+that matches the given address and returns the associated next-hop value.
+.SS Single Lookup Functions
+.TP
+.BR lpm_lookup_ipv4 ()
+Looks up a single IPv4 address. The
+.I addr
+parameter is a 32-bit integer in
+.B host byte order
+(most significant byte is the first octet).
+.TP
+.BR lpm_lookup_ipv6 ()
+Looks up a single IPv6 address. The
+.I addr
+parameter is a 16-byte array in
+.B network byte order
+(first byte is the most significant).
+.SS Batch Lookup Functions
+Batch functions process multiple addresses in a single call, enabling
+SIMD optimizations for higher throughput.
+.TP
+.BR lpm_lookup_batch_ipv4 ()
+Looks up
+.I count
+IPv4 addresses from the
+.I addrs
+array and stores results in the
+.I next_hops
+array. Both arrays must have at least
+.I count
+elements.
+.TP
+.BR lpm_lookup_batch_ipv6 ()
+Looks up
+.I count
+IPv6 addresses. Each address is a 16-byte array.
+.SS Byte Array Variants
+The
+.B *_bytes()
+functions accept addresses as byte arrays instead of integers,
+which may be more convenient when working with network packet data.
+.TP
+.BR lpm_lookup_ipv4_dir24_bytes ()
+Accepts a 4-byte array in network byte order.
+.TP
+.BR lpm_lookup_ipv4_8stride_bytes ()
+Accepts a pointer to 4 bytes in network byte order.
+.SS Legacy Functions
+.TP
+.BR lpm_lookup ()
+Generic lookup that auto-detects IPv4 or IPv6 based on the trie's
+.I max_depth
+(32 for IPv4, 128 for IPv6).
+.TP
+.BR lpm_lookup_batch ()
+Legacy batch lookup with pointer-to-pointer address array.
+.SH RETURN VALUE
+.SS Single Lookup Functions
+Return the
+.B next_hop
+value associated with the longest matching prefix. If no prefix matches,
+returns
+.BR LPM_INVALID_NEXT_HOP ,
+which is defined as
+.B 0xFFFFFFFF
+(UINT32_MAX).
+.SS Batch Lookup Functions
+These functions return
+.BR void .
+Results are written to the
+.I next_hops
+array. For addresses with no match, the corresponding element is set to
+.BR LPM_INVALID_NEXT_HOP .
+.SH EXAMPLES
+.SS Single IPv4 Lookup
+.EX
+#include <lpm.h>
+#include <stdio.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv4();
+
+    // Add routes
+    uint8_t prefix1[] = {192, 168, 0, 0};
+    lpm_add(trie, prefix1, 16, 100);  // 192.168.0.0/16 -> 100
+
+    uint8_t prefix2[] = {192, 168, 1, 0};
+    lpm_add(trie, prefix2, 24, 200);  // 192.168.1.0/24 -> 200
+
+    // Lookup: 192.168.1.50 matches both, but /24 is longer
+    uint32_t addr = (192U << 24) | (168U << 16) | (1U << 8) | 50U;
+    uint32_t result = lpm_lookup_ipv4(trie, addr);
+
+    if (result != LPM_INVALID_NEXT_HOP) {
+        printf("Next hop: %u\\n", result);  // Prints: 200
+    } else {
+        printf("No match\\n");
+    }
+
+    lpm_destroy(trie);
+    return 0;
+}
+.EE
+.SS Batch Lookup for Packet Processing
+.EX
+#include <lpm.h>
+#include <string.h>
+
+#define BATCH_SIZE 256
+
+void process_packets(lpm_trie_t *trie, uint32_t *src_addrs, size_t count) {
+    uint32_t next_hops[BATCH_SIZE];
+
+    // Process in batches for best performance
+    for (size_t i = 0; i < count; i += BATCH_SIZE) {
+        size_t batch_count = (count - i < BATCH_SIZE) ? count - i : BATCH_SIZE;
+        
+        lpm_lookup_batch_ipv4(trie, &src_addrs[i], next_hops, batch_count);
+
+        // Process results
+        for (size_t j = 0; j < batch_count; j++) {
+            if (next_hops[j] != LPM_INVALID_NEXT_HOP) {
+                // Forward packet to next_hops[j]
+            } else {
+                // Drop packet (no route)
+            }
+        }
+    }
+}
+.EE
+.SS IPv6 Lookup
+.EX
+#include <lpm.h>
+#include <string.h>
+
+int main(void) {
+    lpm_trie_t *trie = lpm_create_ipv6();
+
+    // Add 2001:db8::/32 -> 100
+    uint8_t prefix[16] = {0x20, 0x01, 0x0d, 0xb8};
+    lpm_add(trie, prefix, 32, 100);
+
+    // Lookup 2001:db8::1
+    uint8_t addr[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 1};
+    uint32_t result = lpm_lookup_ipv6(trie, addr);
+
+    lpm_destroy(trie);
+    return result == 100 ? 0 : 1;
+}
+.EE
+.SH NOTES
+.SS Performance
+.IP \(bu 2
+Batch lookups achieve significantly higher throughput than repeated
+single lookups due to SIMD vectorization and better cache utilization.
+.IP \(bu 2
+For best performance, align address arrays to 64-byte cache line boundaries.
+.IP \(bu 2
+Batch sizes of 8-256 addresses typically yield optimal throughput.
+.SS SIMD Dispatch
+The library automatically selects the best SIMD implementation at
+program startup based on detected CPU features. No configuration needed.
+.SS Byte Order
+IPv4 addresses in
+.B uint32_t
+format use host byte order:
+.RS
+.nf
+uint32_t addr = (a << 24) | (b << 16) | (c << 8) | d;
+// For 192.168.1.1:
+// addr = (192 << 24) | (168 << 16) | (1 << 8) | 1;
+.fi
+.RE
+.PP
+IPv4 and IPv6 addresses in byte array format use network byte order
+(first byte is most significant).
+.SS Thread Safety
+Lookup functions are safe to call concurrently from multiple threads
+on the same trie, provided no modifications (add/delete) are happening
+simultaneously.
+.SH SEE ALSO
+.BR liblpm (3),
+.BR lpm_create (3),
+.BR lpm_add (3),
+.BR lpm_delete (3),
+.BR lpm_destroy (3),
+.BR lpm_algorithms (3)
+.SH AUTHORS
+.B liblpm
+was written by Murilo Chianfa <murilo.chianfa@outlook.com>.
+.SH COPYRIGHT
+Copyright \(co 2025-2026 Murilo Chianfa.
+Licensed under the Boost Software License 1.0.

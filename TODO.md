@@ -247,13 +247,12 @@ Comprehensive man pages for the library API, accessible via `man liblpm`.
 - [x] Redirect aliases for all function variants
 - [x] CMake installation to `${CMAKE_INSTALL_MANDIR}/man3/`
 - [x] Included in devel packages (liblpm-dev, liblpm-devel)
+- [x] Man page linting in CI (`mandoc -Tlint`)
+- [x] Local linting script (`scripts/lint-manpages.sh`)
+- [x] Localization infrastructure (CMake support for language directories)
+- [x] Portuguese (pt_BR) translation of `liblpm.3` as proof of concept
 
-**Future Enhancements:**
-- [ ] Gzip compression for installed man pages
-- [ ] Localization (translations)
-- [ ] Man page linting in CI
-
-**Location:** `docs/man/man3/`
+**Location:** `docs/man/man3/` (English), `docs/man/<lang>/man3/` (translations)
 
 ## Related Documentation
 

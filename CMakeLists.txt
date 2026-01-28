@@ -286,6 +286,19 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/docs/man/man3
     FILES_MATCHING PATTERN "*.3"
 )
 
+# Install localized man pages (if available)
+set(MAN_LANGUAGES pt_BR de es fr zh_CN)
+foreach(LANG ${MAN_LANGUAGES})
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/man/${LANG}/man3")
+        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/docs/man/${LANG}/man3
+            DESTINATION ${CMAKE_INSTALL_MANDIR}/${LANG}
+            COMPONENT devel
+            FILES_MATCHING PATTERN "*.3"
+        )
+        message(STATUS "Found localized man pages: ${LANG}")
+    endif()
+endforeach()
+
 # Tests
 if(BUILD_TESTS)
     enable_testing()

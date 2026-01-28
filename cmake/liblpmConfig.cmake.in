@@ -1,0 +1,31 @@
+@PACKAGE_INIT@
+
+# liblpm CMake configuration file
+
+# Provide the liblpm version
+set(liblpm_VERSION "@PROJECT_VERSION@")
+
+# Compute paths
+set_and_check(liblpm_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+
+# Find required dependencies
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+# Include the exported targets
+if(NOT TARGET liblpm::lpm)
+    include("${CMAKE_CURRENT_LIST_DIR}/liblpmTargets.cmake")
+endif()
+
+# Define the main library targets for backwards compatibility
+if(NOT TARGET liblpm::liblpm)
+    add_library(liblpm::liblpm ALIAS liblpm::lpm)
+endif()
+
+# Set library variables
+set(liblpm_LIBRARIES liblpm::lpm)
+set(liblpm_INCLUDE_DIRS ${liblpm_INCLUDE_DIR})
+set(liblpm_FOUND TRUE)
+
+# Check if all required components are found
+check_required_components(liblpm)

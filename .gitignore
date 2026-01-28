@@ -77,7 +77,6 @@ continuous_fuzz.sh
 cppcheck_output/
 compiler_comparison_results.txt
 packages/
-cmake/
 build-pkg*
 
 # CodeQL

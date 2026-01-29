@@ -1,0 +1,21 @@
+// config.w32 for liblpm PHP extension (Windows)
+//
+// High-performance PHP bindings for the liblpm C library.
+// Provides IPv4 and IPv6 longest prefix match operations.
+//
+// Copyright (c) Murilo Chianfa
+// Licensed under the Boost Software License 1.0
+
+ARG_WITH("liblpm", "for liblpm support", "no");
+
+if (PHP_LIBLPM != "no") {
+    if (CHECK_LIB("lpm.lib", "liblpm", PHP_LIBLPM) &&
+        CHECK_HEADER_ADD_INCLUDE("lpm/lpm.h", "CFLAGS_LIBLPM", PHP_LIBLPM + "\\include")) {
+        
+        EXTENSION("liblpm", "liblpm.c", PHP_LIBLPM_SHARED, "/DZEND_ENABLE_STATIC_TSRMLS_CACHE=1");
+        AC_DEFINE("HAVE_LIBLPM", 1, "liblpm support enabled");
+        
+    } else {
+        WARNING("liblpm not enabled; libraries and headers not found");
+    }
+}

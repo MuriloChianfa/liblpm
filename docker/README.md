@@ -12,6 +12,7 @@ Quick reference for liblpm Docker images.
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
+| `liblpm-php` | PHP extension | PHP wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
 | `liblpm-rpm` | RPM package builder | Building RHEL/Fedora/Rocky packages |
@@ -79,6 +80,9 @@ docker run --rm liblpm-cpp
 
 # Test Go bindings
 docker run --rm liblpm-go
+
+# Test PHP extension
+docker run --rm liblpm-php
 ```
 
 ### Benchmarking
@@ -198,6 +202,35 @@ Go bindings with cgo support.
 docker run --rm liblpm-go
 ```
 
+### liblpm-php
+
+PHP 8.3 extension with native C bindings.
+
+**Size:** ~600MB
+
+**Multi-stage:** C library builder -> PHP builder -> Runtime
+
+**Features:**
+- PHP 8.3 (CLI)
+- Native C extension via phpize
+- OOP and procedural APIs
+- PECL packaging ready
+- IPv4/IPv6 support with batch operations
+
+```bash
+# Run tests
+docker run --rm liblpm-php
+
+# Interactive development
+docker run -it --rm liblpm-php bash
+
+# Run examples
+docker run --rm liblpm-php php -d extension=/ext/modules/liblpm.so /ext/examples/basic_example.php
+
+# Verify extension
+docker run --rm liblpm-php php -d extension=/ext/modules/liblpm.so -m | grep liblpm
+```
+
 ### liblpm-benchmark
 
 DPDK 24.11 integration for performance comparison.
@@ -249,6 +282,7 @@ Approximate sizes (uncompressed):
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
 | liblpm-go | ~600MB |
+| liblpm-php | ~600MB |
 | liblpm-benchmark | ~1.5GB |
 | liblpm-deb | ~400MB |
 | liblpm-rpm | ~500MB |

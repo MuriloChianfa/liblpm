@@ -1,0 +1,52 @@
+# Build artifacts
+*.lo
+*.la
+*.o
+*.so
+.libs/
+.deps/
+modules/
+
+# Autotools generated files
+autom4te.cache/
+Makefile
+Makefile.fragments
+Makefile.objects
+acinclude.m4
+aclocal.m4
+build/
+config.guess
+config.h
+config.h.in~
+config.log
+config.nice
+config.status
+config.sub
+configure
+configure.ac~
+install-sh
+libtool
+ltmain.sh
+missing
+mkinstalldirs
+run-tests.php
+
+# Dependency files
+*.dep
+
+# PHP extension build files
+*.gcda
+*.gcno
+
+# Test results
+tests/*.diff
+tests/*.exp
+tests/*.log
+tests/*.out
+tests/*.php
+tests/*.sh
+
+# Backup files
+*~
+*.bak
+*.swp

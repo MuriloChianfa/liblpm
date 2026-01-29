@@ -12,6 +12,7 @@ Quick reference for liblpm Docker images.
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
+| `liblpm-perl` | Perl XS bindings | Perl wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
 | `liblpm-rpm` | RPM package builder | Building RHEL/Fedora/Rocky packages |
@@ -79,6 +80,9 @@ docker run --rm liblpm-cpp
 
 # Test Go bindings
 docker run --rm liblpm-go
+
+# Test Perl XS bindings
+docker run --rm liblpm-perl
 ```
 
 ### Benchmarking
@@ -198,6 +202,34 @@ Go bindings with cgo support.
 docker run --rm liblpm-go
 ```
 
+### liblpm-perl
+
+Perl 5.40 XS bindings for high-performance access.
+
+**Size:** ~400MB
+
+**Features:**
+- Perl 5.40+ support
+- Native XS bindings (direct C interface)
+- Object-oriented Perl API
+- Batch lookup operations
+- Automatic memory management via DESTROY
+- Comprehensive test suite (121 tests)
+
+```bash
+# Run tests
+docker run --rm liblpm-perl
+
+# Interactive development
+docker run -it --rm liblpm-perl bash
+
+# Run examples
+docker run --rm liblpm-perl perl -Iblib/lib -Iblib/arch /app/examples/basic_example.pl
+
+# Run specific test
+docker run --rm liblpm-perl prove -Iblib/lib -Iblib/arch /app/t/01-ipv4-basic.t
+```
+
 ### liblpm-benchmark
 
 DPDK 24.11 integration for performance comparison.
@@ -249,6 +281,7 @@ Approximate sizes (uncompressed):
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
 | liblpm-go | ~600MB |
+| liblpm-perl | ~400MB |
 | liblpm-benchmark | ~1.5GB |
 | liblpm-deb | ~400MB |
 | liblpm-rpm | ~500MB |

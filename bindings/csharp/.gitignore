@@ -1,0 +1,52 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio files
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet packages
+*.nupkg
+*.snupkg
+nupkg/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+TestResults/
+
+# Coverage
+*.coverage
+*.coveragexml
+coverage/
+
+# JetBrains Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Native libraries (populated during build)
+# Don't ignore runtimes/ structure, but ignore actual binaries
+runtimes/**/native/*.so
+runtimes/**/native/*.dll
+runtimes/**/native/*.dylib
+
+# Project-specific
+*.received.*

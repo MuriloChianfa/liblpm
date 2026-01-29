@@ -61,6 +61,7 @@ option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF
 option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
+option(BUILD_CSHARP_WRAPPER "Build C# wrapper and bindings" OFF)
 
 # External LPM libraries directory (set by Docker builds)
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
@@ -390,6 +391,85 @@ if(BUILD_GO_WRAPPER)
     endif()
 endif()
 
+# C# wrapper
+if(BUILD_CSHARP_WRAPPER)
+    find_program(DOTNET_EXECUTABLE dotnet)
+    if(DOTNET_EXECUTABLE)
+        # Get .NET version
+        execute_process(
+            COMMAND ${DOTNET_EXECUTABLE} --version
+            OUTPUT_VARIABLE DOTNET_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        message(STATUS "Found .NET SDK: ${DOTNET_VERSION}")
+        
+        # Custom target to build C# wrapper
+        add_custom_target(csharp_wrapper ALL
+            COMMAND ${CMAKE_COMMAND} -E echo "Building C# wrapper..."
+            COMMAND ${DOTNET_EXECUTABLE} build --configuration Release
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS lpm
+            COMMENT "Building C# wrapper and bindings"
+        )
+        
+        # Copy native library to runtimes directory after building
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/linux-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "liblpm.so")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/win-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "lpm.dll")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/osx-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "liblpm.dylib")
+        endif()
+        
+        add_custom_command(TARGET csharp_wrapper POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory 
+                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp/${CSHARP_NATIVE_LIB_DIR}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:lpm>
+                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp/${CSHARP_NATIVE_LIB_DIR}/${CSHARP_NATIVE_LIB_NAME}
+            COMMENT "Copying native library to C# runtimes directory"
+        )
+        
+        # Custom target to test C# wrapper
+        add_custom_target(csharp_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+                ${DOTNET_EXECUTABLE} test --configuration Release --no-build
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Testing C# wrapper"
+        )
+        
+        # Custom target to pack NuGet package
+        add_custom_target(csharp_pack
+            COMMAND ${DOTNET_EXECUTABLE} pack --configuration Release -o ${CMAKE_CURRENT_BINARY_DIR}/nupkg
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Creating NuGet package"
+        )
+        
+        # Custom target to run C# examples
+        add_custom_target(csharp_example
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+                ${DOTNET_EXECUTABLE} run --configuration Release --project LibLpm.Examples
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Running C# examples"
+        )
+        
+        message(STATUS "C# wrapper targets added:")
+        message(STATUS "  make csharp_wrapper - Build C# wrapper")
+        message(STATUS "  make csharp_test    - Run C# tests")
+        message(STATUS "  make csharp_pack    - Create NuGet package")
+        message(STATUS "  make csharp_example - Run C# examples")
+    else()
+        message(WARNING ".NET SDK not found. C# wrapper will not be built.")
+        message(WARNING "Install .NET SDK to build the wrapper: https://dotnet.microsoft.com/download")
+    endif()
+endif()
+
 # Print configuration summary
 message(STATUS "liblpm configuration:")
 message(STATUS "  Version: ${PROJECT_VERSION}")
@@ -434,6 +514,11 @@ if(BUILD_CPP_WRAPPER)
     message(STATUS "  Build C++ wrapper: ON")
 else()
     message(STATUS "  Build C++ wrapper: OFF")
+endif()
+if(BUILD_CSHARP_WRAPPER AND DOTNET_EXECUTABLE)
+    message(STATUS "  Build C# wrapper: ON")
+else()
+    message(STATUS "  Build C# wrapper: OFF")
 endif()
 
 # ============================================================================

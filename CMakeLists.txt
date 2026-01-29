@@ -61,6 +61,7 @@ option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF
 option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
+option(BUILD_LUA_WRAPPER "Build Lua wrapper and bindings" OFF)
 
 # External LPM libraries directory (set by Docker builds)
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
@@ -390,6 +391,11 @@ if(BUILD_GO_WRAPPER)
     endif()
 endif()
 
+# Lua wrapper
+if(BUILD_LUA_WRAPPER)
+    add_subdirectory(bindings/lua)
+endif()
+
 # Print configuration summary
 message(STATUS "liblpm configuration:")
 message(STATUS "  Version: ${PROJECT_VERSION}")
@@ -434,6 +440,11 @@ if(BUILD_CPP_WRAPPER)
     message(STATUS "  Build C++ wrapper: ON")
 else()
     message(STATUS "  Build C++ wrapper: OFF")
+endif()
+if(BUILD_LUA_WRAPPER)
+    message(STATUS "  Build Lua wrapper: ON")
+else()
+    message(STATUS "  Build Lua wrapper: OFF")
 endif()
 
 # ============================================================================

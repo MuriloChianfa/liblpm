@@ -12,6 +12,7 @@ Quick reference for liblpm Docker images.
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
+| `liblpm-java` | Java JNI bindings | Java wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
 | `liblpm-rpm` | RPM package builder | Building RHEL/Fedora/Rocky packages |
@@ -79,6 +80,13 @@ docker run --rm liblpm-cpp
 
 # Test Go bindings
 docker run --rm liblpm-go
+
+# Test Java JNI bindings
+docker run --rm liblpm-java
+
+# Extract Java JAR artifact
+docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-java \
+    cp /app/build/libs/*.jar /artifacts/
 ```
 
 ### Benchmarking
@@ -198,6 +206,32 @@ Go bindings with cgo support.
 docker run --rm liblpm-go
 ```
 
+### liblpm-java
+
+Java 17 JNI bindings with Gradle build support.
+
+**Size:** ~700MB
+
+**Multi-stage:** C library builder -> Java builder -> Runtime
+
+**Features:**
+- JDK 17 (Eclipse Temurin)
+- JNI native library compilation
+- Gradle build system
+- JUnit 5 tests
+
+```bash
+# Run tests
+docker run --rm liblpm-java
+
+# Interactive development
+docker run -it --rm liblpm-java bash
+
+# Extract JAR artifact
+docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-java \
+    cp /app/build/libs/*.jar /artifacts/
+```
+
 ### liblpm-benchmark
 
 DPDK 24.11 integration for performance comparison.
@@ -249,6 +283,7 @@ Approximate sizes (uncompressed):
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
 | liblpm-go | ~600MB |
+| liblpm-java | ~700MB |
 | liblpm-benchmark | ~1.5GB |
 | liblpm-deb | ~400MB |
 | liblpm-rpm | ~500MB |

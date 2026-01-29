@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Native build
+build/
+*.so
+*.dylib
+*.dll
+
+# Test outputs
+test-results/
+reports/
+
+# Local configuration
+local.properties

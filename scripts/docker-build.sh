@@ -52,6 +52,7 @@ Available Images:
   cpp         - C++ bindings
   go          - Go bindings
   php         - PHP extension
+  python      - Python bindings
   benchmark   - DPDK benchmark environment
   all         - Build all images (default)
 
@@ -115,7 +116,7 @@ while [[ $# -gt 0 ]]; do
             VERBOSE="--progress=plain"
             shift
             ;;
-        base|dev|test|fuzz|cpp|go|php|benchmark|all)
+        base|dev|test|fuzz|cpp|go|php|python|benchmark|all)
             IMAGES+=("$1")
             shift
             ;;
@@ -221,6 +222,9 @@ build_images() {
         php)
             build_image "php" "${DOCKER_DIR}/Dockerfile.php"
             ;;
+        python)
+            build_image "python" "${DOCKER_DIR}/Dockerfile.python"
+            ;;
         benchmark)
             build_image "benchmark" "${DOCKER_DIR}/Dockerfile.benchmark"
             ;;
@@ -232,6 +236,7 @@ build_images() {
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             build_image "php" "${DOCKER_DIR}/Dockerfile.php"
+            build_image "python" "${DOCKER_DIR}/Dockerfile.python"
             build_image "benchmark" "${DOCKER_DIR}/Dockerfile.benchmark"
             ;;
         *)

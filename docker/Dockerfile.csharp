@@ -1,0 +1,68 @@
+# Dockerfile for C# bindings CI testing
+# Builds the native liblpm library and tests the C# bindings
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+
+# Install C build tools and GCC 13 for C23 support
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    libc6-dev \
+    software-properties-common \
+    gnupg \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GCC 13 from testing repository for C23 support
+RUN echo "deb http://deb.debian.org/debian testing main" >> /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends gcc-13 g++-13 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy the entire liblpm project
+COPY . /build/
+
+# Initialize submodules and build liblpm native library
+RUN git config --global --add safe.directory /build && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi && \
+    mkdir -p build && cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release -GNinja .. && \
+    ninja && \
+    ninja install && \
+    ldconfig
+
+# Copy native library to runtimes directory for .NET to find
+RUN mkdir -p /build/bindings/csharp/runtimes/linux-x64/native && \
+    cp /build/build/liblpm.so /build/bindings/csharp/runtimes/linux-x64/native/
+
+# Set library path for runtime
+ENV LD_LIBRARY_PATH=/usr/local/lib:/build/build:$LD_LIBRARY_PATH
+
+# Build and test C# bindings
+WORKDIR /build/bindings/csharp
+
+# Restore dependencies
+RUN dotnet restore
+
+# Build in Release mode
+RUN dotnet build --configuration Release --no-restore
+
+# Copy native library to test output directory and create symlinks for different naming conventions
+RUN cp /build/build/liblpm.so /build/bindings/csharp/LibLpm.Tests/bin/Release/net8.0/ && \
+    cp /build/build/liblpm.so /build/bindings/csharp/LibLpm.Examples/bin/Release/net8.0/ && \
+    ln -sf liblpm.so /build/bindings/csharp/LibLpm.Tests/bin/Release/net8.0/lpm.so && \
+    ln -sf liblpm.so /build/bindings/csharp/LibLpm.Examples/bin/Release/net8.0/lpm.so && \
+    ln -sf /usr/local/lib/liblpm.so /usr/local/lib/lpm.so
+
+# Run tests during build to validate
+RUN dotnet test --configuration Release --verbosity minimal
+
+# Default command: run tests again (for CI validation)
+CMD ["dotnet", "test", "--configuration", "Release", "--verbosity", "normal"]

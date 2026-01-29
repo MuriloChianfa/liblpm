@@ -11,6 +11,7 @@ Quick reference for liblpm Docker images.
 | `liblpm-test` | Testing environment | Automated testing, CI |
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
+| `liblpm-csharp` | C# bindings (.NET) | C# wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
@@ -77,8 +78,15 @@ docker run --rm -v "$PWD/fuzz_output:/fuzz/fuzz_output" --cpus=4 liblpm-fuzz
 # Test C++ bindings
 docker run --rm liblpm-cpp
 
+# Test C# bindings (.NET)
+docker run --rm liblpm-csharp
+
 # Test Go bindings
 docker run --rm liblpm-go
+
+# Extract C# NuGet package
+docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-csharp \
+    bash -c "cd /build/bindings/csharp && dotnet pack -o /artifacts"
 ```
 
 ### Benchmarking
@@ -186,6 +194,33 @@ C++17 environment for building and testing C++ bindings.
 docker run --rm liblpm-cpp
 ```
 
+### liblpm-csharp
+
+.NET 8.0 environment for building and testing C# bindings.
+
+**Size:** ~700MB
+
+**Features:**
+- .NET SDK 8.0
+- P/Invoke bindings with SafeHandle
+- xUnit tests
+- NuGet packaging ready
+
+```bash
+# Run tests
+docker run --rm liblpm-csharp
+
+# Interactive development
+docker run -it --rm liblpm-csharp bash
+
+# Run examples
+docker run --rm liblpm-csharp dotnet run --project /build/bindings/csharp/LibLpm.Examples
+
+# Create NuGet package
+docker run --rm -v "$PWD/packages:/packages" liblpm-csharp \
+    bash -c "cd /build/bindings/csharp && dotnet pack -o /packages"
+```
+
 ### liblpm-go
 
 Go bindings with cgo support.
@@ -248,6 +283,7 @@ Approximate sizes (uncompressed):
 | liblpm-test | ~900MB |
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
+| liblpm-csharp | ~700MB |
 | liblpm-go | ~600MB |
 | liblpm-benchmark | ~1.5GB |
 | liblpm-deb | ~400MB |

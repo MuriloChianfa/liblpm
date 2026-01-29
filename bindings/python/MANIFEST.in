@@ -1,0 +1,38 @@
+# Include essential files
+include LICENSE
+include README.md
+include pyproject.toml
+include CMakeLists.txt
+
+# Include source files
+recursive-include src *.py
+recursive-include src *.pyi
+recursive-include src *.pyx
+recursive-include src *.pxd
+include src/liblpm/py.typed
+
+# Include examples
+recursive-include examples *.py
+
+# Include tests
+recursive-include tests *.py
+
+# Include benchmarks
+recursive-include benchmarks *.py
+
+# Exclude build artifacts
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.dll
+global-exclude *.c
+global-exclude *.html
+global-exclude .DS_Store
+global-exclude .git*
+prune build
+prune dist
+prune *.egg-info
+prune _skbuild
+prune .pytest_cache
+prune .mypy_cache

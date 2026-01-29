@@ -61,6 +61,7 @@ option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF
 option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
+option(BUILD_PERL_WRAPPER "Build Perl wrapper and bindings" OFF)
 
 # External LPM libraries directory (set by Docker builds)
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
@@ -390,6 +391,45 @@ if(BUILD_GO_WRAPPER)
     endif()
 endif()
 
+# Perl wrapper
+if(BUILD_PERL_WRAPPER)
+    find_program(PERL_EXECUTABLE perl)
+    if(PERL_EXECUTABLE)
+        message(STATUS "Found Perl: ${PERL_EXECUTABLE}")
+        
+        # Custom target to configure Perl wrapper
+        add_custom_target(perl_configure
+            COMMAND ${PERL_EXECUTABLE} Makefile.PL
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS lpm
+            COMMENT "Configuring Perl wrapper"
+        )
+        
+        # Custom target to build Perl wrapper
+        add_custom_target(perl_wrapper ALL
+            COMMAND make
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS perl_configure
+            COMMENT "Building Perl wrapper and bindings"
+        )
+        
+        # Custom target to test Perl wrapper
+        add_custom_target(perl_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}" make test
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS perl_wrapper
+            COMMENT "Testing Perl wrapper"
+        )
+        
+        message(STATUS "Perl wrapper targets added:")
+        message(STATUS "  make perl_wrapper - Build Perl wrapper")
+        message(STATUS "  make perl_test    - Run Perl tests")
+    else()
+        message(WARNING "Perl not found. Perl wrapper will not be built.")
+        message(WARNING "Install Perl to build the wrapper: sudo apt install perl")
+    endif()
+endif()
+
 # Print configuration summary
 message(STATUS "liblpm configuration:")
 message(STATUS "  Version: ${PROJECT_VERSION}")
@@ -434,6 +474,11 @@ if(BUILD_CPP_WRAPPER)
     message(STATUS "  Build C++ wrapper: ON")
 else()
     message(STATUS "  Build C++ wrapper: OFF")
+endif()
+if(BUILD_PERL_WRAPPER AND PERL_EXECUTABLE)
+    message(STATUS "  Build Perl wrapper: ON")
+else()
+    message(STATUS "  Build Perl wrapper: OFF")
 endif()
 
 # ============================================================================

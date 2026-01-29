@@ -51,6 +51,7 @@ Available Images:
   fuzz        - AFL++ fuzzing environment
   cpp         - C++ bindings
   go          - Go bindings
+  perl        - Perl XS bindings
   benchmark   - DPDK benchmark environment
   all         - Build all images (default)
 
@@ -114,7 +115,7 @@ while [[ $# -gt 0 ]]; do
             VERBOSE="--progress=plain"
             shift
             ;;
-        base|dev|test|fuzz|cpp|go|benchmark|all)
+        base|dev|test|fuzz|cpp|go|perl|benchmark|all)
             IMAGES+=("$1")
             shift
             ;;
@@ -217,6 +218,9 @@ build_images() {
         go)
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             ;;
+        perl)
+            build_image "perl" "${DOCKER_DIR}/Dockerfile.perl"
+            ;;
         benchmark)
             build_image "benchmark" "${DOCKER_DIR}/Dockerfile.benchmark"
             ;;
@@ -227,6 +231,7 @@ build_images() {
             build_image "fuzz" "${DOCKER_DIR}/Dockerfile.fuzz"
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
+            build_image "perl" "${DOCKER_DIR}/Dockerfile.perl"
             build_image "benchmark" "${DOCKER_DIR}/Dockerfile.benchmark"
             ;;
         *)

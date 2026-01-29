@@ -1,0 +1,217 @@
+/*
+ * liblpm Java Bindings - Gradle Build Configuration
+ * 
+ * High-performance Longest Prefix Match (LPM) library Java bindings using JNI.
+ */
+
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = 'com.github.murilochianfa'
+version = '1.0.0'
+description = 'High-performance LPM library Java bindings'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withJavadocJar()
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+}
+
+// JNI header generation
+tasks.register('generateJniHeaders', JavaCompile) {
+    dependsOn classes
+    source = sourceSets.main.java
+    classpath = sourceSets.main.compileClasspath
+    destinationDirectory = file("${buildDir}/classes/java/main")
+    options.compilerArgs += ['-h', "${buildDir}/generated/jni"]
+}
+
+// Native library build using CMake
+tasks.register('cmakeConfigure', Exec) {
+    workingDir projectDir
+    commandLine 'cmake', '-B', 'build', '-S', '.',
+                '-DCMAKE_BUILD_TYPE=Release'
+    
+    doFirst {
+        file('build').mkdirs()
+    }
+}
+
+tasks.register('buildNative', Exec) {
+    dependsOn cmakeConfigure
+    dependsOn generateJniHeaders
+    workingDir projectDir
+    commandLine 'cmake', '--build', 'build', '--parallel'
+}
+
+tasks.register('installNative', Exec) {
+    dependsOn buildNative
+    workingDir projectDir
+    
+    def osName = System.getProperty('os.name').toLowerCase()
+    def osArch = System.getProperty('os.arch').toLowerCase()
+    def platformDir = getPlatformDir(osName, osArch)
+    
+    commandLine 'cmake', '--install', 'build', 
+                '--prefix', "${projectDir}/src/main/resources/native/${platformDir}"
+}
+
+// Helper function to detect platform
+static String getPlatformDir(String osName, String osArch) {
+    String os
+    if (osName.contains('linux')) {
+        os = 'linux'
+    } else if (osName.contains('mac') || osName.contains('darwin')) {
+        os = 'darwin'
+    } else if (osName.contains('windows')) {
+        os = 'windows'
+    } else {
+        os = 'unknown'
+    }
+    
+    String arch
+    if (osArch.contains('amd64') || osArch.contains('x86_64')) {
+        arch = 'x86_64'
+    } else if (osArch.contains('aarch64') || osArch.contains('arm64')) {
+        arch = 'aarch64'
+    } else {
+        arch = osArch
+    }
+    
+    return "${os}-${arch}"
+}
+
+// Include native libraries in JAR
+processResources {
+    dependsOn installNative
+}
+
+jar {
+    manifest {
+        attributes(
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'Murilo Chianfa',
+            'Automatic-Module-Name': 'com.github.murilochianfa.liblpm'
+        )
+    }
+}
+
+javadoc {
+    options {
+        encoding = 'UTF-8'
+        charSet = 'UTF-8'
+        author = true
+        version = true
+        links = ['https://docs.oracle.com/en/java/javase/17/docs/api/']
+        addStringOption('Xdoclint:none', '-quiet')
+    }
+}
+
+// Maven Central publishing
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            
+            pom {
+                name = 'liblpm Java Bindings'
+                description = 'High-performance Longest Prefix Match (LPM) library Java bindings'
+                url = 'https://github.com/MuriloChianfa/liblpm'
+                
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id = 'murilochianfa'
+                        name = 'Murilo Chianfa'
+                        url = 'https://github.com/MuriloChianfa'
+                    }
+                }
+                
+                scm {
+                    connection = 'scm:git:git://github.com/MuriloChianfa/liblpm.git'
+                    developerConnection = 'scm:git:ssh://github.com/MuriloChianfa/liblpm.git'
+                    url = 'https://github.com/MuriloChianfa/liblpm'
+                }
+            }
+        }
+    }
+    
+    repositories {
+        maven {
+            name = 'OSSRH'
+            def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+            def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            
+            credentials {
+                username = findProperty('ossrhUsername') ?: System.getenv('OSSRH_USERNAME')
+                password = findProperty('ossrhPassword') ?: System.getenv('OSSRH_PASSWORD')
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = findProperty('signingKey') ?: System.getenv('GPG_PRIVATE_KEY')
+    def signingPassword = findProperty('signingPassword') ?: System.getenv('GPG_PASSPHRASE')
+    
+    if (signingKey && signingPassword) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    
+    sign publishing.publications.maven
+}
+
+// Skip signing for local builds
+tasks.withType(Sign) {
+    onlyIf { 
+        project.hasProperty('signing.keyId') || 
+        System.getenv('GPG_PRIVATE_KEY') != null 
+    }
+}
+
+// Custom tasks for running examples
+tasks.register('runBasicExample', JavaExec) {
+    dependsOn classes
+    mainClass = 'com.github.murilochianfa.liblpm.examples.BasicExample'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+tasks.register('runBatchExample', JavaExec) {
+    dependsOn classes
+    mainClass = 'com.github.murilochianfa.liblpm.examples.BatchLookupExample'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+tasks.register('runExamples') {
+    dependsOn runBasicExample, runBatchExample
+}

@@ -61,6 +61,7 @@ option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF
 option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
+option(BUILD_JAVA_WRAPPER "Build Java wrapper and bindings" OFF)
 
 # External LPM libraries directory (set by Docker builds)
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
@@ -315,6 +316,19 @@ if(BUILD_CPP_WRAPPER)
     add_subdirectory(bindings/cpp)
 endif()
 
+# Java wrapper
+if(BUILD_JAVA_WRAPPER)
+    find_package(JNI)
+    find_package(Java COMPONENTS Development)
+    if(JNI_FOUND AND Java_FOUND)
+        message(STATUS "Found JNI: ${JNI_INCLUDE_DIRS}")
+        message(STATUS "Found Java: ${Java_VERSION}")
+        add_subdirectory(bindings/java)
+    else()
+        message(WARNING "Java JDK or JNI not found, skipping Java bindings")
+    endif()
+endif()
+
 # Package configuration for find_package(liblpm)
 include(CMakePackageConfigHelpers)
 
@@ -434,6 +448,11 @@ if(BUILD_CPP_WRAPPER)
     message(STATUS "  Build C++ wrapper: ON")
 else()
     message(STATUS "  Build C++ wrapper: OFF")
+endif()
+if(BUILD_JAVA_WRAPPER AND JNI_FOUND)
+    message(STATUS "  Build Java wrapper: ON")
+else()
+    message(STATUS "  Build Java wrapper: OFF")
 endif()
 
 # ============================================================================

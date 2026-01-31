@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package packagerversion="1.10.14" version="2.0" xmlns="http://pear.php.net/dtd/package-2.0" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0 http://pear.php.net/dtd/tasks-1.0.xsd http://pear.php.net/dtd/package-2.0 http://pear.php.net/dtd/package-2.0.xsd">
+ <name>liblpm</name>
+ <channel>pecl.php.net</channel>
+ <summary>High-performance Longest Prefix Match library for IP routing</summary>
+ <description>
+liblpm is a high-performance PHP extension for longest prefix match (LPM)
+operations, optimized for IP routing table lookups. It provides both IPv4
+and IPv6 support with multiple algorithm implementations:
+
+- IPv4 DIR-24-8: 1-2 memory accesses per lookup
+- IPv4 8-bit stride: Lower memory for sparse tables
+- IPv6 Wide 16-bit: Optimized for common /48 allocations
+- IPv6 8-bit stride: Memory efficient for sparse tables
+
+The extension provides both object-oriented and procedural APIs,
+batch lookup operations for high throughput, and SIMD optimizations.
+ </description>
+ <lead>
+  <name>Murilo Chianfa</name>
+  <user>murilochianfa</user>
+  <email>murilo.chianfa@outlook.com</email>
+  <active>yes</active>
+ </lead>
+ <date>2026-01-28</date>
+ <time>00:00:00</time>
+ <version>
+  <release>1.0.0</release>
+  <api>1.0.0</api>
+ </version>
+ <stability>
+  <release>stable</release>
+  <api>stable</api>
+ </stability>
+ <license uri="https://www.boost.org/LICENSE_1_0.txt">Boost Software License 1.0</license>
+ <notes>
+Initial stable release.
+
+Features:
+- IPv4 and IPv6 routing table support
+- Object-oriented API (LpmTableIPv4, LpmTableIPv6 classes)
+- Procedural API (lpm_* functions)
+- Batch lookup operations
+- Algorithm selection (DIR-24-8, Wide16, 8-stride)
+- Proper exception handling
+- Memory-safe resource management
+ </notes>
+ <contents>
+  <dir name="/">
+   <file name="config.m4" role="src" />
+   <file name="config.w32" role="src" />
+   <file name="php_liblpm.h" role="src" />
+   <file name="liblpm.c" role="src" />
+   <file name="README.md" role="doc" />
+   <file name="LICENSE" role="doc" />
+   <dir name="docs">
+    <file name="API.md" role="doc" />
+   </dir>
+   <dir name="examples">
+    <file name="basic_example.php" role="doc" />
+    <file name="batch_lookup.php" role="doc" />
+    <file name="procedural_example.php" role="doc" />
+    <file name="ipv6_example.php" role="doc" />
+   </dir>
+   <dir name="tests">
+    <file name="create_ipv4.phpt" role="test" />
+    <file name="create_ipv6.phpt" role="test" />
+    <file name="insert_lookup.phpt" role="test" />
+    <file name="delete.phpt" role="test" />
+    <file name="batch_lookup.phpt" role="test" />
+    <file name="longest_prefix.phpt" role="test" />
+    <file name="default_route.phpt" role="test" />
+    <file name="procedural_api.phpt" role="test" />
+    <file name="algorithm_selection.phpt" role="test" />
+    <file name="error_handling.phpt" role="test" />
+    <file name="ipv6_basic.phpt" role="test" />
+    <file name="memory_cleanup.phpt" role="test" />
+   </dir>
+  </dir>
+ </contents>
+ <dependencies>
+  <required>
+   <php>
+    <min>8.1.0</min>
+   </php>
+   <pearinstaller>
+    <min>1.10.0</min>
+   </pearinstaller>
+  </required>
+ </dependencies>
+ <providesextension>liblpm</providesextension>
+ <extsrcrelease>
+  <configureoption default="autodetect" name="with-liblpm" prompt="liblpm installation directory" />
+ </extsrcrelease>
+ <changelog>
+  <release>
+   <version>
+    <release>1.0.0</release>
+    <api>1.0.0</api>
+   </version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api>
+   </stability>
+   <date>2026-01-28</date>
+   <license uri="https://www.boost.org/LICENSE_1_0.txt">Boost Software License 1.0</license>
+   <notes>
+Initial stable release.
+
+Features:
+- IPv4 and IPv6 routing table support
+- Object-oriented API (LpmTableIPv4, LpmTableIPv6 classes)
+- Procedural API (lpm_* functions)
+- Batch lookup operations
+- Algorithm selection (DIR-24-8, Wide16, 8-stride)
+- Proper exception handling
+- Memory-safe resource management
+   </notes>
+  </release>
+ </changelog>
+</package>

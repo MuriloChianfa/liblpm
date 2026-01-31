@@ -13,6 +13,8 @@ Quick reference for liblpm Docker images.
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-csharp` | C# bindings (.NET) | C# wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
+| `liblpm-java` | Java JNI bindings | Java wrapper testing |
+| `liblpm-csharp` | C# bindings (.NET) | C# wrapper testing |
 | `liblpm-lua` | Lua bindings | Lua wrapper testing |
 | `liblpm-perl` | Perl XS bindings | Perl wrapper testing |
 | `liblpm-php` | PHP extension | PHP wrapper testing |
@@ -87,6 +89,16 @@ docker run --rm liblpm-csharp
 
 # Test Go bindings
 docker run --rm liblpm-go
+
+# Test Java JNI bindings
+docker run --rm liblpm-java
+
+# Extract Java JAR artifact
+docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-java \
+    cp /app/build/libs/*.jar /artifacts/
+
+# Test C# bindings (.NET)
+docker run --rm liblpm-csharp
 
 # Extract C# NuGet package
 docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-csharp \
@@ -249,6 +261,59 @@ Go bindings with cgo support.
 docker run --rm liblpm-go
 ```
 
+### liblpm-java
+
+Java 17 JNI bindings with Gradle build support.
+
+**Size:** ~700MB
+
+**Multi-stage:** C library builder -> Java builder -> Runtime
+
+**Features:**
+- JDK 17 (Eclipse Temurin)
+- JNI native library compilation
+- Gradle build system
+- JUnit 5 tests
+
+```bash
+# Run tests
+docker run --rm liblpm-java
+
+# Interactive development
+docker run -it --rm liblpm-java bash
+
+# Extract JAR artifact
+docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-java \
+    cp /app/build/libs/*.jar /artifacts/
+```
+
+### liblpm-csharp
+
+.NET 8.0 environment for building and testing C# bindings.
+
+**Size:** ~700MB
+
+**Features:**
+- .NET SDK 8.0
+- P/Invoke bindings with SafeHandle
+- xUnit tests
+- NuGet packaging ready
+
+```bash
+# Run tests
+docker run --rm liblpm-csharp
+
+# Interactive development
+docker run -it --rm liblpm-csharp bash
+
+# Run examples
+docker run --rm liblpm-csharp dotnet run --project /build/bindings/csharp/LibLpm.Examples
+
+# Create NuGet package
+docker run --rm -v "$PWD/packages:/packages" liblpm-csharp \
+    bash -c "cd /build/bindings/csharp && dotnet pack -o /packages"
+```
+
 ### liblpm-lua
 
 Lua 5.4 bindings with native C module.
@@ -384,6 +449,8 @@ Approximate sizes (uncompressed):
 | liblpm-cpp | ~800MB |
 | liblpm-csharp | ~700MB |
 | liblpm-go | ~600MB |
+| liblpm-java | ~700MB |
+| liblpm-csharp | ~700MB |
 | liblpm-lua | ~400MB |
 | liblpm-perl | ~400MB |
 | liblpm-python | ~500MB |

@@ -52,6 +52,8 @@ Available Images:
   cpp         - C++ bindings
   csharp      - C# bindings (.NET)
   go          - Go bindings
+  java        - Java JNI bindings
+  csharp      - C# bindings (.NET)
   lua         - Lua bindings
   perl        - Perl XS bindings
   php         - PHP bindings
@@ -119,7 +121,7 @@ while [[ $# -gt 0 ]]; do
             VERBOSE="--progress=plain"
             shift
             ;;
-        base|dev|test|fuzz|cpp|csharp|go|lua|perl|php|python|benchmark|all)
+        base|dev|test|fuzz|cpp|go|java|csharp|lua|perl|php|python|benchmark|all)
             IMAGES+=("$1")
             shift
             ;;
@@ -225,6 +227,12 @@ build_images() {
         go)
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             ;;
+        java)
+            build_image "java" "${DOCKER_DIR}/Dockerfile.java"
+            ;;
+        csharp)
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
+            ;;
         lua)
             build_image "lua" "${DOCKER_DIR}/Dockerfile.lua"
             ;;
@@ -248,6 +256,8 @@ build_images() {
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
             build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
+            build_image "java" "${DOCKER_DIR}/Dockerfile.java"
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
             build_image "lua" "${DOCKER_DIR}/Dockerfile.lua"
             build_image "perl" "${DOCKER_DIR}/Dockerfile.perl"
             build_image "php" "${DOCKER_DIR}/Dockerfile.php"

@@ -1,0 +1,5 @@
+/*
+ * liblpm Java Bindings - Settings
+ */
+
+rootProject.name = 'liblpm'

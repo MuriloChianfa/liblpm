@@ -61,6 +61,7 @@ option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark" OFF)
 option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
+option(BUILD_JAVA_WRAPPER "Build Java wrapper and bindings" OFF)
 option(BUILD_CSHARP_WRAPPER "Build C# wrapper and bindings" OFF)
 option(BUILD_LUA_WRAPPER "Build Lua wrapper and bindings" OFF)
 option(BUILD_PERL_WRAPPER "Build Perl wrapper and bindings" OFF)
@@ -329,96 +330,16 @@ if(BUILD_CPP_WRAPPER)
     add_subdirectory(bindings/cpp)
 endif()
 
-# Python wrapper
-if(BUILD_PYTHON_WRAPPER)
-    find_package(Python COMPONENTS Interpreter Development.Module)
-    find_program(CYTHON_EXECUTABLE NAMES cython cython3)
-    if(Python_FOUND AND CYTHON_EXECUTABLE)
-        message(STATUS "Found Python: ${Python_EXECUTABLE} (${Python_VERSION})")
-        message(STATUS "Found Cython: ${CYTHON_EXECUTABLE}")
-        add_subdirectory(bindings/python)
+# Java wrapper
+if(BUILD_JAVA_WRAPPER)
+    find_package(JNI)
+    find_package(Java COMPONENTS Development)
+    if(JNI_FOUND AND Java_FOUND)
+        message(STATUS "Found JNI: ${JNI_INCLUDE_DIRS}")
+        message(STATUS "Found Java: ${Java_VERSION}")
+        add_subdirectory(bindings/java)
     else()
-        if(NOT Python_FOUND)
-            message(WARNING "Python not found, skipping Python bindings")
-        endif()
-        if(NOT CYTHON_EXECUTABLE)
-            message(WARNING "Cython not found, skipping Python bindings. Install with: pip install cython")
-        endif()
-    endif()
-endif()
-
-# Package configuration for find_package(liblpm)
-include(CMakePackageConfigHelpers)
-
-# Generate version file
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/liblpmConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY AnyNewerVersion
-)
-
-# Generate config file from template
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/liblpmConfig.cmake.in
-    "${CMAKE_CURRENT_BINARY_DIR}/liblpmConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/liblpm
-    PATH_VARS CMAKE_INSTALL_INCLUDEDIR
-)
-
-# Install CMake config files (devel component)
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/liblpmConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/liblpmConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/liblpm
-    COMPONENT devel
-)
-
-# Export targets (devel component)
-install(EXPORT liblpmTargets
-    FILE liblpmTargets.cmake
-    NAMESPACE liblpm::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/liblpm
-    COMPONENT devel
-)
-
-# Go wrapper
-if(BUILD_GO_WRAPPER)
-    find_program(GO_EXECUTABLE go)
-    if(GO_EXECUTABLE)
-        message(STATUS "Found Go: ${GO_EXECUTABLE}")
-        
-        # Custom target to build Go wrapper
-        add_custom_target(go_wrapper ALL
-            COMMAND ${CMAKE_COMMAND} -E echo "Building Go wrapper..."
-            COMMAND ${GO_EXECUTABLE} build ./...
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/go
-            DEPENDS lpm
-            COMMENT "Building Go wrapper and bindings"
-        )
-        
-        # Custom target to test Go wrapper
-        add_custom_target(go_test
-            COMMAND ${GO_EXECUTABLE} test -v ./liblpm/
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/go
-            DEPENDS go_wrapper
-            COMMENT "Testing Go wrapper"
-        )
-        
-        # Custom target to run Go benchmarks
-        add_custom_target(go_bench
-            COMMAND ${GO_EXECUTABLE} test -bench=. -benchmem ./benchmarks/
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/go
-            DEPENDS go_wrapper
-            COMMENT "Running Go benchmarks"
-        )
-        
-        message(STATUS "Go wrapper targets added:")
-        message(STATUS "  make go_wrapper - Build Go wrapper")
-        message(STATUS "  make go_test    - Run Go tests")
-        message(STATUS "  make go_bench   - Run Go benchmarks")
-    else()
-        message(WARNING "Go not found. Go wrapper will not be built.")
-        message(WARNING "Install Go to build the wrapper: sudo apt install golang-go")
+        message(WARNING "Java JDK or JNI not found, skipping Java bindings")
     endif()
 endif()
 
@@ -655,6 +576,11 @@ if(BUILD_CPP_WRAPPER)
     message(STATUS "  Build C++ wrapper: ON")
 else()
     message(STATUS "  Build C++ wrapper: OFF")
+endif()
+if(BUILD_JAVA_WRAPPER AND JNI_FOUND)
+    message(STATUS "  Build Java wrapper: ON")
+else()
+    message(STATUS "  Build Java wrapper: OFF")
 endif()
 if(BUILD_CSHARP_WRAPPER AND DOTNET_EXECUTABLE)
     message(STATUS "  Build C# wrapper: ON")

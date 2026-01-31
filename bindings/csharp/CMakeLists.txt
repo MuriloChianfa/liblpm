@@ -21,9 +21,27 @@ message(STATUS "Found .NET SDK: ${DOTNET_VERSION}")
 # Find or import lpm library
 if(NOT TARGET lpm)
     set(LPM_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    
     if(EXISTS "${LPM_ROOT_DIR}/include/lpm.h")
-        message(STATUS "Using liblpm from parent project")
+        # Parent project exists - try to find the built library
+        find_library(LPM_LIBRARY 
+            NAMES lpm
+            HINTS "${LPM_ROOT_DIR}/build" "/usr/local/lib" "/usr/lib"
+            NO_DEFAULT_PATH
+        )
+        
+        if(NOT LPM_LIBRARY)
+            # Try system default paths
+            find_library(LPM_LIBRARY NAMES lpm)
+        endif()
+        
+        if(LPM_LIBRARY)
+            message(STATUS "Using liblpm from parent project/system: ${LPM_LIBRARY}")
+        else()
+            message(FATAL_ERROR "liblpm library not found. Build and install the main project first.")
+        endif()
     else()
+        # Try to find installed liblpm
         find_library(LPM_LIBRARY NAMES lpm)
         if(LPM_LIBRARY)
             message(STATUS "Found system liblpm: ${LPM_LIBRARY}")

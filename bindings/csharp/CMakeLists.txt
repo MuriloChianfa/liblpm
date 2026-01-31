@@ -84,14 +84,27 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(NATIVE_LIB_NAME "liblpm.dylib")
 endif()
 
-add_custom_command(TARGET csharp_wrapper POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NATIVE_LIB_DIR}
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:lpm>
-        ${CMAKE_CURRENT_SOURCE_DIR}/${NATIVE_LIB_DIR}/${NATIVE_LIB_NAME}
-    COMMENT "Copying native library to runtimes directory"
-    VERBATIM
-)
+# Only copy if building as part of parent project (target exists)
+if(TARGET lpm)
+    add_custom_command(TARGET csharp_wrapper POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NATIVE_LIB_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:lpm>
+            ${CMAKE_CURRENT_SOURCE_DIR}/${NATIVE_LIB_DIR}/${NATIVE_LIB_NAME}
+        COMMENT "Copying native library to runtimes directory"
+        VERBATIM
+    )
+else()
+    # When building standalone, try to copy from system installation
+    add_custom_command(TARGET csharp_wrapper POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/${NATIVE_LIB_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${LPM_LIBRARY}
+            ${CMAKE_CURRENT_SOURCE_DIR}/${NATIVE_LIB_DIR}/${NATIVE_LIB_NAME}
+        COMMENT "Copying native library from system installation to runtimes directory"
+        VERBATIM
+    )
+endif()
 
 message(STATUS "C# wrapper configuration:")
 message(STATUS "  .NET SDK: ${DOTNET_VERSION}")

@@ -72,13 +72,18 @@ install(TARGETS lpm_cpp lpm_cpp_impl
 
 # Export targets
 # Note: When building as part of the main project, the lpm target needs to be
-# included in this export set to satisfy CMake's dependency tracking
+# included in this export set to satisfy CMake's dependency tracking.
+# Only install if lpm is a real target, not an IMPORTED target.
 if(TARGET lpm)
-    # Include lpm in the export if it's a local target
-    install(TARGETS lpm
-        EXPORT liblpmCppTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    )
+    get_target_property(lpm_type lpm TYPE)
+    get_target_property(lpm_imported lpm IMPORTED)
+    if(NOT lpm_imported)
+        # lpm is a local (non-imported) target, include it in the export
+        install(TARGETS lpm
+            EXPORT liblpmCppTargets
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        )
+    endif()
 endif()
 
 install(EXPORT liblpmCppTargets

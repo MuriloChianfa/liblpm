@@ -193,6 +193,9 @@ docker run --rm --cpus=4 liblpm-fuzz
 - **liblpm-fuzz**: AFL++ fuzzing for security testing
 - **liblpm-cpp**: C++ bindings development and testing
 - **liblpm-go**: Go bindings development and testing
+- **liblpm-perl**: Perl XS bindings development and testing
+- **liblpm-php**: PHP bindings development and testing
+- **liblpm-python**: Python bindings development and testing
 - **liblpm-benchmark**: DPDK rte_lpm performance comparison
 
 For complete documentation, see [docs/DOCKER.md](docs/DOCKER.md).
@@ -273,6 +276,9 @@ man lpm_algorithms  # Algorithm-specific APIs
 - [Byte Order and Data Format](docs/BYTE_ORDER.md) - Endianness, IP address storage, and integration guide
 - [C++ API Reference](bindings/cpp/README.md) - C++ wrapper documentation
 - [Go API Reference](bindings/go/README.md) - Go bindings documentation
+- [Perl API Reference](bindings/perl/README.md) - Perl XS bindings documentation
+- [PHP API Reference](bindings/php/README.md) - PHP extension documentation
+- [Python API Reference](bindings/python/README.md) - Python bindings documentation
 
 ## Security
 

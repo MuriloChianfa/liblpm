@@ -1,10 +1,6 @@
 name: Docker Build and Test
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
   workflow_dispatch:
 
 env:
@@ -26,6 +22,12 @@ jobs:
           - fuzz
           - cpp
           - go
+          - java
+          - csharp
+          - lua
+          - perl
+          - php
+          - python
           - benchmark
     
     steps:

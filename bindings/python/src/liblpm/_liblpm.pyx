@@ -20,8 +20,6 @@ from libc.stdint cimport uint8_t, uint32_t, uint64_t
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.bytes cimport PyBytes_AS_STRING
 
-cimport _liblpm
-
 
 # Re-export constant for Python access
 INVALID_NEXT_HOP = 0xFFFFFFFF
@@ -40,7 +38,7 @@ cdef class _LpmTrieIPv4:
         _algorithm: String indicating which algorithm was used
     """
     
-    cdef _liblpm.lpm_trie_t* _trie
+    cdef lpm_trie_t* _trie
     cdef bint _closed
     cdef str _algorithm
     
@@ -56,14 +54,14 @@ cdef class _LpmTrieIPv4:
         
         if algorithm == 'dir24':
             with nogil:
-                self._trie = _liblpm.lpm_create_ipv4_dir24()
+                self._trie = lpm_create_ipv4_dir24()
         elif algorithm == 'stride8':
             with nogil:
-                self._trie = _liblpm.lpm_create_ipv4_8stride()
+                self._trie = lpm_create_ipv4_8stride()
         else:
             # Default to generic IPv4 (compile-time selected)
             with nogil:
-                self._trie = _liblpm.lpm_create_ipv4()
+                self._trie = lpm_create_ipv4()
         
         if self._trie is NULL:
             raise MemoryError("Failed to create IPv4 LPM trie")
@@ -71,7 +69,7 @@ cdef class _LpmTrieIPv4:
     def __dealloc__(self):
         """Clean up C resources when the object is garbage collected."""
         if self._trie is not NULL and not self._closed:
-            _liblpm.lpm_destroy(self._trie)
+            lpm_destroy(self._trie)
             self._trie = NULL
     
     cpdef void close(self) except *:
@@ -81,7 +79,7 @@ cdef class _LpmTrieIPv4:
         It is safe to call close() multiple times.
         """
         if not self._closed and self._trie is not NULL:
-            _liblpm.lpm_destroy(self._trie)
+            lpm_destroy(self._trie)
             self._trie = NULL
             self._closed = True
     
@@ -112,8 +110,8 @@ cdef class _LpmTrieIPv4:
         prefix_ptr = <const uint8_t*>PyBytes_AS_STRING(prefix)
         
         with nogil:
-            result = _liblpm.lpm_add(self._trie, prefix_ptr, 
-                                      prefix_len, next_hop)
+            result = lpm_add(self._trie, prefix_ptr, 
+                            prefix_len, next_hop)
         
         return result
     
@@ -142,7 +140,7 @@ cdef class _LpmTrieIPv4:
         prefix_ptr = <const uint8_t*>PyBytes_AS_STRING(prefix)
         
         with nogil:
-            result = _liblpm.lpm_delete(self._trie, prefix_ptr, prefix_len)
+            result = lpm_delete(self._trie, prefix_ptr, prefix_len)
         
         return result
     
@@ -165,7 +163,7 @@ cdef class _LpmTrieIPv4:
             raise RuntimeError("Trie is closed")
         
         with nogil:
-            result = _liblpm.lpm_lookup_ipv4(self._trie, addr)
+            result = lpm_lookup_ipv4(self._trie, addr)
         
         return result
     
@@ -190,8 +188,8 @@ cdef class _LpmTrieIPv4:
             raise ValueError("Results buffer too small")
         
         with nogil:
-            _liblpm.lpm_lookup_batch_ipv4(self._trie, &addrs[0], 
-                                           &results[0], count)
+            lpm_lookup_batch_ipv4(self._trie, &addrs[0], 
+                                 &results[0], count)
     
     @property
     def closed(self) -> bool:
@@ -231,7 +229,7 @@ cdef class _LpmTrieIPv6:
         _algorithm: String indicating which algorithm was used
     """
     
-    cdef _liblpm.lpm_trie_t* _trie
+    cdef lpm_trie_t* _trie
     cdef bint _closed
     cdef str _algorithm
     
@@ -247,14 +245,14 @@ cdef class _LpmTrieIPv6:
         
         if algorithm == 'wide16':
             with nogil:
-                self._trie = _liblpm.lpm_create_ipv6_wide16()
+                self._trie = lpm_create_ipv6_wide16()
         elif algorithm == 'stride8':
             with nogil:
-                self._trie = _liblpm.lpm_create_ipv6_8stride()
+                self._trie = lpm_create_ipv6_8stride()
         else:
             # Default to generic IPv6 (compile-time selected)
             with nogil:
-                self._trie = _liblpm.lpm_create_ipv6()
+                self._trie = lpm_create_ipv6()
         
         if self._trie is NULL:
             raise MemoryError("Failed to create IPv6 LPM trie")
@@ -262,7 +260,7 @@ cdef class _LpmTrieIPv6:
     def __dealloc__(self):
         """Clean up C resources when the object is garbage collected."""
         if self._trie is not NULL and not self._closed:
-            _liblpm.lpm_destroy(self._trie)
+            lpm_destroy(self._trie)
             self._trie = NULL
     
     cpdef void close(self) except *:
@@ -272,7 +270,7 @@ cdef class _LpmTrieIPv6:
         It is safe to call close() multiple times.
         """
         if not self._closed and self._trie is not NULL:
-            _liblpm.lpm_destroy(self._trie)
+            lpm_destroy(self._trie)
             self._trie = NULL
             self._closed = True
     
@@ -303,8 +301,8 @@ cdef class _LpmTrieIPv6:
         prefix_ptr = <const uint8_t*>PyBytes_AS_STRING(prefix)
         
         with nogil:
-            result = _liblpm.lpm_add(self._trie, prefix_ptr,
-                                      prefix_len, next_hop)
+            result = lpm_add(self._trie, prefix_ptr,
+                            prefix_len, next_hop)
         
         return result
     
@@ -333,7 +331,7 @@ cdef class _LpmTrieIPv6:
         prefix_ptr = <const uint8_t*>PyBytes_AS_STRING(prefix)
         
         with nogil:
-            result = _liblpm.lpm_delete(self._trie, prefix_ptr, prefix_len)
+            result = lpm_delete(self._trie, prefix_ptr, prefix_len)
         
         return result
     
@@ -361,7 +359,7 @@ cdef class _LpmTrieIPv6:
         addr_ptr = <const uint8_t*>PyBytes_AS_STRING(addr)
         
         with nogil:
-            result = _liblpm.lpm_lookup_ipv6(self._trie, addr_ptr)
+            result = lpm_lookup_ipv6(self._trie, addr_ptr)
         
         return result
     
@@ -407,7 +405,7 @@ cdef class _LpmTrieIPv6:
             
             # Perform batch lookup
             with nogil:
-                _liblpm.lpm_lookup_batch_ipv6(
+                lpm_lookup_batch_ipv6(
                     self._trie,
                     <const uint8_t (*)[16]>batch_buffer,
                     &results[0],
@@ -455,7 +453,7 @@ def get_version() -> str:
         Version string (e.g., "2.0.0")
     """
     cdef const char* version
-    version = _liblpm.lpm_get_version()
+    version = lpm_get_version()
     if version is NULL:
         return "unknown"
     return version.decode('utf-8')

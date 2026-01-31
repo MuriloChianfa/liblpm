@@ -66,6 +66,7 @@ build_clang/
 build_gcc/
 build_*/
 build_afl
+build-*
 run_fuzz.sh
 fuzz_input
 fuzz_output

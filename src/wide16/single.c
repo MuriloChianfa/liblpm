@@ -110,22 +110,22 @@ uint32_t lpm_lookup_ipv6_wide16_avx512(const lpm_trie_t *trie, const uint8_t *ad
 
 typedef uint32_t (*lpm_wide16_single_func_t)(const lpm_trie_t *, const uint8_t *);
 
-static lpm_wide16_single_func_t lpm_wide16_single_resolver(void)
+EXPLICIT_RUNTIME_RESOLVER(lpm_wide16_single_resolver)
 {
-    simd_level_t level = detect_simd_level();
+    simd_level_t level = LPM_DETECT_SIMD();
     
     switch (level) {
     case SIMD_AVX512F:
-        return lpm_lookup_ipv6_wide16_avx512;
+        return (void*)lpm_lookup_ipv6_wide16_avx512;
     case SIMD_AVX2:
     case SIMD_AVX:
-        return lpm_lookup_ipv6_wide16_avx2;
+        return (void*)lpm_lookup_ipv6_wide16_avx2;
     case SIMD_SSE4_2:
     case SIMD_SSE2:
-        return lpm_lookup_ipv6_wide16_sse2;
+        return (void*)lpm_lookup_ipv6_wide16_sse2;
     case SIMD_SCALAR:
     default:
-        return lpm_lookup_ipv6_wide16_scalar;
+        return (void*)lpm_lookup_ipv6_wide16_scalar;
     }
 }
 

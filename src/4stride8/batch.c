@@ -279,24 +279,24 @@ void lpm_lookup_batch_ipv4_8stride_avx512(const lpm_trie_t *trie, const uint8_t 
 
 typedef void (*lpm_ipv4_8stride_batch_func_t)(const lpm_trie_t *, const uint8_t **, uint32_t *, size_t);
 
-static lpm_ipv4_8stride_batch_func_t lpm_ipv4_8stride_batch_resolver(void)
+EXPLICIT_RUNTIME_RESOLVER(lpm_ipv4_8stride_batch_resolver)
 {
-    simd_level_t level = detect_simd_level();
+    simd_level_t level = LPM_DETECT_SIMD();
     
     switch (level) {
     case SIMD_AVX512F:
-        return lpm_lookup_batch_ipv4_8stride_avx512;
+        return (void*)lpm_lookup_batch_ipv4_8stride_avx512;
     case SIMD_AVX2:
-        return lpm_lookup_batch_ipv4_8stride_avx2;
+        return (void*)lpm_lookup_batch_ipv4_8stride_avx2;
     case SIMD_AVX:
-        return lpm_lookup_batch_ipv4_8stride_avx;
+        return (void*)lpm_lookup_batch_ipv4_8stride_avx;
     case SIMD_SSE4_2:
-        return lpm_lookup_batch_ipv4_8stride_sse42;
+        return (void*)lpm_lookup_batch_ipv4_8stride_sse42;
     case SIMD_SSE2:
-        return lpm_lookup_batch_ipv4_8stride_sse2;
+        return (void*)lpm_lookup_batch_ipv4_8stride_sse2;
     case SIMD_SCALAR:
     default:
-        return lpm_lookup_batch_ipv4_8stride_scalar;
+        return (void*)lpm_lookup_batch_ipv4_8stride_scalar;
     }
 }
 

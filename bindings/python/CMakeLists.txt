@@ -8,6 +8,10 @@ project(liblpm_python VERSION 2.0.0 LANGUAGES C)
 
 option(LIBLPM_PYTHON_STANDALONE "Build Python bindings standalone (not from parent)" OFF)
 
+# Python bindings REQUIRE thread-safe resolvers for dlopen() safety
+set(LPM_TS_RESOLVERS ON CACHE BOOL "Enable thread-safe resolvers for Python" FORCE)
+message(STATUS "Python bindings: Forcing LPM_TS_RESOLVERS=ON for dlopen() compatibility")
+
 # ============================================================================
 # Find Dependencies
 # ============================================================================
@@ -32,7 +36,7 @@ message(STATUS "Found Cython: ${CYTHON_EXECUTABLE}")
 # Find liblpm
 # ============================================================================
 
-if(NOT TARGET lpm)
+if(NOT TARGET lpm_static)
     # Not building from parent project
     set(LIBLPM_PYTHON_STANDALONE ON)
     
@@ -42,11 +46,20 @@ if(NOT TARGET lpm)
     if(EXISTS "${LPM_ROOT_DIR}/include/lpm.h")
         message(STATUS "Found liblpm in parent directory")
         
-        # Check for build directory
+        # Use shared library to avoid IFUNC issues when dlopen'd by Python
+        # Dynamic linking allows IFUNC resolvers to run at load time correctly
         if(EXISTS "${LPM_ROOT_DIR}/build/liblpm.so")
             set(LPM_LIBRARY "${LPM_ROOT_DIR}/build/liblpm.so")
+            set(LPM_LIBRARY_TYPE "SHARED")
+            message(STATUS "Using shared liblpm (dynamic linking avoids IFUNC issues)")
         elseif(EXISTS "${LPM_ROOT_DIR}/build/liblpm.dylib")
             set(LPM_LIBRARY "${LPM_ROOT_DIR}/build/liblpm.dylib")
+            set(LPM_LIBRARY_TYPE "SHARED")
+            message(STATUS "Using shared liblpm (dynamic linking avoids IFUNC issues)")
+        elseif(EXISTS "${LPM_ROOT_DIR}/build/liblpm.a")
+            set(LPM_LIBRARY "${LPM_ROOT_DIR}/build/liblpm.a")
+            set(LPM_LIBRARY_TYPE "STATIC")
+            message(WARNING "Using static liblpm - may have IFUNC issues with dlopen")
         else()
             message(FATAL_ERROR 
                 "liblpm library not found. Build the main project first:\n"
@@ -57,25 +70,44 @@ if(NOT TARGET lpm)
         set(LPM_INCLUDE_DIR "${LPM_ROOT_DIR}/include")
         
         # Create imported target
-        add_library(lpm SHARED IMPORTED)
-        set_target_properties(lpm PROPERTIES
+        add_library(lpm_static ${LPM_LIBRARY_TYPE} IMPORTED)
+        set_target_properties(lpm_static PROPERTIES
             IMPORTED_LOCATION "${LPM_LIBRARY}"
             INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}"
         )
     else()
-        # Try system-installed liblpm
-        find_library(LPM_LIBRARY NAMES lpm
+        # Try system-installed liblpm - prefer shared for Python
+        find_library(LPM_SHARED_LIBRARY NAMES lpm
+            PATHS /usr/local/lib /usr/lib
+        )
+        find_library(LPM_STATIC_LIBRARY NAMES liblpm.a
             PATHS /usr/local/lib /usr/lib
         )
         find_path(LPM_INCLUDE_DIR lpm.h
             PATHS /usr/local/include/lpm /usr/include/lpm
         )
         
-        if(LPM_LIBRARY AND LPM_INCLUDE_DIR)
-            message(STATUS "Found system liblpm: ${LPM_LIBRARY}")
-            add_library(lpm SHARED IMPORTED)
-            set_target_properties(lpm PROPERTIES
-                IMPORTED_LOCATION "${LPM_LIBRARY}"
+        if(LPM_SHARED_LIBRARY AND LPM_INCLUDE_DIR)
+            message(STATUS "Found system liblpm (shared): ${LPM_SHARED_LIBRARY}")
+            add_library(lpm_static SHARED IMPORTED)
+            set_target_properties(lpm_static PROPERTIES
+                IMPORTED_LOCATION "${LPM_SHARED_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}"
+            )
+        elseif(LPM_STATIC_LIBRARY AND LPM_INCLUDE_DIR)
+            message(STATUS "Found system liblpm (static): ${LPM_STATIC_LIBRARY}")
+            message(WARNING "Using static liblpm - may have IFUNC issues with dlopen")
+            add_library(lpm_static STATIC IMPORTED)
+            set_target_properties(lpm_static PROPERTIES
+                IMPORTED_LOCATION "${LPM_STATIC_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}"
+            )
+        elseif(LPM_SHARED_LIBRARY AND LPM_INCLUDE_DIR)
+            message(STATUS "Found system liblpm (shared): ${LPM_SHARED_LIBRARY}")
+            message(WARNING "Using shared library - may have issues with IFUNC resolvers in Python")
+            add_library(lpm_static SHARED IMPORTED)
+            set_target_properties(lpm_static PROPERTIES
+                IMPORTED_LOCATION "${LPM_SHARED_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${LPM_INCLUDE_DIR}"
             )
         else()
@@ -85,9 +117,9 @@ if(NOT TARGET lpm)
         endif()
     endif()
 else()
-    message(STATUS "Using liblpm from parent project")
+    message(STATUS "Using liblpm_static from parent project")
     # Get include directory from parent target
-    get_target_property(LPM_INCLUDE_DIR lpm INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(LPM_INCLUDE_DIR lpm_static INTERFACE_INCLUDE_DIRECTORIES)
     if(NOT LPM_INCLUDE_DIR)
         set(LPM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
     endif()
@@ -130,8 +162,8 @@ target_include_directories(_liblpm PRIVATE
     ${Python_INCLUDE_DIRS}
 )
 
-# Link against liblpm
-target_link_libraries(_liblpm PRIVATE lpm)
+# Link against liblpm (static to avoid IFUNC issues)
+target_link_libraries(_liblpm PRIVATE lpm_static)
 
 # Set module properties
 set_target_properties(_liblpm PROPERTIES
@@ -148,6 +180,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
         -Wextra
         -Wno-unused-parameter
         -Wno-missing-field-initializers
+        -fno-gnu-unique
     )
 endif()
 

@@ -81,7 +81,6 @@ cmake.build-type = "Release"
 cmake.verbose = false
 
 # Wheel configuration
-wheel.install-dir = "liblpm"
 wheel.packages = ["src/liblpm"]
 
 # Build directory

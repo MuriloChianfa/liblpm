@@ -54,6 +54,10 @@ RUN mkdir -p build && cd build && \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Set LD_PRELOAD to work around IFUNC/dlopen issue
+# This forces early relocation of IFUNC resolvers before Python's dlopen
+ENV LD_PRELOAD=/usr/local/lib/liblpm.so.1
+
 # Install Python build dependencies
 RUN pip install --upgrade pip && \
     pip install \
@@ -76,9 +80,15 @@ echo "=== liblpm Python Bindings Test Suite ==="\n\
 echo "Python version: $(python --version)"\n\
 echo ""\n\
 \n\
-# Run unit tests\n\
-echo "=== Running Unit Tests ==="\n\
+# Clear Python cache to avoid stale bytecode\n\
+echo "=== Clearing Python cache ==="\n\
 cd /build/bindings/python\n\
+rm -rf __pycache__ .pytest_cache tests/__pycache__ src/liblpm/__pycache__\n\
+find . -name "*.pyc" -delete\n\
+\n\
+# Run unit tests\n\
+echo ""\n\
+echo "=== Running Unit Tests ==="\n\
 pytest tests/ -v --tb=short\n\
 \n\
 echo ""\n\

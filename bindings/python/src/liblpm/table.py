@@ -317,10 +317,10 @@ class LpmTableIPv4:
         # Create results array
         result_array = array.array('I', [0] * len(addrs))
         
-        # Perform batch lookup
+        # Perform batch lookup (pass memoryview directly, no cast needed)
         self._trie.lookup_batch(
-            memoryview(addr_array).cast('I'),
-            memoryview(result_array).cast('I')
+            memoryview(addr_array),
+            memoryview(result_array)
         )
         
         # Convert results, replacing INVALID_NEXT_HOP with None
@@ -628,10 +628,10 @@ class LpmTableIPv6:
         # Create results array
         result_array = array.array('I', [0] * len(addrs))
         
-        # Perform batch lookup
+        # Perform batch lookup (pass memoryview directly, no cast needed)
         self._trie.lookup_batch(
             addr_list,
-            memoryview(result_array).cast('I')
+            memoryview(result_array)
         )
         
         # Convert results, replacing INVALID_NEXT_HOP with None

@@ -57,13 +57,22 @@ endif()
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_BENCHMARKS "Build benchmark programs" OFF)
 option(ENABLE_NATIVE_ARCH "Enable native architecture optimizations" OFF)
-option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF)
-option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
+option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark" OFF)
+option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
 option(BUILD_PYTHON_WRAPPER "Build Python wrapper and bindings" OFF)
+option(LPM_TS_RESOLVERS "Enable thread-safe resolvers (for dlopen contexts)" OFF)
 
-# External LPM libraries directory (set by Docker builds)
+# Thread-safe resolver configuration
+if(LPM_TS_RESOLVERS)
+    add_compile_definitions(LPM_TS_RESOLVERS=1)
+    message(STATUS "Thread-safe resolvers: ENABLED (for dlopen contexts)")
+else()
+    message(STATUS "Thread-safe resolvers: DISABLED (standard C library)")
+endif()
+
+# External LPM libraries directory
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
 
 # Check for external LPM libraries if requested

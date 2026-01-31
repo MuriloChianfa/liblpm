@@ -145,7 +145,7 @@ jobs:
     - name: Build liblpm
       run: |
         mkdir -p build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DLPM_TS_RESOLVERS=ON
         make -j$(nproc)
         sudo make install
         sudo ldconfig
@@ -157,6 +157,9 @@ jobs:
     
     - name: Run Python tests
       working-directory: bindings/python
+      env:
+        # Workaround for IFUNC/dlopen incompatibility
+        LD_PRELOAD: /usr/local/lib/liblpm.so.1
       run: |
         pytest tests/ -v --cov=liblpm --cov-report=xml
     

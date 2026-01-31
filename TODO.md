@@ -254,6 +254,45 @@ Comprehensive man pages for the library API, accessible via `man liblpm`.
 
 **Location:** `docs/man/man3/` (English), `docs/man/<lang>/man3/` (translations)
 
+## Thread-Safe Resolver Improvements
+
+**Status:** Implemented (January 2026)
+
+**Description:**
+Optional thread-safe resolver support for dlopen() contexts via CMake configuration.
+
+**Implemented:**
+- [x] CMake option `LPM_TS_RESOLVERS` (default OFF)
+- [x] Conditional compilation macro `LPM_DETECT_SIMD()`
+- [x] Automatic enablement for Python bindings
+- [x] Documentation in README and Python IFUNC_WORKAROUND.md
+
+**Future Enhancements:**
+- [ ] Performance benchmarks comparing TS vs non-TS overhead
+- [ ] Thread-safety stress tests for concurrent initialization
+- [ ] Testing with different dynamic loaders (musl, bionic)
+- [ ] Investigate IFUNC alternatives for better portability
+- [ ] Go bindings: evaluate if thread-safe mode needed
+- [ ] C++ bindings: evaluate if thread-safe mode needed
+- [ ] Add runtime detection of dlopen() context (if feasible)
+
+**Testing Needs:**
+- [ ] Concurrent initialization stress test (pthread_create during IFUNC resolve)
+- [ ] Memory ordering verification for atomic caching
+- [ ] Python multiprocessing edge cases
+- [ ] Plugin loader compatibility tests
+- [ ] Valgrind/Helgrind analysis of atomic operations
+
+**Documentation:**
+- [ ] Add architecture diagram showing resolver flow in both modes
+- [ ] Performance comparison table (TS vs non-TS)
+- [ ] Best practices guide for binding authors
+
+**Benefits:**
+- Zero overhead for regular C programs (default mode)
+- Safe for Python and other dlopen() contexts (opt-in)
+- Flexible configuration per binding type
+
 ## Related Documentation
 
 - [docs/DOCKER.md](docs/DOCKER.md) - Container usage guide

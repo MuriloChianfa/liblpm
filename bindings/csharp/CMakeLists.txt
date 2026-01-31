@@ -37,13 +37,24 @@ endif()
 set(CSHARP_BUILD_CONFIG "$<IF:$<CONFIG:Debug>,Debug,Release>")
 
 # Build C# wrapper
-add_custom_target(csharp_wrapper ALL
-    COMMAND ${DOTNET_EXECUTABLE} build --configuration ${CSHARP_BUILD_CONFIG}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS lpm
-    COMMENT "Building C# wrapper"
-    VERBATIM
-)
+if(TARGET lpm)
+    # Building as part of parent project - depend on lpm target
+    add_custom_target(csharp_wrapper ALL
+        COMMAND ${DOTNET_EXECUTABLE} build --configuration ${CSHARP_BUILD_CONFIG}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS lpm
+        COMMENT "Building C# wrapper"
+        VERBATIM
+    )
+else()
+    # Building standalone - library already installed
+    add_custom_target(csharp_wrapper ALL
+        COMMAND ${DOTNET_EXECUTABLE} build --configuration ${CSHARP_BUILD_CONFIG}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Building C# wrapper"
+        VERBATIM
+    )
+endif()
 
 # Test C# wrapper
 add_custom_target(csharp_test

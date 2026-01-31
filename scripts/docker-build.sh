@@ -50,6 +50,7 @@ Available Images:
   test        - Testing environment
   fuzz        - AFL++ fuzzing environment
   cpp         - C++ bindings
+  csharp      - C# bindings (.NET)
   go          - Go bindings
   lua         - Lua bindings
   perl        - Perl XS bindings
@@ -118,7 +119,7 @@ while [[ $# -gt 0 ]]; do
             VERBOSE="--progress=plain"
             shift
             ;;
-        base|dev|test|fuzz|cpp|go|lua|perl|php|python|benchmark|all)
+        base|dev|test|fuzz|cpp|csharp|go|lua|perl|php|python|benchmark|all)
             IMAGES+=("$1")
             shift
             ;;
@@ -218,6 +219,9 @@ build_images() {
         cpp)
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
             ;;
+        csharp)
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
+            ;;
         go)
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             ;;
@@ -242,6 +246,7 @@ build_images() {
             build_image "test" "${DOCKER_DIR}/Dockerfile.test"
             build_image "fuzz" "${DOCKER_DIR}/Dockerfile.fuzz"
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             build_image "lua" "${DOCKER_DIR}/Dockerfile.lua"
             build_image "perl" "${DOCKER_DIR}/Dockerfile.perl"

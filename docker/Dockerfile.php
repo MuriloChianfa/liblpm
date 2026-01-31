@@ -91,7 +91,7 @@ echo ""\n\
 cd /ext\n\
 \n\
 echo "=== Running PHP Tests ==="\n\
-php -d extension=./modules/liblpm.so run-tests.php -q tests/ || {\n\
+TEST_PHP_ARGS="-d extension=/ext/modules/liblpm.so" php run-tests.php -q tests/ || {\n\
     echo "Some tests may have failed, checking results..."\n\
     # Show test output for debugging\n\
     for f in tests/*.out; do\n\

@@ -41,7 +41,7 @@ var_dump($table->lookup("2001:db8::2") === false);
 
 // Very broad prefix
 $table->insert("2000::/3", 200);
-var_dump($table->lookup("2001:db8::999") === 100);  // More specific wins
+var_dump($table->lookup("2001:db8::999") === 200);  // Matches broader prefix
 var_dump($table->lookup("3000::1") === 200);
 
 $table->close();

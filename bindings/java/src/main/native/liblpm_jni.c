@@ -12,7 +12,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef LPM_INSTALLED
+#include <lpm/lpm.h>
+#else
 #include <lpm.h>
+#endif
 
 /* ============================================================================
  * JNI Class and Method Cache

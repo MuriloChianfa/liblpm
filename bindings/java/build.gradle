@@ -105,7 +105,10 @@ static String getPlatformDir(String osName, String osArch) {
 
 // Include native libraries in JAR
 processResources {
-    dependsOn installNative
+    // Only depend on installNative if we're doing a full build
+    if (!System.getenv('SKIP_NATIVE_BUILD')) {
+        dependsOn installNative
+    }
 }
 
 jar {

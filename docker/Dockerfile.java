@@ -87,12 +87,18 @@ RUN mkdir -p build && cd build && \
         .. && \
     ninja
 
-# Download Gradle wrapper if needed (using system gradle as fallback)
-RUN apt-get update && apt-get install -y --no-install-recommends gradle && \
-    rm -rf /var/lib/apt/lists/*
+# Download Gradle wrapper if needed
+RUN if [ ! -f gradlew ]; then \
+        apt-get update && apt-get install -y --no-install-recommends wget unzip && \
+        wget https://services.gradle.org/distributions/gradle-8.5-bin.zip && \
+        unzip gradle-8.5-bin.zip && \
+        ./gradle-8.5/bin/gradle wrapper && \
+        rm -rf gradle-8.5 gradle-8.5-bin.zip && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Build Java classes and run tests
-RUN gradle build -x test --no-daemon || echo "Build completed"
+RUN SKIP_NATIVE_BUILD=1 ./gradlew build -x test --no-daemon || echo "Build completed"
 
 # Create test script
 RUN echo '#!/bin/bash\n\
@@ -108,13 +114,14 @@ cd /app\n\
 \n\
 # Set library path for native library\n\
 export LD_LIBRARY_PATH=/usr/local/lib:/app/build:$LD_LIBRARY_PATH\n\
+export SKIP_NATIVE_BUILD=1\n\
 \n\
 echo "=== Building Java Bindings ==="\n\
-gradle build -x test --no-daemon\n\
+./gradlew build -x test --no-daemon\n\
 \n\
 echo ""\n\
 echo "=== Running Java Unit Tests ==="\n\
-gradle test --no-daemon || echo "Tests completed (some may have failed due to native library loading)"\n\
+./gradlew test --no-daemon || echo "Tests completed (some may have failed due to native library loading)"\n\
 \n\
 echo ""\n\
 echo "=== Running Java Examples ==="\n\
@@ -155,7 +162,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgcc-s1 \
     libstdc++6 \
     libnuma1 \
-    gradle \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy liblpm runtime libraries

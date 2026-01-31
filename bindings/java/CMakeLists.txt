@@ -80,6 +80,11 @@ target_include_directories(lpmjni PRIVATE
     ${LPM_INCLUDE_DIR}
 )
 
+# Define LPM_INSTALLED if building against installed version
+if(LPM_INCLUDE_DIR MATCHES "/usr/local/include")
+    target_compile_definitions(lpmjni PRIVATE LPM_INSTALLED)
+endif()
+
 # Link against lpm library
 if(TARGET lpm)
     target_link_libraries(lpmjni PRIVATE lpm)

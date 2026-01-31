@@ -145,7 +145,7 @@ class MemoryManagementTest {
         assertThrows(IllegalStateException.class, () -> table.insert("10.0.0.0/8", 200));
         assertThrows(IllegalStateException.class, () -> table.lookup("192.168.1.1"));
         assertThrows(IllegalStateException.class, () -> table.delete("192.168.0.0/16"));
-        assertThrows(IllegalStateException.class, () -> table.lookupBatch(new byte[][] {{192, (byte)168, 1, 1}}));
+        assertThrows(IllegalStateException.class, () -> table.lookupBatch(new byte[][] {{(byte)192, (byte)168, 1, 1}}));
     }
     
     @Test

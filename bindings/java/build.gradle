@@ -39,17 +39,14 @@ test {
     }
 }
 
-// JNI header generation - removed dependency on classes to break circular dependency
-tasks.register('generateJniHeaders', JavaCompile) {
-    source = sourceSets.main.java
-    classpath = sourceSets.main.compileClasspath
-    destinationDirectory = file("${buildDir}/classes/java/main")
-    options.compilerArgs += ['-h', "${buildDir}/generated/jni"]
-}
-
-// Make compileJava depend on generateJniHeaders instead
+// Generate JNI headers as part of regular compilation
 compileJava {
-    finalizedBy generateJniHeaders
+    options.compilerArgs += ['-h', "${buildDir}/generated/jni"]
+    
+    doLast {
+        // Ensure JNI headers directory exists
+        file("${buildDir}/generated/jni").mkdirs()
+    }
 }
 
 // Native library build using CMake
@@ -68,8 +65,8 @@ tasks.register('buildNative', Exec) {
     workingDir projectDir
     commandLine 'cmake', '--build', 'build', '--parallel'
     
-    // Make sure JNI headers are generated before native build
-    mustRunAfter generateJniHeaders
+    // Make sure Java classes are compiled first (which generates JNI headers)
+    mustRunAfter compileJava
 }
 
 tasks.register('installNative', Exec) {

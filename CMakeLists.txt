@@ -57,13 +57,22 @@ endif()
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_BENCHMARKS "Build benchmark programs" OFF)
 option(ENABLE_NATIVE_ARCH "Enable native architecture optimizations" OFF)
-option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF)
-option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
+option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark" OFF)
+option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
-option(BUILD_PHP_WRAPPER "Build PHP extension and bindings" OFF)
+option(BUILD_PYTHON_WRAPPER "Build Python wrapper and bindings" OFF)
+option(LPM_TS_RESOLVERS "Enable thread-safe resolvers (for dlopen contexts)" OFF)
 
-# External LPM libraries directory (set by Docker builds)
+# Thread-safe resolver configuration
+if(LPM_TS_RESOLVERS)
+    add_compile_definitions(LPM_TS_RESOLVERS=1)
+    message(STATUS "Thread-safe resolvers: ENABLED (for dlopen contexts)")
+else()
+    message(STATUS "Thread-safe resolvers: DISABLED (standard C library)")
+endif()
+
+# External LPM libraries directory
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
 
 # Check for external LPM libraries if requested
@@ -316,6 +325,24 @@ if(BUILD_CPP_WRAPPER)
     add_subdirectory(bindings/cpp)
 endif()
 
+# Python wrapper
+if(BUILD_PYTHON_WRAPPER)
+    find_package(Python COMPONENTS Interpreter Development.Module)
+    find_program(CYTHON_EXECUTABLE NAMES cython cython3)
+    if(Python_FOUND AND CYTHON_EXECUTABLE)
+        message(STATUS "Found Python: ${Python_EXECUTABLE} (${Python_VERSION})")
+        message(STATUS "Found Cython: ${CYTHON_EXECUTABLE}")
+        add_subdirectory(bindings/python)
+    else()
+        if(NOT Python_FOUND)
+            message(WARNING "Python not found, skipping Python bindings")
+        endif()
+        if(NOT CYTHON_EXECUTABLE)
+            message(WARNING "Cython not found, skipping Python bindings. Install with: pip install cython")
+        endif()
+    endif()
+endif()
+
 # Package configuration for find_package(liblpm)
 include(CMakePackageConfigHelpers)
 
@@ -391,88 +418,6 @@ if(BUILD_GO_WRAPPER)
     endif()
 endif()
 
-# PHP extension
-if(BUILD_PHP_WRAPPER)
-    find_program(PHP_CONFIG_EXECUTABLE NAMES php-config php-config8.3 php-config8.2 php-config8.1)
-    if(PHP_CONFIG_EXECUTABLE)
-        # Get PHP version
-        execute_process(
-            COMMAND ${PHP_CONFIG_EXECUTABLE} --version
-            OUTPUT_VARIABLE PHP_VERSION
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        message(STATUS "Found PHP: ${PHP_VERSION}")
-        
-        # Get PHP include path
-        execute_process(
-            COMMAND ${PHP_CONFIG_EXECUTABLE} --includes
-            OUTPUT_VARIABLE PHP_INCLUDES
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        
-        # Get PHP extension directory
-        execute_process(
-            COMMAND ${PHP_CONFIG_EXECUTABLE} --extension-dir
-            OUTPUT_VARIABLE PHP_EXTENSION_DIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        
-        # Get PHP binary
-        execute_process(
-            COMMAND ${PHP_CONFIG_EXECUTABLE} --php-binary
-            OUTPUT_VARIABLE PHP_BINARY
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        
-        message(STATUS "  PHP binary: ${PHP_BINARY}")
-        message(STATUS "  PHP extension dir: ${PHP_EXTENSION_DIR}")
-        
-        # Custom target to configure PHP extension
-        add_custom_target(php_configure
-            COMMAND phpize
-            COMMAND ${CMAKE_COMMAND} -E env "LDFLAGS=-L${CMAKE_BINARY_DIR}" 
-                ./configure --with-liblpm=${CMAKE_SOURCE_DIR}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
-            DEPENDS lpm
-            COMMENT "Configuring PHP extension"
-        )
-        
-        # Custom target to build PHP extension
-        add_custom_target(php_wrapper ALL
-            COMMAND make
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
-            DEPENDS php_configure
-            COMMENT "Building PHP extension"
-        )
-        
-        # Custom target to test PHP extension
-        add_custom_target(php_test
-            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
-                ${PHP_BINARY} run-tests.php -q tests/
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
-            DEPENDS php_wrapper
-            COMMENT "Testing PHP extension"
-        )
-        
-        # Custom target to install PHP extension
-        add_custom_target(php_install
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php/modules/liblpm.so
-                ${PHP_EXTENSION_DIR}/liblpm.so
-            DEPENDS php_wrapper
-            COMMENT "Installing PHP extension to ${PHP_EXTENSION_DIR}"
-        )
-        
-        message(STATUS "PHP extension targets added:")
-        message(STATUS "  make php_wrapper  - Build PHP extension")
-        message(STATUS "  make php_test     - Run PHP tests")
-        message(STATUS "  make php_install  - Install PHP extension")
-    else()
-        message(WARNING "php-config not found. PHP extension will not be built.")
-        message(WARNING "Install PHP development files: sudo apt install php-dev")
-    endif()
-endif()
-
 # Print configuration summary
 message(STATUS "liblpm configuration:")
 message(STATUS "  Version: ${PROJECT_VERSION}")
@@ -518,10 +463,10 @@ if(BUILD_CPP_WRAPPER)
 else()
     message(STATUS "  Build C++ wrapper: OFF")
 endif()
-if(BUILD_PHP_WRAPPER AND PHP_CONFIG_EXECUTABLE)
-    message(STATUS "  Build PHP extension: ON")
+if(BUILD_PYTHON_WRAPPER AND Python_FOUND AND CYTHON_EXECUTABLE)
+    message(STATUS "  Build Python wrapper: ON")
 else()
-    message(STATUS "  Build PHP extension: OFF")
+    message(STATUS "  Build Python wrapper: OFF")
 endif()
 
 # ============================================================================

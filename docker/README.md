@@ -12,7 +12,7 @@ Quick reference for liblpm Docker images.
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
-| `liblpm-php` | PHP extension | PHP wrapper testing |
+| `liblpm-python` | Python bindings | Python Cython wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
 | `liblpm-rpm` | RPM package builder | Building RHEL/Fedora/Rocky packages |
@@ -81,8 +81,8 @@ docker run --rm liblpm-cpp
 # Test Go bindings
 docker run --rm liblpm-go
 
-# Test PHP extension
-docker run --rm liblpm-php
+# Test Python bindings
+docker run --rm liblpm-python
 ```
 
 ### Benchmarking
@@ -202,33 +202,31 @@ Go bindings with cgo support.
 docker run --rm liblpm-go
 ```
 
-### liblpm-php
+### liblpm-python
 
-PHP 8.3 extension with native C bindings.
+Python 3.10+ bindings with Cython.
 
-**Size:** ~600MB
-
-**Multi-stage:** C library builder -> PHP builder -> Runtime
+**Size:** ~500MB
 
 **Features:**
-- PHP 8.3 (CLI)
-- Native C extension via phpize
-- OOP and procedural APIs
-- PECL packaging ready
-- IPv4/IPv6 support with batch operations
+- Python 3.10, 3.11, 3.12 support
+- Cython-based C extension
+- pytest test suite
+- Type hints with mypy support
+- ipaddress module integration
 
 ```bash
 # Run tests
-docker run --rm liblpm-php
+docker run --rm liblpm-python
 
 # Interactive development
-docker run -it --rm liblpm-php bash
+docker run -it --rm liblpm-python bash
 
 # Run examples
-docker run --rm liblpm-php php -d extension=/ext/modules/liblpm.so /ext/examples/basic_example.php
+docker run --rm liblpm-python python /build/bindings/python/examples/basic_example.py
 
-# Verify extension
-docker run --rm liblpm-php php -d extension=/ext/modules/liblpm.so -m | grep liblpm
+# Run benchmarks
+docker run --rm liblpm-python pytest /build/bindings/python/benchmarks --benchmark-only
 ```
 
 ### liblpm-benchmark
@@ -282,7 +280,7 @@ Approximate sizes (uncompressed):
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
 | liblpm-go | ~600MB |
-| liblpm-php | ~600MB |
+| liblpm-python | ~500MB |
 | liblpm-benchmark | ~1.5GB |
 | liblpm-deb | ~400MB |
 | liblpm-rpm | ~500MB |

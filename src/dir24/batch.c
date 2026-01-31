@@ -330,23 +330,23 @@ void lpm_lookup_batch_ipv4_dir24_avx512(const lpm_trie_t *trie, const uint32_t *
 
 typedef void (*lpm_dir24_batch_func_t)(const lpm_trie_t *, const uint32_t *, uint32_t *, size_t);
 
-static lpm_dir24_batch_func_t lpm_dir24_batch_resolver(void)
+EXPLICIT_RUNTIME_RESOLVER(lpm_dir24_batch_resolver)
 {
-    simd_level_t level = detect_simd_level();
+    simd_level_t level = LPM_DETECT_SIMD();
     
     switch (level) {
     case SIMD_AVX512F:
-        return lpm_lookup_batch_ipv4_dir24_avx512;
+        return (void*)lpm_lookup_batch_ipv4_dir24_avx512;
     case SIMD_AVX2:
-        return lpm_lookup_batch_ipv4_dir24_avx2;
+        return (void*)lpm_lookup_batch_ipv4_dir24_avx2;
     case SIMD_AVX:
-        return lpm_lookup_batch_ipv4_dir24_avx;
+        return (void*)lpm_lookup_batch_ipv4_dir24_avx;
     case SIMD_SSE4_2:
-        return lpm_lookup_batch_ipv4_dir24_sse42;
+        return (void*)lpm_lookup_batch_ipv4_dir24_sse42;
     case SIMD_SSE2:
     case SIMD_SCALAR:
     default:
-        return lpm_lookup_batch_ipv4_dir24_scalar;
+        return (void*)lpm_lookup_batch_ipv4_dir24_scalar;
     }
 }
 
@@ -375,10 +375,10 @@ static void lpm_lookup_batch_dir24_ptrs_scalar(const lpm_trie_t *trie, const uin
 
 typedef void (*lpm_dir24_ptrs_func_t)(const lpm_trie_t *, const uint8_t **, uint32_t *, size_t);
 
-static lpm_dir24_ptrs_func_t lpm_dir24_ptrs_resolver(void)
+EXPLICIT_RUNTIME_RESOLVER(lpm_dir24_ptrs_resolver)
 {
     /* For pointer-based, we use scalar for now */
-    return lpm_lookup_batch_dir24_ptrs_scalar;
+    return (void*)lpm_lookup_batch_dir24_ptrs_scalar;
 }
 
 void lpm_lookup_batch_ipv4_dir24_ptrs(const lpm_trie_t *trie, const uint8_t **addrs,

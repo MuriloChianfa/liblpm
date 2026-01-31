@@ -57,13 +57,27 @@ endif()
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_BENCHMARKS "Build benchmark programs" OFF)
 option(ENABLE_NATIVE_ARCH "Enable native architecture optimizations" OFF)
-option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark (requires DPDK)" OFF)
-option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries (Docker only)" OFF)
+option(WITH_DPDK_BENCHMARK "Build DPDK comparison benchmark" OFF)
+option(WITH_EXTERNAL_LPM_BENCHMARK "Build benchmarks with external LPM libraries" OFF)
 option(BUILD_GO_WRAPPER "Build Go wrapper and bindings" OFF)
 option(BUILD_CPP_WRAPPER "Build C++ wrapper and bindings" OFF)
 option(BUILD_JAVA_WRAPPER "Build Java wrapper and bindings" OFF)
+option(BUILD_CSHARP_WRAPPER "Build C# wrapper and bindings" OFF)
+option(BUILD_LUA_WRAPPER "Build Lua wrapper and bindings" OFF)
+option(BUILD_PERL_WRAPPER "Build Perl wrapper and bindings" OFF)
+option(BUILD_PHP_WRAPPER "Build PHP wrapper and bindings" OFF)
+option(BUILD_PYTHON_WRAPPER "Build Python wrapper and bindings" OFF)
+option(LPM_TS_RESOLVERS "Enable thread-safe resolvers (for dlopen contexts)" OFF)
 
-# External LPM libraries directory (set by Docker builds)
+# Thread-safe resolver configuration
+if(LPM_TS_RESOLVERS)
+    add_compile_definitions(LPM_TS_RESOLVERS=1)
+    message(STATUS "Thread-safe resolvers: ENABLED (for dlopen contexts)")
+else()
+    message(STATUS "Thread-safe resolvers: DISABLED (standard C library)")
+endif()
+
+# External LPM libraries directory
 set(EXTERNAL_LPM_DIR "" CACHE PATH "Directory containing external LPM libraries")
 
 # Check for external LPM libraries if requested
@@ -329,6 +343,195 @@ if(BUILD_JAVA_WRAPPER)
     endif()
 endif()
 
+# C# wrapper
+if(BUILD_CSHARP_WRAPPER)
+    find_program(DOTNET_EXECUTABLE dotnet)
+    if(DOTNET_EXECUTABLE)
+        # Get .NET version
+        execute_process(
+            COMMAND ${DOTNET_EXECUTABLE} --version
+            OUTPUT_VARIABLE DOTNET_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        message(STATUS "Found .NET SDK: ${DOTNET_VERSION}")
+        
+        # Custom target to build C# wrapper
+        add_custom_target(csharp_wrapper ALL
+            COMMAND ${CMAKE_COMMAND} -E echo "Building C# wrapper..."
+            COMMAND ${DOTNET_EXECUTABLE} build --configuration Release
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS lpm
+            COMMENT "Building C# wrapper and bindings"
+        )
+        
+        # Copy native library to runtimes directory after building
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/linux-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "liblpm.so")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/win-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "lpm.dll")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/osx-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "liblpm.dylib")
+        endif()
+        
+        add_custom_command(TARGET csharp_wrapper POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory 
+                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp/${CSHARP_NATIVE_LIB_DIR}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:lpm>
+                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp/${CSHARP_NATIVE_LIB_DIR}/${CSHARP_NATIVE_LIB_NAME}
+            COMMENT "Copying native library to C# runtimes directory"
+        )
+        
+        # Custom target to test C# wrapper
+        add_custom_target(csharp_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+                ${DOTNET_EXECUTABLE} test --configuration Release --no-build
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Testing C# wrapper"
+        )
+        
+        # Custom target to pack NuGet package
+        add_custom_target(csharp_pack
+            COMMAND ${DOTNET_EXECUTABLE} pack --configuration Release -o ${CMAKE_CURRENT_BINARY_DIR}/nupkg
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Creating NuGet package"
+        )
+        
+        # Custom target to run C# examples
+        add_custom_target(csharp_example
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+                ${DOTNET_EXECUTABLE} run --configuration Release --project LibLpm.Examples
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Running C# examples"
+        )
+        
+        message(STATUS "C# wrapper targets added:")
+        message(STATUS "  make csharp_wrapper - Build C# wrapper")
+        message(STATUS "  make csharp_test    - Run C# tests")
+        message(STATUS "  make csharp_pack    - Create NuGet package")
+        message(STATUS "  make csharp_example - Run C# examples")
+    else()
+        message(WARNING ".NET SDK not found. C# wrapper will not be built.")
+        message(WARNING "Install .NET SDK to build the wrapper: https://dotnet.microsoft.com/download")
+    endif()
+endif()
+
+# Lua wrapper
+if(BUILD_LUA_WRAPPER)
+    add_subdirectory(bindings/lua)
+endif()
+
+# Perl wrapper
+if(BUILD_PERL_WRAPPER)
+    find_program(PERL_EXECUTABLE perl)
+    if(PERL_EXECUTABLE)
+        message(STATUS "Found Perl: ${PERL_EXECUTABLE}")
+        
+        # Custom target to configure Perl wrapper
+        add_custom_target(perl_configure
+            COMMAND ${PERL_EXECUTABLE} Makefile.PL
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS lpm
+            COMMENT "Configuring Perl wrapper"
+        )
+        
+        # Custom target to build Perl wrapper
+        add_custom_target(perl_wrapper ALL
+            COMMAND make
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS perl_configure
+            COMMENT "Building Perl wrapper and bindings"
+        )
+        
+        # Custom target to test Perl wrapper
+        add_custom_target(perl_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}" make test
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS perl_wrapper
+            COMMENT "Testing Perl wrapper"
+        )
+        
+        message(STATUS "Perl wrapper targets added:")
+        message(STATUS "  make perl_wrapper - Build Perl wrapper")
+        message(STATUS "  make perl_test    - Run Perl tests")
+    else()
+        message(WARNING "Perl not found. Perl wrapper will not be built.")
+        message(WARNING "Install Perl to build the wrapper: sudo apt install perl")
+    endif()
+endif()
+
+# PHP wrapper
+if(BUILD_PHP_WRAPPER)
+    find_program(PHP_EXECUTABLE php)
+    find_program(PHPIZE_EXECUTABLE phpize)
+    if(PHP_EXECUTABLE AND PHPIZE_EXECUTABLE)
+        message(STATUS "Found PHP: ${PHP_EXECUTABLE}")
+        message(STATUS "Found phpize: ${PHPIZE_EXECUTABLE}")
+        
+        # Custom target to configure PHP extension
+        add_custom_target(php_configure
+            COMMAND ${PHPIZE_EXECUTABLE}
+            COMMAND ./configure --with-liblpm=${CMAKE_INSTALL_PREFIX}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
+            DEPENDS lpm
+            COMMENT "Configuring PHP extension"
+        )
+        
+        # Custom target to build PHP extension
+        add_custom_target(php_wrapper ALL
+            COMMAND make
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
+            DEPENDS php_configure
+            COMMENT "Building PHP extension and bindings"
+        )
+        
+        # Custom target to test PHP extension
+        add_custom_target(php_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}" make test
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
+            DEPENDS php_wrapper
+            COMMENT "Testing PHP extension"
+        )
+        
+        message(STATUS "PHP wrapper targets added:")
+        message(STATUS "  make php_wrapper - Build PHP extension")
+        message(STATUS "  make php_test    - Run PHP tests")
+    else()
+        if(NOT PHP_EXECUTABLE)
+            message(WARNING "PHP not found. PHP extension will not be built.")
+            message(WARNING "Install PHP to build the extension: sudo apt install php php-dev")
+        endif()
+        if(NOT PHPIZE_EXECUTABLE)
+            message(WARNING "phpize not found. PHP extension will not be built.")
+            message(WARNING "Install PHP development tools: sudo apt install php-dev")
+        endif()
+    endif()
+endif()
+
+# Python wrapper
+if(BUILD_PYTHON_WRAPPER)
+    find_package(Python COMPONENTS Interpreter Development.Module)
+    find_program(CYTHON_EXECUTABLE NAMES cython cython3)
+    if(Python_FOUND AND CYTHON_EXECUTABLE)
+        message(STATUS "Found Python: ${Python_EXECUTABLE} (${Python_VERSION})")
+        message(STATUS "Found Cython: ${CYTHON_EXECUTABLE}")
+        add_subdirectory(bindings/python)
+    else()
+        if(NOT Python_FOUND)
+            message(WARNING "Python not found, skipping Python bindings")
+        endif()
+        if(NOT CYTHON_EXECUTABLE)
+            message(WARNING "Cython not found, skipping Python bindings. Install with: pip install cython")
+        endif()
+    endif()
+endif()
+
 # Package configuration for find_package(liblpm)
 include(CMakePackageConfigHelpers)
 
@@ -404,6 +607,195 @@ if(BUILD_GO_WRAPPER)
     endif()
 endif()
 
+# C# wrapper
+if(BUILD_CSHARP_WRAPPER)
+    find_program(DOTNET_EXECUTABLE dotnet)
+    if(DOTNET_EXECUTABLE)
+        # Get .NET version
+        execute_process(
+            COMMAND ${DOTNET_EXECUTABLE} --version
+            OUTPUT_VARIABLE DOTNET_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        message(STATUS "Found .NET SDK: ${DOTNET_VERSION}")
+        
+        # Custom target to build C# wrapper
+        add_custom_target(csharp_wrapper ALL
+            COMMAND ${CMAKE_COMMAND} -E echo "Building C# wrapper..."
+            COMMAND ${DOTNET_EXECUTABLE} build --configuration Release
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS lpm
+            COMMENT "Building C# wrapper and bindings"
+        )
+        
+        # Copy native library to runtimes directory after building
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/linux-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "liblpm.so")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/win-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "lpm.dll")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+            set(CSHARP_NATIVE_LIB_DIR "runtimes/osx-x64/native")
+            set(CSHARP_NATIVE_LIB_NAME "liblpm.dylib")
+        endif()
+        
+        add_custom_command(TARGET csharp_wrapper POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory 
+                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp/${CSHARP_NATIVE_LIB_DIR}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:lpm>
+                ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp/${CSHARP_NATIVE_LIB_DIR}/${CSHARP_NATIVE_LIB_NAME}
+            COMMENT "Copying native library to C# runtimes directory"
+        )
+        
+        # Custom target to test C# wrapper
+        add_custom_target(csharp_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+                ${DOTNET_EXECUTABLE} test --configuration Release --no-build
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Testing C# wrapper"
+        )
+        
+        # Custom target to pack NuGet package
+        add_custom_target(csharp_pack
+            COMMAND ${DOTNET_EXECUTABLE} pack --configuration Release -o ${CMAKE_CURRENT_BINARY_DIR}/nupkg
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Creating NuGet package"
+        )
+        
+        # Custom target to run C# examples
+        add_custom_target(csharp_example
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+                ${DOTNET_EXECUTABLE} run --configuration Release --project LibLpm.Examples
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/csharp
+            DEPENDS csharp_wrapper
+            COMMENT "Running C# examples"
+        )
+        
+        message(STATUS "C# wrapper targets added:")
+        message(STATUS "  make csharp_wrapper - Build C# wrapper")
+        message(STATUS "  make csharp_test    - Run C# tests")
+        message(STATUS "  make csharp_pack    - Create NuGet package")
+        message(STATUS "  make csharp_example - Run C# examples")
+    else()
+        message(WARNING ".NET SDK not found. C# wrapper will not be built.")
+        message(WARNING "Install .NET SDK to build the wrapper: https://dotnet.microsoft.com/download")
+    endif()
+endif()
+
+# Lua wrapper
+if(BUILD_LUA_WRAPPER)
+    add_subdirectory(bindings/lua)
+endif()
+
+# Perl wrapper
+if(BUILD_PERL_WRAPPER)
+    find_program(PERL_EXECUTABLE perl)
+    if(PERL_EXECUTABLE)
+        message(STATUS "Found Perl: ${PERL_EXECUTABLE}")
+        
+        # Custom target to configure Perl wrapper
+        add_custom_target(perl_configure
+            COMMAND ${PERL_EXECUTABLE} Makefile.PL
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS lpm
+            COMMENT "Configuring Perl wrapper"
+        )
+        
+        # Custom target to build Perl wrapper
+        add_custom_target(perl_wrapper ALL
+            COMMAND make
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS perl_configure
+            COMMENT "Building Perl wrapper and bindings"
+        )
+        
+        # Custom target to test Perl wrapper
+        add_custom_target(perl_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}" make test
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/perl
+            DEPENDS perl_wrapper
+            COMMENT "Testing Perl wrapper"
+        )
+        
+        message(STATUS "Perl wrapper targets added:")
+        message(STATUS "  make perl_wrapper - Build Perl wrapper")
+        message(STATUS "  make perl_test    - Run Perl tests")
+    else()
+        message(WARNING "Perl not found. Perl wrapper will not be built.")
+        message(WARNING "Install Perl to build the wrapper: sudo apt install perl")
+    endif()
+endif()
+
+# PHP wrapper
+if(BUILD_PHP_WRAPPER)
+    find_program(PHP_EXECUTABLE php)
+    find_program(PHPIZE_EXECUTABLE phpize)
+    if(PHP_EXECUTABLE AND PHPIZE_EXECUTABLE)
+        message(STATUS "Found PHP: ${PHP_EXECUTABLE}")
+        message(STATUS "Found phpize: ${PHPIZE_EXECUTABLE}")
+        
+        # Custom target to configure PHP extension
+        add_custom_target(php_configure
+            COMMAND ${PHPIZE_EXECUTABLE}
+            COMMAND ./configure --with-liblpm=${CMAKE_INSTALL_PREFIX}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
+            DEPENDS lpm
+            COMMENT "Configuring PHP extension"
+        )
+        
+        # Custom target to build PHP extension
+        add_custom_target(php_wrapper ALL
+            COMMAND make
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
+            DEPENDS php_configure
+            COMMENT "Building PHP extension and bindings"
+        )
+        
+        # Custom target to test PHP extension
+        add_custom_target(php_test
+            COMMAND ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}" make test
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bindings/php
+            DEPENDS php_wrapper
+            COMMENT "Testing PHP extension"
+        )
+        
+        message(STATUS "PHP wrapper targets added:")
+        message(STATUS "  make php_wrapper - Build PHP extension")
+        message(STATUS "  make php_test    - Run PHP tests")
+    else()
+        if(NOT PHP_EXECUTABLE)
+            message(WARNING "PHP not found. PHP extension will not be built.")
+            message(WARNING "Install PHP to build the extension: sudo apt install php php-dev")
+        endif()
+        if(NOT PHPIZE_EXECUTABLE)
+            message(WARNING "phpize not found. PHP extension will not be built.")
+            message(WARNING "Install PHP development tools: sudo apt install php-dev")
+        endif()
+    endif()
+endif()
+
+# Python wrapper
+if(BUILD_PYTHON_WRAPPER)
+    find_package(Python COMPONENTS Interpreter Development.Module)
+    find_program(CYTHON_EXECUTABLE NAMES cython cython3)
+    if(Python_FOUND AND CYTHON_EXECUTABLE)
+        message(STATUS "Found Python: ${Python_EXECUTABLE} (${Python_VERSION})")
+        message(STATUS "Found Cython: ${CYTHON_EXECUTABLE}")
+        add_subdirectory(bindings/python)
+    else()
+        if(NOT Python_FOUND)
+            message(WARNING "Python not found, skipping Python bindings")
+        endif()
+        if(NOT CYTHON_EXECUTABLE)
+            message(WARNING "Cython not found, skipping Python bindings. Install with: pip install cython")
+        endif()
+    endif()
+endif()
+
 # Print configuration summary
 message(STATUS "liblpm configuration:")
 message(STATUS "  Version: ${PROJECT_VERSION}")
@@ -453,6 +845,31 @@ if(BUILD_JAVA_WRAPPER AND JNI_FOUND)
     message(STATUS "  Build Java wrapper: ON")
 else()
     message(STATUS "  Build Java wrapper: OFF")
+endif()
+if(BUILD_CSHARP_WRAPPER AND DOTNET_EXECUTABLE)
+    message(STATUS "  Build C# wrapper: ON")
+else()
+    message(STATUS "  Build C# wrapper: OFF")
+endif()
+if(BUILD_LUA_WRAPPER)
+    message(STATUS "  Build Lua wrapper: ON")
+else()
+    message(STATUS "  Build Lua wrapper: OFF")
+endif()
+if(BUILD_PERL_WRAPPER AND PERL_EXECUTABLE)
+    message(STATUS "  Build Perl wrapper: ON")
+else()
+    message(STATUS "  Build Perl wrapper: OFF")
+endif()
+if(BUILD_PHP_WRAPPER AND PHP_EXECUTABLE AND PHPIZE_EXECUTABLE)
+    message(STATUS "  Build PHP wrapper: ON")
+else()
+    message(STATUS "  Build PHP wrapper: OFF")
+endif()
+if(BUILD_PYTHON_WRAPPER AND Python_FOUND AND CYTHON_EXECUTABLE)
+    message(STATUS "  Build Python wrapper: ON")
+else()
+    message(STATUS "  Build Python wrapper: OFF")
 endif()
 
 # ============================================================================

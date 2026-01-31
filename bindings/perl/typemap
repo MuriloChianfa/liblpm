@@ -1,0 +1,30 @@
+# Typemap for Net::LPM XS bindings
+
+TYPEMAP
+NetLPM *        T_PTROBJ_SPECIAL
+AV *            T_AVREF_SPECIAL
+
+INPUT
+T_PTROBJ_SPECIAL
+    if (sv_derived_from($arg, \"Net::LPM\")) {
+        IV tmp = SvIV((SV*)SvRV($arg));
+        $var = INT2PTR($type, tmp);
+    }
+    else if (SvOK($arg) && SvIOK($arg)) {
+        $var = INT2PTR($type, SvIV($arg));
+    }
+    else {
+        croak(\"$var is not of type Net::LPM\");
+    }
+
+T_AVREF_SPECIAL
+    if (SvROK($arg) && SvTYPE(SvRV($arg)) == SVt_PVAV) {
+        $var = (AV*)SvRV($arg);
+    }
+    else {
+        croak(\"$var is not an array reference\");
+    }
+
+OUTPUT
+T_PTROBJ_SPECIAL
+    sv_setref_pv($arg, \"Net::LPM\", (void*)$var);

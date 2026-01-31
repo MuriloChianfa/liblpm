@@ -7,6 +7,16 @@
 
 #include "lpm.h"
 #include <dynemit/core.h>
+#include <dynemit/err.h>
+
+/* Conditional SIMD detection based on build configuration */
+#ifdef LPM_TS_RESOLVERS
+    /* Thread-safe version for dlopen() contexts, plugins */
+    #define LPM_DETECT_SIMD() detect_simd_level_ts()
+#else
+    /* Direct version for standard C programs (no atomic overhead) */
+    #define LPM_DETECT_SIMD() detect_simd_level()
+#endif
 
 /* Algorithm-specific headers */
 #include "algo/4stride8.h"

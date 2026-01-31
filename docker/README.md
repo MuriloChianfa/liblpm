@@ -11,8 +11,14 @@ Quick reference for liblpm Docker images.
 | `liblpm-test` | Testing environment | Automated testing, CI |
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
+| `liblpm-csharp` | C# bindings (.NET) | C# wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
 | `liblpm-java` | Java JNI bindings | Java wrapper testing |
+| `liblpm-csharp` | C# bindings (.NET) | C# wrapper testing |
+| `liblpm-lua` | Lua bindings | Lua wrapper testing |
+| `liblpm-perl` | Perl XS bindings | Perl wrapper testing |
+| `liblpm-php` | PHP extension | PHP wrapper testing |
+| `liblpm-python` | Python bindings | Python Cython wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
 | `liblpm-rpm` | RPM package builder | Building RHEL/Fedora/Rocky packages |
@@ -78,6 +84,9 @@ docker run --rm -v "$PWD/fuzz_output:/fuzz/fuzz_output" --cpus=4 liblpm-fuzz
 # Test C++ bindings
 docker run --rm liblpm-cpp
 
+# Test C# bindings (.NET)
+docker run --rm liblpm-csharp
+
 # Test Go bindings
 docker run --rm liblpm-go
 
@@ -87,6 +96,25 @@ docker run --rm liblpm-java
 # Extract Java JAR artifact
 docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-java \
     cp /app/build/libs/*.jar /artifacts/
+
+# Test C# bindings (.NET)
+docker run --rm liblpm-csharp
+
+# Extract C# NuGet package
+docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-csharp \
+    bash -c "cd /build/bindings/csharp && dotnet pack -o /artifacts"
+
+# Test Lua bindings
+docker run --rm liblpm-lua
+
+# Test Perl XS bindings
+docker run --rm liblpm-perl
+
+# Test PHP extension
+docker run --rm liblpm-php
+
+# Test Python bindings
+docker run --rm liblpm-python
 ```
 
 ### Benchmarking
@@ -194,6 +222,33 @@ C++17 environment for building and testing C++ bindings.
 docker run --rm liblpm-cpp
 ```
 
+### liblpm-csharp
+
+.NET 8.0 environment for building and testing C# bindings.
+
+**Size:** ~700MB
+
+**Features:**
+- .NET SDK 8.0
+- P/Invoke bindings with SafeHandle
+- xUnit tests
+- NuGet packaging ready
+
+```bash
+# Run tests
+docker run --rm liblpm-csharp
+
+# Interactive development
+docker run -it --rm liblpm-csharp bash
+
+# Run examples
+docker run --rm liblpm-csharp dotnet run --project /build/bindings/csharp/LibLpm.Examples
+
+# Create NuGet package
+docker run --rm -v "$PWD/packages:/packages" liblpm-csharp \
+    bash -c "cd /build/bindings/csharp && dotnet pack -o /packages"
+```
+
 ### liblpm-go
 
 Go bindings with cgo support.
@@ -230,6 +285,116 @@ docker run -it --rm liblpm-java bash
 # Extract JAR artifact
 docker run --rm -v "$PWD/artifacts:/artifacts" liblpm-java \
     cp /app/build/libs/*.jar /artifacts/
+```
+
+### liblpm-csharp
+
+.NET 8.0 environment for building and testing C# bindings.
+
+**Size:** ~700MB
+
+**Features:**
+- .NET SDK 8.0
+- P/Invoke bindings with SafeHandle
+- xUnit tests
+- NuGet packaging ready
+
+```bash
+# Run tests
+docker run --rm liblpm-csharp
+
+# Interactive development
+docker run -it --rm liblpm-csharp bash
+
+# Run examples
+docker run --rm liblpm-csharp dotnet run --project /build/bindings/csharp/LibLpm.Examples
+
+# Create NuGet package
+docker run --rm -v "$PWD/packages:/packages" liblpm-csharp \
+    bash -c "cd /build/bindings/csharp && dotnet pack -o /packages"
+```
+
+### liblpm-lua
+
+Lua 5.4 bindings with native C module.
+
+**Size:** ~400MB
+
+**Features:**
+- Lua 5.4 support
+- Native C module via Lua C API
+- Object-oriented and functional APIs
+- Batch lookup operations
+- Automatic memory management via __gc metamethod
+- Comprehensive test suite (54 tests)
+
+```bash
+# Run tests
+docker run --rm liblpm-lua
+
+# Interactive development
+docker run -it --rm liblpm-lua bash
+
+# Run examples
+docker run --rm liblpm-lua lua5.4 /build/bindings/lua/examples/basic_example.lua
+
+# Run specific example
+docker run --rm liblpm-lua bash -c "LD_PRELOAD=/usr/local/lib/liblpm.so lua5.4 /build/bindings/lua/examples/ipv6_example.lua"
+```
+
+### liblpm-perl
+
+Perl 5.40 XS bindings for high-performance access.
+
+**Size:** ~400MB
+
+**Features:**
+- Perl 5.40+ support
+- Native XS bindings (direct C interface)
+- Object-oriented Perl API
+- Batch lookup operations
+- Automatic memory management via DESTROY
+- Comprehensive test suite (121 tests)
+
+```bash
+# Run tests
+docker run --rm liblpm-perl
+
+# Interactive development
+docker run -it --rm liblpm-perl bash
+
+# Run examples
+docker run --rm liblpm-perl perl -Iblib/lib -Iblib/arch /app/examples/basic_example.pl
+
+# Run specific test
+docker run --rm liblpm-perl prove -Iblib/lib -Iblib/arch /app/t/01-ipv4-basic.t
+```
+
+### liblpm-python
+
+Python 3.10+ bindings with Cython.
+
+**Size:** ~500MB
+
+**Features:**
+- Python 3.10, 3.11, 3.12 support
+- Cython-based C extension
+- pytest test suite
+- Type hints with mypy support
+- ipaddress module integration
+
+```bash
+# Run tests
+docker run --rm liblpm-python
+
+# Interactive development
+docker run -it --rm liblpm-python bash
+
+# Run examples
+docker run --rm liblpm-python python /build/bindings/python/examples/basic_example.py
+
+# Run benchmarks
+docker run --rm liblpm-python pytest /build/bindings/python/benchmarks --benchmark-only
 ```
 
 ### liblpm-benchmark
@@ -282,8 +447,13 @@ Approximate sizes (uncompressed):
 | liblpm-test | ~900MB |
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
+| liblpm-csharp | ~700MB |
 | liblpm-go | ~600MB |
 | liblpm-java | ~700MB |
+| liblpm-csharp | ~700MB |
+| liblpm-lua | ~400MB |
+| liblpm-perl | ~400MB |
+| liblpm-python | ~500MB |
 | liblpm-benchmark | ~1.5GB |
 | liblpm-deb | ~400MB |
 | liblpm-rpm | ~500MB |

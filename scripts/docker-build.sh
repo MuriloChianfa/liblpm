@@ -50,8 +50,14 @@ Available Images:
   test        - Testing environment
   fuzz        - AFL++ fuzzing environment
   cpp         - C++ bindings
+  csharp      - C# bindings (.NET)
   go          - Go bindings
   java        - Java JNI bindings
+  csharp      - C# bindings (.NET)
+  lua         - Lua bindings
+  perl        - Perl XS bindings
+  php         - PHP bindings
+  python      - Python bindings
   benchmark   - DPDK benchmark environment
   all         - Build all images (default)
 
@@ -115,7 +121,7 @@ while [[ $# -gt 0 ]]; do
             VERBOSE="--progress=plain"
             shift
             ;;
-        base|dev|test|fuzz|cpp|go|java|benchmark|all)
+        base|dev|test|fuzz|cpp|go|java|csharp|lua|perl|php|python|benchmark|all)
             IMAGES+=("$1")
             shift
             ;;
@@ -215,11 +221,29 @@ build_images() {
         cpp)
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
             ;;
+        csharp)
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
+            ;;
         go)
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             ;;
         java)
             build_image "java" "${DOCKER_DIR}/Dockerfile.java"
+            ;;
+        csharp)
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
+            ;;
+        lua)
+            build_image "lua" "${DOCKER_DIR}/Dockerfile.lua"
+            ;;
+        perl)
+            build_image "perl" "${DOCKER_DIR}/Dockerfile.perl"
+            ;;
+        php)
+            build_image "php" "${DOCKER_DIR}/Dockerfile.php"
+            ;;
+        python)
+            build_image "python" "${DOCKER_DIR}/Dockerfile.python"
             ;;
         benchmark)
             build_image "benchmark" "${DOCKER_DIR}/Dockerfile.benchmark"
@@ -230,8 +254,14 @@ build_images() {
             build_image "test" "${DOCKER_DIR}/Dockerfile.test"
             build_image "fuzz" "${DOCKER_DIR}/Dockerfile.fuzz"
             build_image "cpp" "${DOCKER_DIR}/Dockerfile.cpp"
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
             build_image "go" "${DOCKER_DIR}/Dockerfile.go"
             build_image "java" "${DOCKER_DIR}/Dockerfile.java"
+            build_image "csharp" "${DOCKER_DIR}/Dockerfile.csharp"
+            build_image "lua" "${DOCKER_DIR}/Dockerfile.lua"
+            build_image "perl" "${DOCKER_DIR}/Dockerfile.perl"
+            build_image "php" "${DOCKER_DIR}/Dockerfile.php"
+            build_image "python" "${DOCKER_DIR}/Dockerfile.python"
             build_image "benchmark" "${DOCKER_DIR}/Dockerfile.benchmark"
             ;;
         *)

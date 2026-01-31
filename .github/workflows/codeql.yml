@@ -28,6 +28,12 @@ jobs:
             build-mode: manual
           - language: go
             build-mode: autobuild
+          - language: python
+            build-mode: manual
+          - language: java-kotlin
+            build-mode: manual
+          - language: csharp
+            build-mode: manual
 
     steps:
     - name: Checkout repository
@@ -62,6 +68,94 @@ jobs:
         cd bindings/cpp/build
         cmake -DCMAKE_BUILD_TYPE=Release ..
         make -j$(nproc)
+
+    - name: Build Python Bindings
+      if: matrix.language == 'python'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential python3-dev python3-pip
+        
+        # Build and install main library first
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+        sudo make install
+        sudo ldconfig
+        cd ..
+        
+        # Build Python bindings
+        cd bindings/python
+        pip3 install --upgrade pip setuptools wheel
+        pip3 install cython numpy
+        pip3 install -e .
+
+    - name: Setup Java
+      if: matrix.language == 'java-kotlin'
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Build Java Bindings
+      if: matrix.language == 'java-kotlin'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential
+        
+        # Build and install main library first
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+        sudo make install
+        sudo ldconfig
+        cd ..
+        
+        # Build Java bindings with JNI
+        cd bindings/java
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+        cd ..
+        
+        # Build Java code with Gradle
+        chmod +x gradlew
+        ./gradlew build -x test
+
+    - name: Setup .NET
+      if: matrix.language == 'csharp'
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Build C# Bindings
+      if: matrix.language == 'csharp'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential
+        
+        # Build and install main library first
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+        sudo make install
+        sudo ldconfig
+        cd ..
+        
+        # Build C# native wrapper
+        cd bindings/csharp
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+        cd ..
+        
+        # Build C# project
+        dotnet restore LibLpm.sln
+        dotnet build LibLpm.sln --configuration Release --no-restore
 
     - name: Autobuild
       if: matrix.language == 'go'

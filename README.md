@@ -27,11 +27,11 @@ A high-performance C library for Longest Prefix Match (LPM) lookups, supporting 
 <sub><i>IPv4 and IPv6 single lookup comparison among different CPU architectures</i></sub>
 </p>
 
-<p align="center">
+<!-- <p align="center">
 <img src="docs/images/amd_ryzen_9_9950x3d_16_core_ipv4_batch.png" width="48%" alt="Ryzen 9 9950X3D IPv4 Batch">
 <img src="docs/images/intelr_xeonr_gold_6426y_ipv6_batch.png" width="48%" alt="Xeon Gold 6426Y IPv6 Batch"><br>
 <sub><i>Batch lookups leverage SIMD vectorization for even higher throughput</i></sub>
-</p>
+</p> -->
 
 <p align="center">
 <img src="docs/images/algorithm_ranking_ipv4.png" width="48%" alt="IPv4 Algorithm Ranking">
@@ -42,47 +42,52 @@ A high-performance C library for Longest Prefix Match (LPM) lookups, supporting 
 For detailed benchmarks and methodology, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md).<br>
 Browse all benchmark charts in [docs/images/](docs/images/README.md).
 
-## Building
+## Install from Package Repository
 
-### Requirements
-
-**Compiler:** GCC 13+ or Clang 16+ (for C23 support)
-
-<details open>
+<details name="install" open>
   <summary style="font-size: 16px;"><strong>Ubuntu/Debian</strong></summary>
 
   ```bash
-  apt install build-essential cmake libc6-dev
+  curl -fsSL https://archive.made4it.com.br/apt/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/liblpm.gpg
+  echo "deb [signed-by=/usr/share/keyrings/liblpm.gpg] https://archive.made4it.com.br/apt $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/liblpm.list
+  sudo apt update && sudo apt install liblpm liblpm-dev
   ```
 </details>
-<details>
-  <summary style="font-size: 16px;"><strong>CentOS/RHEL/Rocky Linux</strong></summary>
-
-  ```bash
-  yum install gcc gcc-c++ make cmake3 glibc-devel
-  ```
-</details>
-<details>
+<details name="install">
   <summary style="font-size: 16px;"><strong>Fedora</strong></summary>
 
   ```bash
-  dnf install gcc gcc-c++ make cmake glibc-devel
+  sudo curl -fsSL https://archive.made4it.com.br/rpm/liblpm-fedora.repo -o /etc/yum.repos.d/liblpm-fedora.repo
+  sudo dnf install liblpm liblpm-devel
+  ```
+</details>
+<details name="install">
+  <summary style="font-size: 16px;"><strong>RHEL/Rocky/AlmaLinux</strong></summary>
+
+  ```bash
+  sudo curl -fsSL https://archive.made4it.com.br/rpm/liblpm-fedora.repo -o /etc/yum.repos.d/liblpm-el.repo
+  sudo dnf install liblpm liblpm-devel
   ```
 </details>
 
-### Build & Install
+## Or Build & Install from Source
 
-<details open>
-  <summary style="font-size: 16px;"><strong>From Source</strong></summary>
+**Requirements:** GCC 13+ or Clang 16+ (for C23 support)
+
+<details name="build-source" open>
+  <summary style="font-size: 16px;"><strong>Ubuntu/Debian</strong></summary>
 
   ```bash
+  # Install build dependencies
+  apt install build-essential cmake libc6-dev
+
   # Clone with submodules
   git clone --recursive https://github.com/MuriloChianfa/liblpm.git
   cd liblpm
-  
+
   # Or if already cloned, initialize submodules
   git submodule update --init --recursive
-  
+
   # Build
   mkdir build && cd build
   cmake ..
@@ -90,27 +95,46 @@ Browse all benchmark charts in [docs/images/](docs/images/README.md).
   sudo make install
   ```
 </details>
+<details name="build-source">
+  <summary style="font-size: 16px;"><strong>Fedora</strong></summary>
 
-<details open>
-  <summary style="font-size: 16px;"><strong>From Package Repository</strong></summary>
-
-  **Ubuntu/Debian:**
   ```bash
-  curl -fsSL https://archive.made4it.com.br/apt/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/liblpm.gpg
-  echo "deb [signed-by=/usr/share/keyrings/liblpm.gpg] https://archive.made4it.com.br/apt $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/liblpm.list
-  sudo apt update && sudo apt install liblpm liblpm-dev
+  # Install build dependencies
+  dnf install gcc gcc-c++ make cmake glibc-devel
+
+  # Clone with submodules
+  git clone --recursive https://github.com/MuriloChianfa/liblpm.git
+  cd liblpm
+
+  # Or if already cloned, initialize submodules
+  git submodule update --init --recursive
+
+  # Build
+  mkdir build && cd build
+  cmake ..
+  make -j$(nproc)
+  sudo make install
   ```
+</details>
+<details name="build-source">
+  <summary style="font-size: 16px;"><strong>CentOS/RHEL/Rocky Linux</strong></summary>
 
-  **Fedora:**
   ```bash
-  sudo curl -fsSL https://archive.made4it.com.br/rpm/liblpm-fedora.repo -o /etc/yum.repos.d/liblpm-fedora.repo
-  sudo dnf install liblpm liblpm-devel
-  ```
+  # Install build dependencies
+  yum install gcc gcc-c++ make cmake3 glibc-devel
 
-  **RHEL/Rocky/AlmaLinux:**
-  ```bash
-  sudo curl -fsSL https://archive.made4it.com.br/rpm/liblpm-fedora.repo -o /etc/yum.repos.d/liblpm-el.repo
-  sudo dnf install liblpm liblpm-devel
+  # Clone with submodules
+  git clone --recursive https://github.com/MuriloChianfa/liblpm.git
+  cd liblpm
+
+  # Or if already cloned, initialize submodules
+  git submodule update --init --recursive
+
+  # Build
+  mkdir build && cd build
+  cmake ..
+  make -j$(nproc)
+  sudo make install
   ```
 </details>
 
@@ -274,8 +298,11 @@ man lpm_algorithms  # Algorithm-specific APIs
 ### Additional Documentation
 
 - [Byte Order and Data Format](docs/BYTE_ORDER.md) - Endianness, IP address storage, and integration guide
+- [C# API Reference](bindings/csharp/README.md) - C# P/Invoke bindings documentation
 - [C++ API Reference](bindings/cpp/README.md) - C++ wrapper documentation
 - [Go API Reference](bindings/go/README.md) - Go bindings documentation
+- [Java API Reference](bindings/java/README.md) - Java JNI bindings documentation
+- [Lua API Reference](bindings/lua/README.md) - Lua C module documentation
 - [Perl API Reference](bindings/perl/README.md) - Perl XS bindings documentation
 - [PHP API Reference](bindings/php/README.md) - PHP extension documentation
 - [Python API Reference](bindings/python/README.md) - Python bindings documentation

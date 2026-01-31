@@ -3,3 +3,6 @@ version: 1.0.0
 dependencies:
   codeql/cpp-queries: "*"
   codeql/go-queries: "*"
+  codeql/python-queries: "*"
+  codeql/java-queries: "*"
+  codeql/csharp-queries: "*"

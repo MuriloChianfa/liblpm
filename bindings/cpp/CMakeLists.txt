@@ -67,9 +67,20 @@ install(TARGETS lpm_cpp lpm_cpp_impl
     EXPORT liblpmCppTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Export targets
+# Note: When building as part of the main project, the lpm target needs to be
+# included in this export set to satisfy CMake's dependency tracking
+if(TARGET lpm)
+    # Include lpm in the export if it's a local target
+    install(TARGETS lpm
+        EXPORT liblpmCppTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+endif()
+
 install(EXPORT liblpmCppTargets
     FILE liblpmCppTargets.cmake
     NAMESPACE liblpm::

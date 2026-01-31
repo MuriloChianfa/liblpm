@@ -12,7 +12,9 @@ Quick reference for liblpm Docker images.
 | `liblpm-fuzz` | AFL++ fuzzing | Security testing |
 | `liblpm-cpp` | C++ bindings | C++ wrapper testing |
 | `liblpm-go` | Go bindings | Go wrapper testing |
+| `liblpm-lua` | Lua bindings | Lua wrapper testing |
 | `liblpm-perl` | Perl XS bindings | Perl wrapper testing |
+| `liblpm-php` | PHP extension | PHP wrapper testing |
 | `liblpm-python` | Python bindings | Python Cython wrapper testing |
 | `liblpm-benchmark` | DPDK benchmarking | Performance comparison |
 | `liblpm-deb` | DEB package builder | Building Debian/Ubuntu packages |
@@ -82,8 +84,14 @@ docker run --rm liblpm-cpp
 # Test Go bindings
 docker run --rm liblpm-go
 
+# Test Lua bindings
+docker run --rm liblpm-lua
+
 # Test Perl XS bindings
 docker run --rm liblpm-perl
+
+# Test PHP extension
+docker run --rm liblpm-php
 
 # Test Python bindings
 docker run --rm liblpm-python
@@ -206,6 +214,34 @@ Go bindings with cgo support.
 docker run --rm liblpm-go
 ```
 
+### liblpm-lua
+
+Lua 5.4 bindings with native C module.
+
+**Size:** ~400MB
+
+**Features:**
+- Lua 5.4 support
+- Native C module via Lua C API
+- Object-oriented and functional APIs
+- Batch lookup operations
+- Automatic memory management via __gc metamethod
+- Comprehensive test suite (54 tests)
+
+```bash
+# Run tests
+docker run --rm liblpm-lua
+
+# Interactive development
+docker run -it --rm liblpm-lua bash
+
+# Run examples
+docker run --rm liblpm-lua lua5.4 /build/bindings/lua/examples/basic_example.lua
+
+# Run specific example
+docker run --rm liblpm-lua bash -c "LD_PRELOAD=/usr/local/lib/liblpm.so lua5.4 /build/bindings/lua/examples/ipv6_example.lua"
+```
+
 ### liblpm-perl
 
 Perl 5.40 XS bindings for high-performance access.
@@ -312,6 +348,7 @@ Approximate sizes (uncompressed):
 | liblpm-fuzz | ~1GB |
 | liblpm-cpp | ~800MB |
 | liblpm-go | ~600MB |
+| liblpm-lua | ~400MB |
 | liblpm-perl | ~400MB |
 | liblpm-python | ~500MB |
 | liblpm-benchmark | ~1.5GB |

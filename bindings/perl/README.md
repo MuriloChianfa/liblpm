@@ -51,6 +51,22 @@ make
 LD_LIBRARY_PATH=../../build make test
 ```
 
+### Verifying Installation
+
+After installation, verify the module is loaded:
+
+```bash
+perl -MNet::LPM -e 'print "Net::LPM version: $Net::LPM::VERSION\n"'
+perl -MNet::LPM -e 'print "liblpm version: " . Net::LPM->version() . "\n"'
+```
+
+You should see:
+
+```
+Net::LPM version: 2.0.0
+liblpm version: 2.0.0
+```
+
 ## Quick Start
 
 ```perl

@@ -1,8 +1,9 @@
 # Dockerfile for building DEB packages for liblpm
 # Supports multiple Debian/Ubuntu versions
 
-ARG DEBIAN_VERSION=bookworm
-FROM debian:${DEBIAN_VERSION}
+ARG DEBIAN_BASE=ubuntu
+ARG DEBIAN_VERSION=24.04
+FROM ${DEBIAN_BASE}:${DEBIAN_VERSION}
 
 # Set non-interactive mode for apt
 ENV DEBIAN_FRONTEND=noninteractive

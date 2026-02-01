@@ -1,28 +1,72 @@
 name: Create Release
 
+# =============================================================================
+# TRIGGER LOGIC:
+# 1. workflow_run: Automatically triggered after "Build Packages" completes
+#    - Only creates release if the triggering run was for a tag (v*)
+#    - Pushes to main, PRs, etc. trigger this but the job is skipped
+#
+# 2. workflow_dispatch: Manual trigger for re-releasing or testing
+#    - Requires explicit confirmation via 'confirm_release' input
+#    - Can specify a previous packaging run_id to use
+# =============================================================================
+
 on:
   workflow_run:
     workflows: ["Build Packages"]
     types:
       - completed
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       run_id:
-        description: 'Workflow run ID to get artifacts from latest commit'
+        description: 'Workflow run ID to get artifacts from (leave empty for latest)'
         required: false
         type: string
+      skip_containers:
+        description: 'Skip container image builds'
+        required: false
+        default: false
+        type: boolean
+      confirm_release:
+        description: 'Type "RELEASE" to confirm you want to create a release'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/liblpm
+
+# Minimal permissions at workflow level - jobs request what they need
+permissions: {}
 
 jobs:
-  release:
-    name: Create Release
+  # ============================================================================
+  # Prepare Release - Get version and download artifacts
+  # ============================================================================
+  prepare:
+    name: Prepare Release
     runs-on: ubuntu-latest
-    # Only create release on tag push and if the packaging workflow succeeded
+    permissions:
+      actions: read
+      contents: read
+    # SECURITY: Strict conditions for when releases are created
+    # 1. Must be on the original repo (not a fork)
+    # 2. For workflow_run: packaging must succeed AND be triggered by a tag (v*)
+    # 3. For workflow_dispatch: user must type "RELEASE" to confirm
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && 
-       startsWith(github.event.workflow_run.head_branch, 'v'))
+      github.repository == github.event.repository.full_name &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.confirm_release == 'RELEASE') ||
+        (github.event_name == 'workflow_run' && 
+         github.event.workflow_run.conclusion == 'success' && 
+         startsWith(github.event.workflow_run.head_branch, 'v'))
+      )
+    outputs:
+      run_id: ${{ steps.get_run_id.outputs.run_id }}
+      version: ${{ steps.get_version.outputs.version }}
+      tag: ${{ steps.get_version.outputs.tag }}
+      major_minor: ${{ steps.get_version.outputs.major_minor }}
+      is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
     
     steps:
       - name: Get workflow run ID
@@ -43,67 +87,593 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download artifacts from packaging workflow
-        uses: actions/download-artifact@v5
-        with:
-          run-id: ${{ steps.get_run_id.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: packages
-
-      - name: Organize packages
-        run: |
-          mkdir -p release/deb release/rpm/el/8/x86_64 release/rpm/el/9/x86_64
-          mkdir -p release/rpm/fedora/40/x86_64 release/rpm/fedora/41/x86_64
-          
-          # Copy DEB packages
-          cp packages/deb-*/*.deb release/deb/ || true
-          
-          # Copy EL RPM packages
-          cp packages/rpm-el8/*.rpm release/rpm/el/8/x86_64/ || true
-          cp packages/rpm-el9/*.rpm release/rpm/el/9/x86_64/ || true
-          
-          # Copy Fedora RPM packages
-          cp packages/rpm-fedora40/*.rpm release/rpm/fedora/40/x86_64/ || true
-          cp packages/rpm-fedora41/*.rpm release/rpm/fedora/41/x86_64/ || true
-          
-          # TODO: Add more artifact types here as needed
-          # Example:
-          # cp packages/macos-*/*.tar.gz release/macos/ || true
-          # cp packages/windows-*/*.zip release/windows/ || true
-          # cp packages/docs-*/*.pdf release/docs/ || true
-          
-          # Create checksums
-          cd release
-          find . -name "*.deb" -o -name "*.rpm" | while read f; do
-            sha256sum "$f" >> SHA256SUMS
-          done
-          
-          # Show what we're releasing
-          echo "=== Release contents ==="
-          ls -lR
-
-      - name: Get tag name
-        id: get_tag
+      - name: Get version info
+        id: get_version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # For manual dispatch, try to get tag from the workflow run
             TAG=$(gh api repos/${{ github.repository }}/actions/runs/${{ steps.get_run_id.outputs.run_id }} \
               --jq '.head_branch')
           else
             TAG="${{ github.event.workflow_run.head_branch }}"
           fi
+          
+          # Extract version number (remove 'v' prefix if present)
+          VERSION="${TAG#v}"
+          
+          # Extract major.minor for docker tags
+          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+          
+          # Check if this is a prerelease (contains -, like v2.0.0-rc1)
+          if [[ "$VERSION" == *"-"* ]]; then
+            IS_PRERELEASE="true"
+          else
+            IS_PRERELEASE="false"
+          fi
+          
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "major_minor=$MAJOR_MINOR" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          
+          echo "Tag: $TAG"
+          echo "Version: $VERSION"
+          echo "Major.Minor: $MAJOR_MINOR"
+          echo "Is Prerelease: $IS_PRERELEASE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+  # ============================================================================
+  # Build and Push Container Images
+  # ============================================================================
+  build-containers:
+    name: Build Container (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: ${{ !inputs.skip_containers }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # For Cosign OIDC signing
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - base
+          - dev
+          - test
+          - fuzz
+          - cpp
+          - go
+          - java
+          - csharp
+          - lua
+          - perl
+          - php
+          - python
+          - benchmark
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          tag_name: ${{ steps.get_tag.outputs.tag }}
-          files: |
-            release/deb/*.deb
-            release/rpm/**/*.rpm
-            release/SHA256SUMS
-          generate_release_notes: true
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.prepare.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.prepare.outputs.tag }}
+            type=raw,value=latest,enable=${{ needs.prepare.outputs.is_prerelease == 'false' }}
+      
+      - name: Build and push container image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.${{ matrix.image }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+      
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+      
+      - name: Sign container image with Cosign (keyless)
+        run: |
+          # Sign using OIDC keyless signing (no private key needed)
+          # This uses GitHub's OIDC token for identity verification
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
+            echo "Signing $tag"
+            cosign sign --yes "$tag@${{ steps.push.outputs.digest }}"
+          done
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  # ============================================================================
+  # Create Release with Artifacts
+  # SECURITY: Uses protected environment for GPG signing
+  # ============================================================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [prepare, build-containers]
+    if: always() && needs.prepare.result == 'success'
+    # SECURITY: Use a protected environment for release signing
+    # Configure this environment in GitHub repo settings with:
+    # - Required reviewers for production releases
+    # - Deployment branch restrictions (only main/tags)
+    environment: release
+    permissions:
+      contents: write
+      actions: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download artifacts from packaging workflow
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ needs.prepare.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: packages
+      
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded artifacts ==="
+          find packages -type f | head -100
+      
+      - name: Organize packages
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          
+          # Create directory structure
+          mkdir -p release/native/deb
+          mkdir -p release/native/rpm/el/8/x86_64
+          mkdir -p release/native/rpm/el/9/x86_64
+          mkdir -p release/native/rpm/fedora/40/x86_64
+          mkdir -p release/native/rpm/fedora/41/x86_64
+          mkdir -p release/python/wheel
+          mkdir -p release/python/deb
+          mkdir -p release/python/rpm
+          mkdir -p release/php/pecl
+          mkdir -p release/php/deb
+          mkdir -p release/php/rpm
+          mkdir -p release/perl/deb
+          mkdir -p release/perl/rpm
+          mkdir -p release/java
+          mkdir -p release/csharp
+          mkdir -p release/go
+          mkdir -p release/lua
+          
+          # Copy Native DEB packages
+          cp packages/deb-*/*.deb release/native/deb/ 2>/dev/null || echo "No native DEB packages found"
+          
+          # Copy Native RPM packages
+          cp packages/rpm-el8/*.rpm release/native/rpm/el/8/x86_64/ 2>/dev/null || echo "No EL8 RPM packages found"
+          cp packages/rpm-el9/*.rpm release/native/rpm/el/9/x86_64/ 2>/dev/null || echo "No EL9 RPM packages found"
+          cp packages/rpm-fedora40/*.rpm release/native/rpm/fedora/40/x86_64/ 2>/dev/null || echo "No Fedora 40 RPM packages found"
+          cp packages/rpm-fedora41/*.rpm release/native/rpm/fedora/41/x86_64/ 2>/dev/null || echo "No Fedora 41 RPM packages found"
+          
+          # Copy Python packages
+          cp packages/python-wheel/*.whl release/python/wheel/ 2>/dev/null || echo "No Python wheel found"
+          cp packages/python-deb-*/*.deb release/python/deb/ 2>/dev/null || echo "No Python DEB packages found"
+          cp packages/python-rpm-*/*.rpm release/python/rpm/ 2>/dev/null || echo "No Python RPM packages found"
+          
+          # Copy PHP packages
+          cp packages/php-pecl/*.tgz release/php/pecl/ 2>/dev/null || echo "No PHP PECL package found"
+          cp packages/php-deb-*/*.deb release/php/deb/ 2>/dev/null || echo "No PHP DEB packages found"
+          cp packages/php-rpm-*/*.rpm release/php/rpm/ 2>/dev/null || echo "No PHP RPM packages found"
+          
+          # Copy Perl packages
+          cp packages/perl-deb-*/*.deb release/perl/deb/ 2>/dev/null || echo "No Perl DEB packages found"
+          cp packages/perl-rpm-*/*.rpm release/perl/rpm/ 2>/dev/null || echo "No Perl RPM packages found"
+          
+          # Copy Java packages
+          cp packages/java-jar/*.jar release/java/ 2>/dev/null || echo "No Java JAR found"
+          
+          # Copy C# packages
+          cp packages/csharp-nuget/*.nupkg release/csharp/ 2>/dev/null || echo "No C# NuGet package found"
+          
+          # Copy Go packages
+          cp packages/go-tarball/*.tar.gz release/go/ 2>/dev/null || echo "No Go tarball found"
+          
+          # Copy Lua packages
+          cp packages/lua-module/*.so release/lua/ 2>/dev/null || echo "No Lua module found"
+          
+          # Show what we have
+          echo "=== Release contents ==="
+          find release -type f | sort
+      
+      # SECURITY: GPG signing in isolated step with proper secret handling
+      # The secret is only accessed here, not in conditions or other steps
+      - name: Sign artifacts with GPG
+        id: gpg_sign
+        env:
+          # SECURITY: Pass secrets through environment variables, not directly in script
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          # Check if GPG key is configured (without exposing the secret)
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "GPG signing skipped - no key configured"
+            echo "gpg_signed=false" >> $GITHUB_OUTPUT
+            echo "gpg_fingerprint=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Importing GPG key..."
+          
+          # SECURITY: Import key with restricted permissions
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          
+          # Import the key
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          
+          # Get the key fingerprint for verification
+          FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG | grep -E "^sec" | head -1 | awk '{print $2}' | cut -d/ -f2)
+          
+          if [ -z "$FINGERPRINT" ]; then
+            echo "::error::Failed to import GPG key"
+            exit 1
+          fi
+          
+          echo "GPG key imported: $FINGERPRINT"
+          echo "gpg_fingerprint=$FINGERPRINT" >> $GITHUB_OUTPUT
+          
+          # Configure GPG for non-interactive signing
+          echo "allow-loopback-pinentry" >> "$GNUPGHOME/gpg-agent.conf"
+          gpg-connect-agent reloadagent /bye 2>/dev/null || true
+          
+          # Sign all packages
+          SIGN_COUNT=0
+          find release -type f \( \
+            -name "*.deb" -o \
+            -name "*.rpm" -o \
+            -name "*.whl" -o \
+            -name "*.jar" -o \
+            -name "*.nupkg" -o \
+            -name "*.tgz" -o \
+            -name "*.tar.gz" -o \
+            -name "*.so" \
+          \) | while read f; do
+            echo "Signing: $f"
+            if [ -n "$GPG_PASSPHRASE" ]; then
+              echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --armor --detach-sign "$f"
+            else
+              gpg --batch --yes --armor --detach-sign "$f"
+            fi
+            SIGN_COUNT=$((SIGN_COUNT + 1))
+          done
+          
+          echo "Signed $SIGN_COUNT files"
+          echo "gpg_signed=true" >> $GITHUB_OUTPUT
+          
+          # SECURITY: Clean up GPG home directory
+          # The key material is removed after signing
+          rm -rf "$GNUPGHOME"
+          echo "GPG keyring cleaned up"
+      
+      - name: Generate checksums
+        run: |
+          cd release
+          
+          # Generate SHA256 checksums
+          find . -type f ! -name "*.asc" ! -name "*.sig" ! -name "SHA*" | sort | while read f; do
+            sha256sum "$f" >> SHA256SUMS
+          done
+          
+          # Generate SHA512 checksums
+          find . -type f ! -name "*.asc" ! -name "*.sig" ! -name "SHA*" | sort | while read f; do
+            sha512sum "$f" >> SHA512SUMS
+          done
+          
+          echo "=== Checksums ==="
+          cat SHA256SUMS
+      
+      # SECURITY: Sign checksums in separate step with same isolated GPG handling
+      - name: Sign checksums with GPG
+        if: steps.gpg_sign.outputs.gpg_signed == 'true'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          # Re-import key for checksum signing (previous GNUPGHOME was cleaned up)
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "allow-loopback-pinentry" >> "$GNUPGHOME/gpg-agent.conf"
+          gpg-connect-agent reloadagent /bye 2>/dev/null || true
+          
+          cd release
+          
+          if [ -n "$GPG_PASSPHRASE" ]; then
+            echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --armor --detach-sign SHA256SUMS
+            echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --armor --detach-sign SHA512SUMS
+          else
+            gpg --batch --yes --armor --detach-sign SHA256SUMS
+            gpg --batch --yes --armor --detach-sign SHA512SUMS
+          fi
+          
+          echo "Checksum files signed"
+          
+          # SECURITY: Clean up
+          rm -rf "$GNUPGHOME"
+      
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          REPO_URL="https://github.com/${{ github.repository }}"
+          RELEASE_URL="${REPO_URL}/releases/download/${TAG}"
+          GHCR_PREFIX="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}"
+          GPG_FINGERPRINT="${{ steps.gpg_sign.outputs.gpg_fingerprint }}"
+          
+          cat > release_notes.md << 'RELEASE_NOTES_EOF'
+          ## Installation
+          
+          Choose the installation method that best fits your environment.
+          
+          ### Native C Library
+          
+          | Distribution | Runtime | Development | Documentation |
+          |-------------|---------|-------------|---------------|
+          RELEASE_NOTES_EOF
+          
+          # Add native DEB packages
+          for deb in release/native/deb/liblpm_*.deb; do
+            if [ -f "$deb" ]; then
+              filename=$(basename "$deb")
+              distro=$(echo "$filename" | grep -oE '(jammy|noble|trixie)' || echo "deb")
+              echo "| ${distro^} | [${filename}](${RELEASE_URL}/native_deb_${filename}) | See -dev package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
+            fi
+          done
+          
+          # Add native RPM packages
+          for rpm in release/native/rpm/**/*.rpm; do
+            if [ -f "$rpm" ]; then
+              filename=$(basename "$rpm")
+              if [[ "$rpm" == *"/el/"* ]]; then
+                version=$(echo "$rpm" | grep -oE 'el/[0-9]+' | cut -d/ -f2)
+                flat_name=$(echo "${rpm#release/}" | tr '/' '_')
+                echo "| Rocky Linux ${version} | [${filename}](${RELEASE_URL}/${flat_name}) | See -devel package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
+              elif [[ "$rpm" == *"/fedora/"* ]]; then
+                version=$(echo "$rpm" | grep -oE 'fedora/[0-9]+' | cut -d/ -f2)
+                flat_name=$(echo "${rpm#release/}" | tr '/' '_')
+                echo "| Fedora ${version} | [${filename}](${RELEASE_URL}/${flat_name}) | See -devel package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
+              fi
+            fi
+          done
+          
+          cat >> release_notes.md << 'RELEASE_NOTES_EOF'
+          
+          ### Language Bindings
+          
+          | Language | Package | Platform | Documentation |
+          |----------|---------|----------|---------------|
+          RELEASE_NOTES_EOF
+          
+          # Python wheel
+          for whl in release/python/wheel/*.whl; do
+            if [ -f "$whl" ]; then
+              filename=$(basename "$whl")
+              echo "| Python | [${filename}](${RELEASE_URL}/python_wheel_${filename}) | PyPI / pip | [Python Guide](${REPO_URL}/blob/main/bindings/python/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # Python DEB
+          for deb in release/python/deb/*.deb; do
+            if [ -f "$deb" ]; then
+              filename=$(basename "$deb")
+              echo "| Python | [${filename}](${RELEASE_URL}/python_deb_${filename}) | Debian/Ubuntu | [Python Guide](${REPO_URL}/blob/main/bindings/python/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # PHP PECL
+          for tgz in release/php/pecl/*.tgz; do
+            if [ -f "$tgz" ]; then
+              filename=$(basename "$tgz")
+              echo "| PHP | [${filename}](${RELEASE_URL}/php_pecl_${filename}) | PECL | [PHP Guide](${REPO_URL}/blob/main/bindings/php/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # PHP DEB
+          for deb in release/php/deb/*.deb; do
+            if [ -f "$deb" ]; then
+              filename=$(basename "$deb")
+              echo "| PHP | [${filename}](${RELEASE_URL}/php_deb_${filename}) | Debian/Ubuntu | [PHP Guide](${REPO_URL}/blob/main/bindings/php/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # Perl DEB
+          for deb in release/perl/deb/*.deb; do
+            if [ -f "$deb" ]; then
+              filename=$(basename "$deb")
+              echo "| Perl | [${filename}](${RELEASE_URL}/perl_deb_${filename}) | Debian/Ubuntu | [Perl Guide](${REPO_URL}/blob/main/bindings/perl/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # Java JAR
+          for jar in release/java/*.jar; do
+            if [ -f "$jar" ]; then
+              filename=$(basename "$jar")
+              echo "| Java | [${filename}](${RELEASE_URL}/java_${filename}) | JVM | [Java Guide](${REPO_URL}/blob/main/bindings/java/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # C# NuGet
+          for nupkg in release/csharp/*.nupkg; do
+            if [ -f "$nupkg" ]; then
+              filename=$(basename "$nupkg")
+              echo "| C# | [${filename}](${RELEASE_URL}/csharp_${filename}) | .NET | [C# Guide](${REPO_URL}/blob/main/bindings/csharp/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # Go tarball
+          for tgz in release/go/*.tar.gz; do
+            if [ -f "$tgz" ]; then
+              filename=$(basename "$tgz")
+              echo "| Go | [${filename}](${RELEASE_URL}/go_${filename}) | Go modules | [Go Guide](${REPO_URL}/blob/main/bindings/go/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          # Lua module
+          for so in release/lua/*.so; do
+            if [ -f "$so" ]; then
+              filename=$(basename "$so")
+              echo "| Lua | [${filename}](${RELEASE_URL}/lua_${filename}) | Lua 5.4 | [Lua Guide](${REPO_URL}/blob/main/bindings/lua/README.md) |" >> release_notes.md
+            fi
+          done
+          
+          cat >> release_notes.md << RELEASE_NOTES_EOF
+          
+          ### Container Images
+          
+          All container images are available on GitHub Container Registry and signed with Sigstore Cosign.
+          
+          | Image | Description | Pull Command |
+          |-------|-------------|-------------|
+          | Runtime | Minimal runtime environment | \`docker pull ${GHCR_PREFIX}-base:${TAG}\` |
+          | Development | Full development environment | \`docker pull ${GHCR_PREFIX}-dev:${TAG}\` |
+          | Testing | Test environment | \`docker pull ${GHCR_PREFIX}-test:${TAG}\` |
+          | Fuzzing | AFL++ fuzzing environment | \`docker pull ${GHCR_PREFIX}-fuzz:${TAG}\` |
+          | C++ | C++ bindings | \`docker pull ${GHCR_PREFIX}-cpp:${TAG}\` |
+          | Go | Go bindings | \`docker pull ${GHCR_PREFIX}-go:${TAG}\` |
+          | Java | Java bindings | \`docker pull ${GHCR_PREFIX}-java:${TAG}\` |
+          | C# | C# bindings | \`docker pull ${GHCR_PREFIX}-csharp:${TAG}\` |
+          | Lua | Lua bindings | \`docker pull ${GHCR_PREFIX}-lua:${TAG}\` |
+          | Perl | Perl bindings | \`docker pull ${GHCR_PREFIX}-perl:${TAG}\` |
+          | PHP | PHP bindings | \`docker pull ${GHCR_PREFIX}-php:${TAG}\` |
+          | Python | Python bindings | \`docker pull ${GHCR_PREFIX}-python:${TAG}\` |
+          | Benchmark | Benchmarking tools | \`docker pull ${GHCR_PREFIX}-benchmark:${TAG}\` |
+          
+          ### Verification
+          
+          All artifacts include SHA256 and SHA512 checksums. Download \`SHA256SUMS\` or \`SHA512SUMS\` and verify:
+          
+          \`\`\`bash
+          # Verify SHA256
+          sha256sum -c SHA256SUMS
+          
+          # Verify SHA512
+          sha512sum -c SHA512SUMS
+          \`\`\`
+          RELEASE_NOTES_EOF
+          
+          # Add GPG verification info if signed
+          if [ -n "$GPG_FINGERPRINT" ]; then
+            cat >> release_notes.md << RELEASE_NOTES_EOF
+          
+          #### GPG Signatures
+          
+          Artifacts are signed with GPG key: \`${GPG_FINGERPRINT}\`
+          
+          \`\`\`bash
+          # Import the public key (if not already imported)
+          gpg --keyserver keyserver.ubuntu.com --recv-keys ${GPG_FINGERPRINT}
+          
+          # Verify a package signature
+          gpg --verify package.deb.asc package.deb
+          
+          # Verify checksum file signature
+          gpg --verify SHA256SUMS.asc SHA256SUMS
+          \`\`\`
+          RELEASE_NOTES_EOF
+          fi
+          
+          cat >> release_notes.md << RELEASE_NOTES_EOF
+          
+          #### Container Signatures
+          
+          Container images are signed with Sigstore Cosign (keyless OIDC):
+          
+          \`\`\`bash
+          # Install cosign
+          # https://docs.sigstore.dev/cosign/installation/
+          
+          # Verify container signature
+          cosign verify ${GHCR_PREFIX}-base:${TAG} \\
+            --certificate-identity-regexp="https://github.com/${{ github.repository }}/*" \\
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+          \`\`\`
+          
+          ---
+          
+          **Full Changelog**: ${REPO_URL}/compare/v${{ needs.prepare.outputs.major_minor }}.0...${TAG}
+          RELEASE_NOTES_EOF
+          
+          echo "Release notes generated:"
+          cat release_notes.md
+      
+      - name: Flatten release directory for upload
+        run: |
+          mkdir -p release_flat
+          
+          # Copy all files with path prefixes to avoid naming conflicts
+          find release -type f | while read f; do
+            # Get relative path and replace / with _
+            rel_path="${f#release/}"
+            flat_name=$(echo "$rel_path" | tr '/' '_')
+            cp "$f" "release_flat/$flat_name"
+          done
+          
+          echo "=== Flattened release files ==="
+          ls -la release_flat/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: liblpm ${{ needs.prepare.outputs.version }}
+          body_path: release_notes.md
+          files: release_flat/*
+          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Release Summary
+        run: |
+          echo "## Release ${{ needs.prepare.outputs.tag }} Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          PACKAGE_COUNT=$(find release_flat -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.whl" -o -name "*.jar" \) | wc -l)
+          echo "- ${PACKAGE_COUNT} packages uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.gpg_sign.outputs.gpg_signed }}" = "true" ]; then
+            echo "### GPG Signing" >> $GITHUB_STEP_SUMMARY
+            echo "- Artifacts signed with key: \`${{ steps.gpg_sign.outputs.gpg_fingerprint }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### GPG Signing" >> $GITHUB_STEP_SUMMARY
+            echo "- GPG signing was skipped (no key configured)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Container Images" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Published to: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-*:${{ needs.prepare.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Container images are signed with Sigstore Cosign (keyless OIDC)" >> $GITHUB_STEP_SUMMARY

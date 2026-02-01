@@ -23,7 +23,11 @@ High-performance PHP extension for the [liblpm](https://github.com/MuriloChianfa
 
 ## Installation
 
-### From PECL (Recommended)
+Choose the installation method that best fits your environment:
+
+### Method 1: From PECL
+
+PECL automatically compiles the extension for your exact PHP version and platform:
 
 ```bash
 pecl install liblpm
@@ -53,7 +57,7 @@ phpize
 make -j$(nproc)
 sudo make install
 
-# Add to php.ini
+# Enable extension
 echo "extension=liblpm.so" | sudo tee /etc/php/8.3/cli/conf.d/99-liblpm.ini
 ```
 
@@ -65,6 +69,23 @@ mkdir build && cd build
 cmake -DBUILD_PHP_WRAPPER=ON ..
 make php_wrapper
 sudo make php_install
+```
+
+### Verifying Installation
+
+After installation, verify the extension is loaded:
+
+```bash
+php -m | grep liblpm
+php --ri liblpm
+```
+
+You should see:
+
+```
+liblpm
+liblpm support => enabled
+liblpm version => 1.0.0
 ```
 
 ## Quick Start

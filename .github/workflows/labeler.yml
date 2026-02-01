@@ -1,0 +1,26 @@
+# This workflow will automatically label pull requests based on the
+# paths that are modified in the pull request.
+#
+# Labels help organize and categorize PRs for easier review and triage.
+# Configuration is defined in .github/labeler.yml
+
+name: Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Apply labels to PR
+        uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          sync-labels: true

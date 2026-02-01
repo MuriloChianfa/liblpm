@@ -1,0 +1,94 @@
+# Dockerfile for building PHP extension DEB packages
+# Supports multiple PHP versions and distributions
+# Builds php{version}-liblpm packages
+# Note: Uses Ubuntu 24.04 as build base for GCC 13+ (C23 support)
+
+ARG BUILD_BASE=ubuntu:24.04
+FROM ${BUILD_BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Build arguments for target distro info
+ARG TARGET_DISTRO=ubuntu
+ARG TARGET_VERSION=24.04
+ARG PHP_VERSION=8.3
+
+# Install basic build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    dpkg-dev \
+    debhelper \
+    fakeroot \
+    pkg-config \
+    libnuma-dev \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================================
+# Stage: Build liblpm C library
+# ============================================================================
+
+WORKDIR /build-liblpm
+
+COPY . /build-liblpm/
+
+# Initialize submodules and build liblpm
+RUN git config --global --add safe.directory /build-liblpm && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi && \
+    mkdir -p build && cd build && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCHMARKS=OFF \
+        .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# ============================================================================
+# Install PHP for the target version
+# ============================================================================
+
+# Add Ondřej Surý's PHP PPA for all PHP versions (8.1, 8.2, 8.3)
+RUN add-apt-repository ppa:ondrej/php -y && apt-get update
+
+# Install PHP development packages for specified version
+RUN apt-get install -y --no-install-recommends \
+    php${PHP_VERSION}-cli \
+    php${PHP_VERSION}-dev \
+    php-pear \
+    autoconf \
+    automake \
+    libtool \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Copy build script
+COPY docker/scripts/build-php-deb.sh /usr/local/bin/build-php-deb.sh
+RUN chmod +x /usr/local/bin/build-php-deb.sh
+
+# Create output directory for packages
+RUN mkdir -p /packages
+
+# Volume mount points
+VOLUME ["/workspace", "/packages"]
+
+# Default command
+CMD ["/usr/local/bin/build-php-deb.sh"]
+
+# Usage:
+# Build for Ubuntu 22.04 (PHP 8.1):
+#   docker build -f docker/Dockerfile.php.deb --build-arg PHP_VERSION=8.1 --build-arg TARGET_DISTRO=ubuntu --build-arg TARGET_VERSION=22.04 -t liblpm-php-deb:u22.04 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/php:/packages liblpm-php-deb:u22.04
+#
+# Build for Ubuntu 24.04 (PHP 8.3):
+#   docker build -f docker/Dockerfile.php.deb --build-arg PHP_VERSION=8.3 --build-arg TARGET_DISTRO=ubuntu --build-arg TARGET_VERSION=24.04 -t liblpm-php-deb:u24.04 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/php:/packages liblpm-php-deb:u24.04
+#
+# Build for Debian 12 (PHP 8.2):
+#   docker build -f docker/Dockerfile.php.deb --build-arg PHP_VERSION=8.2 --build-arg TARGET_DISTRO=debian --build-arg TARGET_VERSION=12 -t liblpm-php-deb:d12 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/php:/packages liblpm-php-deb:d12

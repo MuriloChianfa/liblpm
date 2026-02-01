@@ -15,13 +15,47 @@ High-performance Python bindings for the [liblpm](https://github.com/MuriloChian
 
 ## Installation
 
-### From PyPI (Recommended)
+Choose the installation method that best fits your environment:
+
+### Method 1: From PyPI (Recommended)
 
 ```bash
 pip install liblpm
 ```
 
-### From Source
+### Method 2: From Distribution Packages
+
+Native distribution packages are available for common Linux distributions:
+
+#### Ubuntu/Debian
+
+```bash
+# Download the appropriate package for your distribution:
+# Ubuntu 22.04, Ubuntu 24.04, or Debian 12
+
+# Install
+sudo dpkg -i python3-liblpm_2.0.0-1_amd64.deb
+
+# Or install with dependencies
+sudo apt install ./python3-liblpm_2.0.0-1_amd64.deb
+```
+
+#### Rocky Linux/Fedora
+
+**Note**: Rocky Linux 9 ships with Python 3.9, which does not meet the minimum Python 3.10 requirement. Use Fedora or install from PyPI instead.
+
+```bash
+# Download the appropriate package for your distribution:
+# Fedora 41 (Rocky Linux 9 not supported due to Python 3.9)
+
+# Install
+sudo rpm -ivh python3-liblpm-2.0.0-1.fc41.x86_64.rpm
+
+# Or using dnf
+sudo dnf install python3-liblpm-2.0.0-1.fc41.x86_64.rpm
+```
+
+### Method 3: From Source
 
 Ensure liblpm C library is installed first:
 
@@ -45,6 +79,36 @@ pip install .
 ```bash
 # Install with development dependencies
 pip install -e ".[dev]"
+```
+
+### Verifying Installation
+
+After installation, verify the package is working:
+
+```bash
+# Check if module can be imported
+python3 -c "import liblpm; print('liblpm version:', liblpm.__version__)"
+
+# Verify functionality
+python3 -c "
+from liblpm import LpmTableIPv4
+from ipaddress import IPv4Network, IPv4Address
+
+with LpmTableIPv4() as table:
+    table.insert(IPv4Network('10.0.0.0/8'), 1)
+    result = table.lookup(IPv4Address('10.1.2.3'))
+    print('Lookup result:', result)
+    assert result == 1, 'Lookup failed'
+    print('✓ Verification successful')
+"
+```
+
+You should see:
+
+```
+liblpm version: 2.0.0
+Lookup result: 1
+✓ Verification successful
 ```
 
 ## Quick Start

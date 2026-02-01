@@ -67,6 +67,10 @@ build_gcc/
 build_*/
 build_afl
 build-*
+!build-all-packages.sh
+!build-php-*
+!build-perl-*
+!build-python-*
 run_fuzz.sh
 fuzz_input
 fuzz_output

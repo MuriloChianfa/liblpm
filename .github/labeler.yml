@@ -1,0 +1,143 @@
+# Labeler configuration for automatic PR labeling
+# See: https://github.com/actions/labeler
+
+# Core C library
+'core':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/**/*.c'
+      - 'include/**/*.h'
+      - 'CMakeLists.txt'
+
+# Language bindings
+'binding: c++':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/cpp/**/*'
+
+'binding: csharp':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/csharp/**/*'
+
+'binding: go':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/go/**/*'
+
+'binding: java':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/java/**/*'
+
+'binding: lua':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/lua/**/*'
+
+'binding: perl':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/perl/**/*'
+
+'binding: php':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/php/**/*'
+
+'binding: python':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'bindings/python/**/*'
+
+# Documentation
+'documentation':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**/*'
+      - '**/*.3'
+
+# Tests
+'tests':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'tests/**/*'
+      - '**/tests/**/*'
+      - '**/test_*.{c,cpp,py,go,java,lua,pl,php}'
+      - '**/*_test.{c,cpp,py,go,java}'
+      - '**/*.phpt'
+
+# Benchmarks
+'benchmarks':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'benchmarks/**/*'
+      - '**/benchmarks/**/*'
+      - '**/benchmark_*.{c,py,go,java}'
+      - '**/bench_*.{c,py,go,java}'
+
+# CI/CD & GitHub Actions
+'ci/cd':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**/*'
+      - '.github/dependabot.yml'
+      - '.github/codeql/**/*'
+
+# Docker
+'docker':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docker/**/*'
+      - '**/Dockerfile'
+      - '.dockerignore'
+      - '**/docker-*.sh'
+
+# Build system
+'build':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/CMakeLists.txt'
+      - 'cmake/**/*'
+      - '**/Makefile'
+      - '**/Makefile.PL'
+      - '**/build.gradle'
+      - '**/setup.py'
+      - '**/pyproject.toml'
+      - '**/*.cmake'
+
+# Dependencies
+'dependencies':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'external/**/*'
+      - '.gitmodules'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '**/package.xml'
+      - '**/requirements.txt'
+      - '**/*.rockspec'
+
+# Scripts
+'scripts':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'scripts/**/*'
+      - '**/*.sh'
+
+# Security
+'security':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/SECURITY.md'
+      - '.github/codeql/**/*'
+
+# Packaging & Release
+'packaging':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'repo/**/*'
+      - '.github/workflows/packaging.yml'
+      - '.github/workflows/release.yml'
+      - 'CITATION.cff'

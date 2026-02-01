@@ -1,0 +1,89 @@
+# Dockerfile for building Perl module RPM packages
+# Supports multiple Perl versions and distributions
+# Builds perl-Net-LPM packages
+
+ARG DISTRO=rockylinux
+ARG VERSION=9
+FROM ${DISTRO}:${VERSION}
+
+# Install build dependencies
+RUN dnf install -y \
+    gcc \
+    gcc-c++ \
+    make \
+    cmake \
+    git \
+    rpm-build \
+    rpmdevtools \
+    file \
+    numactl-devel \
+    chrpath \
+    && dnf clean all
+
+# For Rocky Linux 9 / EL9, install GCC toolset 13 for better C23 support
+# Fedora already has GCC 13+ built-in
+ARG DISTRO=rockylinux
+ARG VERSION=9
+RUN if [ "${DISTRO}" = "rockylinux" ] && [ "${VERSION}" = "9" ]; then \
+        dnf install -y gcc-toolset-13 && dnf clean all; \
+    fi
+
+# ============================================================================
+# Stage: Build liblpm C library
+# ============================================================================
+
+WORKDIR /build-liblpm
+
+COPY . /build-liblpm/
+
+# Initialize submodules and build liblpm
+RUN bash -c '\
+    if [ -f /opt/rh/gcc-toolset-13/enable ]; then source /opt/rh/gcc-toolset-13/enable; fi && \
+    git config --global --add safe.directory /build-liblpm && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi && \
+    mkdir -p build && cd build && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCHMARKS=OFF \
+        .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig'
+
+# ============================================================================
+# Install Perl development packages
+# ============================================================================
+
+# Install Perl development dependencies
+RUN dnf install -y \
+    perl \
+    perl-devel \
+    perl-ExtUtils-MakeMaker \
+    perl-Test-Simple \
+    && dnf clean all
+
+WORKDIR /workspace
+
+# Copy build script
+COPY docker/scripts/build-perl-rpm.sh /usr/local/bin/build-perl-rpm.sh
+RUN chmod +x /usr/local/bin/build-perl-rpm.sh
+
+# Create output directory for packages
+RUN mkdir -p /packages
+
+# Volume mount points
+VOLUME ["/workspace", "/packages"]
+
+# Default command
+CMD ["/usr/local/bin/build-perl-rpm.sh"]
+
+# Usage:
+# Build Rocky Linux 9:
+#   docker build -f docker/Dockerfile.perl.rpm --build-arg DISTRO=rockylinux --build-arg VERSION=9 -t liblpm-perl-rpm:rocky9 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/perl:/packages liblpm-perl-rpm:rocky9
+#
+# Build Fedora 41:
+#   docker build -f docker/Dockerfile.perl.rpm --build-arg DISTRO=fedora --build-arg VERSION=41 -t liblpm-perl-rpm:f41 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/perl:/packages liblpm-perl-rpm:f41

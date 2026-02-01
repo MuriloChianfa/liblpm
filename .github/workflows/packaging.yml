@@ -9,6 +9,10 @@ on:
       - 'CMakeLists.txt'
       - 'cmake/**'
       - 'repo/**'
+      - 'src/**'
+      - 'include/**'
+      - 'bindings/**'
+      - 'docker/**'
       - '.github/workflows/packaging.yml'
   pull_request:
     branches: [main]
@@ -16,6 +20,10 @@ on:
       - 'CMakeLists.txt'
       - 'cmake/**'
       - 'repo/**'
+      - 'src/**'
+      - 'include/**'
+      - 'bindings/**'
+      - 'docker/**'
       - '.github/workflows/packaging.yml'
   workflow_dispatch:
     inputs:
@@ -24,6 +32,9 @@ on:
         required: false
         default: false
         type: boolean
+
+env:
+  DOCKER_BUILDKIT: 1
 
 jobs:
   # ============================================================================
@@ -338,3 +349,558 @@ jobs:
           pkg-config --modversion liblpm
           pkg-config --libs liblpm
           pkg-config --cflags liblpm
+
+  # ============================================================================
+  # Build Python Wheel (Universal)
+  # ============================================================================
+  build-python-wheel:
+    name: Build Python Wheel
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Python wheel
+        run: |
+          docker build -f docker/Dockerfile.python -t liblpm-python .
+          mkdir -p packages/python
+          docker run --rm -v "$PWD/packages/python:/artifacts" \
+            --entrypoint bash \
+            liblpm-python \
+            -c '. /opt/venv/bin/activate && cd /build/bindings/python && pip install -q build && python3 -m build --wheel --outdir /artifacts 2>&1'
+          ls -la packages/python/
+      
+      - name: Upload Python wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheel
+          path: packages/python/*.whl
+          retention-days: 7
+
+  # ============================================================================
+  # Build Python DEB packages
+  # ============================================================================
+  build-python-deb:
+    name: Build Python DEB (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-22.04
+            target_distro: ubuntu
+            target_version: "22.04"
+          - distro: ubuntu-24.04
+            target_distro: ubuntu
+            target_version: "24.04"
+          - distro: debian-12
+            target_distro: debian
+            target_version: "12"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Python DEB package
+        run: |
+          docker build -f docker/Dockerfile.python.deb \
+            --build-arg TARGET_DISTRO=${{ matrix.target_distro }} \
+            --build-arg TARGET_VERSION=${{ matrix.target_version }} \
+            -t liblpm-python-deb:${{ matrix.distro }} .
+          
+          mkdir -p packages/python-deb
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -v "$PWD/packages/python-deb:/packages" \
+            liblpm-python-deb:${{ matrix.distro }}
+          
+          ls -la packages/python-deb/
+      
+      - name: Upload Python DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-deb-${{ matrix.distro }}
+          path: packages/python-deb/*.deb
+          retention-days: 7
+
+  # ============================================================================
+  # Build Python RPM packages
+  # ============================================================================
+  build-python-rpm:
+    name: Build Python RPM (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Note: Rocky Linux 9 has Python 3.9, liblpm requires 3.10+
+          # Only Fedora is supported for Python RPM
+          - distro: fedora-41
+            rpm_distro: fedora
+            rpm_version: "41"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Python RPM package
+        run: |
+          docker build -f docker/Dockerfile.python.rpm \
+            --build-arg DISTRO=${{ matrix.rpm_distro }} \
+            --build-arg VERSION=${{ matrix.rpm_version }} \
+            -t liblpm-python-rpm:${{ matrix.distro }} .
+          
+          mkdir -p packages/python-rpm
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -v "$PWD/packages/python-rpm:/packages" \
+            liblpm-python-rpm:${{ matrix.distro }}
+          
+          ls -la packages/python-rpm/
+      
+      - name: Upload Python RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-rpm-${{ matrix.distro }}
+          path: packages/python-rpm/*.rpm
+          retention-days: 7
+
+  # ============================================================================
+  # Build PHP PECL package
+  # ============================================================================
+  build-php-pecl:
+    name: Build PHP PECL
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build PHP PECL package
+        run: |
+          docker build -f docker/Dockerfile.php.pecl -t liblpm-php-pecl .
+          mkdir -p packages/php
+          docker run --rm -v "$PWD/packages/php:/artifacts" liblpm-php-pecl
+          ls -la packages/php/
+      
+      - name: Upload PHP PECL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-pecl
+          path: packages/php/*.tgz
+          retention-days: 7
+
+  # ============================================================================
+  # Build PHP DEB packages
+  # ============================================================================
+  build-php-deb:
+    name: Build PHP DEB (${{ matrix.distro }}, PHP ${{ matrix.php_version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-22.04
+            target_distro: ubuntu
+            target_version: "22.04"
+            php_version: "8.1"
+          - distro: ubuntu-24.04
+            target_distro: ubuntu
+            target_version: "24.04"
+            php_version: "8.3"
+          - distro: debian-12
+            target_distro: debian
+            target_version: "12"
+            php_version: "8.2"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build PHP DEB package
+        run: |
+          docker build -f docker/Dockerfile.php.deb \
+            --build-arg PHP_VERSION=${{ matrix.php_version }} \
+            --build-arg TARGET_DISTRO=${{ matrix.target_distro }} \
+            --build-arg TARGET_VERSION=${{ matrix.target_version }} \
+            -t liblpm-php-deb:${{ matrix.distro }} .
+          
+          mkdir -p packages/php-deb
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -v "$PWD/packages/php-deb:/packages" \
+            liblpm-php-deb:${{ matrix.distro }}
+          
+          ls -la packages/php-deb/
+      
+      - name: Upload PHP DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-deb-${{ matrix.distro }}
+          path: packages/php-deb/*.deb
+          retention-days: 7
+
+  # ============================================================================
+  # Build PHP RPM packages
+  # ============================================================================
+  build-php-rpm:
+    name: Build PHP RPM (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: rocky-9
+            rpm_distro: rockylinux
+            rpm_version: "9"
+          - distro: fedora-41
+            rpm_distro: fedora
+            rpm_version: "41"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build PHP RPM package
+        run: |
+          docker build -f docker/Dockerfile.php.rpm \
+            --build-arg DISTRO=${{ matrix.rpm_distro }} \
+            --build-arg VERSION=${{ matrix.rpm_version }} \
+            -t liblpm-php-rpm:${{ matrix.distro }} .
+          
+          mkdir -p packages/php-rpm
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -v "$PWD/packages/php-rpm:/packages" \
+            liblpm-php-rpm:${{ matrix.distro }}
+          
+          ls -la packages/php-rpm/
+      
+      - name: Upload PHP RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-rpm-${{ matrix.distro }}
+          path: packages/php-rpm/*.rpm
+          retention-days: 7
+
+  # ============================================================================
+  # Build Perl DEB packages
+  # ============================================================================
+  build-perl-deb:
+    name: Build Perl DEB (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-22.04
+            target_distro: ubuntu
+            target_version: "22.04"
+          - distro: ubuntu-24.04
+            target_distro: ubuntu
+            target_version: "24.04"
+          - distro: debian-12
+            target_distro: debian
+            target_version: "12"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Perl DEB package
+        run: |
+          docker build -f docker/Dockerfile.perl.deb \
+            --build-arg TARGET_DISTRO=${{ matrix.target_distro }} \
+            --build-arg TARGET_VERSION=${{ matrix.target_version }} \
+            -t liblpm-perl-deb:${{ matrix.distro }} .
+          
+          mkdir -p packages/perl-deb
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -v "$PWD/packages/perl-deb:/packages" \
+            liblpm-perl-deb:${{ matrix.distro }}
+          
+          ls -la packages/perl-deb/
+      
+      - name: Upload Perl DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: perl-deb-${{ matrix.distro }}
+          path: packages/perl-deb/*.deb
+          retention-days: 7
+
+  # ============================================================================
+  # Build Perl RPM packages
+  # ============================================================================
+  build-perl-rpm:
+    name: Build Perl RPM (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: rocky-9
+            rpm_distro: rockylinux
+            rpm_version: "9"
+          - distro: fedora-41
+            rpm_distro: fedora
+            rpm_version: "41"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Perl RPM package
+        run: |
+          docker build -f docker/Dockerfile.perl.rpm \
+            --build-arg DISTRO=${{ matrix.rpm_distro }} \
+            --build-arg VERSION=${{ matrix.rpm_version }} \
+            -t liblpm-perl-rpm:${{ matrix.distro }} .
+          
+          mkdir -p packages/perl-rpm
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -v "$PWD/packages/perl-rpm:/packages" \
+            liblpm-perl-rpm:${{ matrix.distro }}
+          
+          ls -la packages/perl-rpm/
+      
+      - name: Upload Perl RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: perl-rpm-${{ matrix.distro }}
+          path: packages/perl-rpm/*.rpm
+          retention-days: 7
+
+  # ============================================================================
+  # Build Java JAR package
+  # ============================================================================
+  build-java-jar:
+    name: Build Java JAR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Java JAR
+        run: |
+          docker build -f docker/Dockerfile.java -t liblpm-java .
+          mkdir -p packages/java
+          docker run --rm -v "$PWD/packages/java:/artifacts" \
+            --entrypoint sh \
+            liblpm-java \
+            -c 'find /app/build/libs -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" -exec cp {} /artifacts/ \; 2>/dev/null || find /java/build/libs -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" -exec cp {} /artifacts/ \;'
+          ls -la packages/java/
+      
+      - name: Upload Java JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-jar
+          path: packages/java/*.jar
+          retention-days: 7
+
+  # ============================================================================
+  # Build C# NuGet package
+  # ============================================================================
+  build-csharp-nuget:
+    name: Build C# NuGet
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build C# NuGet package
+        run: |
+          docker build -f docker/Dockerfile.csharp -t liblpm-csharp .
+          mkdir -p packages/csharp
+          docker run --rm -v "$PWD/packages/csharp:/artifacts" \
+            --entrypoint bash \
+            liblpm-csharp \
+            -c 'cd /build/bindings/csharp/LibLpm && mkdir -p build && echo "<Project />" > build/LibLpm.targets && cd .. && dotnet pack LibLpm/LibLpm.csproj --configuration Release -o /artifacts 2>&1'
+          ls -la packages/csharp/
+      
+      - name: Upload C# NuGet artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: csharp-nuget
+          path: packages/csharp/*.nupkg
+          retention-days: 7
+
+  # ============================================================================
+  # Build Go source tarball
+  # ============================================================================
+  build-go-tarball:
+    name: Build Go Tarball
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Go tarball
+        run: |
+          docker build -f docker/Dockerfile.go -t liblpm-go .
+          mkdir -p packages/go
+          docker run --rm -v "$PWD/packages/go:/artifacts" \
+            --entrypoint bash \
+            liblpm-go \
+            -c 'cd /app && tar -czf /artifacts/liblpm-go-source.tar.gz --exclude=".git" --exclude="*.test" . 2>&1'
+          ls -la packages/go/
+      
+      - name: Upload Go tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-tarball
+          path: packages/go/*.tar.gz
+          retention-days: 7
+
+  # ============================================================================
+  # Build Lua module
+  # ============================================================================
+  build-lua-module:
+    name: Build Lua Module
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Lua module
+        run: |
+          docker build -f docker/Dockerfile.lua -t liblpm-lua .
+          mkdir -p packages/lua
+          docker run --rm -v "$PWD/packages/lua:/artifacts" \
+            --entrypoint sh \
+            liblpm-lua \
+            -c 'find /usr/local/lib/lua -name "liblpm.so" -exec cp {} /artifacts/ \;'
+          ls -la packages/lua/
+      
+      - name: Upload Lua module artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lua-module
+          path: packages/lua/*.so
+          retention-days: 7
+
+  # ============================================================================
+  # Packaging Summary
+  # ============================================================================
+  packaging-summary:
+    name: Packaging Summary
+    runs-on: ubuntu-latest
+    needs:
+      - build-deb
+      - build-rpm-el
+      - build-rpm-fedora
+      - test-deb-install
+      - test-rpm-install
+      - build-python-wheel
+      - build-python-deb
+      - build-python-rpm
+      - build-php-pecl
+      - build-php-deb
+      - build-php-rpm
+      - build-perl-deb
+      - build-perl-rpm
+      - build-java-jar
+      - build-csharp-nuget
+      - build-go-tarball
+      - build-lua-module
+    if: always()
+
+    steps:
+      - name: Check packaging status
+        run: |
+          echo "## Packaging Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Native Packages" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| DEB packages | ${{ needs.build-deb.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| RPM EL packages | ${{ needs.build-rpm-el.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| RPM Fedora packages | ${{ needs.build-rpm-fedora.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Language Bindings" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Wheel | ${{ needs.build-python-wheel.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python DEB | ${{ needs.build-python-deb.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python RPM | ${{ needs.build-python-rpm.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PHP PECL | ${{ needs.build-php-pecl.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PHP DEB | ${{ needs.build-php-deb.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PHP RPM | ${{ needs.build-php-rpm.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Perl DEB | ${{ needs.build-perl-deb.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Perl RPM | ${{ needs.build-perl-rpm.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Java JAR | ${{ needs.build-java-jar.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| C# NuGet | ${{ needs.build-csharp-nuget.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Go Tarball | ${{ needs.build-go-tarball.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lua Module | ${{ needs.build-lua-module.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Installation Tests" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| DEB Install | ${{ needs.test-deb-install.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| RPM Install | ${{ needs.test-rpm-install.result }} |" >> $GITHUB_STEP_SUMMARY

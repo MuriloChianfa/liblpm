@@ -1,0 +1,34 @@
+# Dockerfile for building PECL tarball package
+# Creates liblpm-{version}.tgz source package for PECL distribution
+
+FROM php:8.3-cli
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /build
+
+# Copy PHP extension source
+COPY bindings/php/ /build/
+
+# Create PECL package from package.xml
+# pecl package command is built into the PHP official image
+RUN pecl package
+
+# Create entrypoint to copy package to artifacts directory
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "=== Creating PECL Package ==="\n\
+echo "Package contents:"\n\
+ls -lh /build/*.tgz\n\
+echo ""\n\
+echo "Copying to /artifacts..."\n\
+cp -v /build/*.tgz /artifacts/\n\
+echo ""\n\
+echo "=== PECL Package Created Successfully ==="\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
+
+# Usage:
+# Build: docker build -f docker/Dockerfile.php.pecl -t liblpm-php-pecl .
+# Run: docker run --rm -v $(pwd)/packages/php:/artifacts liblpm-php-pecl

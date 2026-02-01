@@ -1,0 +1,97 @@
+# Dockerfile for building Python module DEB packages
+# Supports multiple Python versions and distributions
+# Builds python3-liblpm packages
+# Note: Uses Ubuntu 24.04 as build base for GCC 13+ (C23 support)
+
+ARG BUILD_BASE=ubuntu:24.04
+FROM ${BUILD_BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Build arguments for target distro info
+ARG TARGET_DISTRO=ubuntu
+ARG TARGET_VERSION=24.04
+
+# Install basic build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    dpkg-dev \
+    debhelper \
+    fakeroot \
+    pkg-config \
+    libnuma-dev \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================================
+# Stage: Build liblpm C library
+# ============================================================================
+
+WORKDIR /build-liblpm
+
+COPY . /build-liblpm/
+
+# Initialize submodules and build liblpm
+RUN git config --global --add safe.directory /build-liblpm && \
+    if [ -f .gitmodules ]; then git submodule update --init --recursive; fi && \
+    mkdir -p build && cd build && \
+    cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCHMARKS=OFF \
+        .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# ============================================================================
+# Install Python development packages for target distribution
+# ============================================================================
+
+# Install Python development dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    cython3 \
+    patchelf \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install build dependencies for scikit-build-core
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
+    scikit-build-core \
+    cython \
+    setuptools \
+    wheel
+
+WORKDIR /workspace
+
+# Copy build script
+COPY docker/scripts/build-python-deb.sh /usr/local/bin/build-python-deb.sh
+RUN chmod +x /usr/local/bin/build-python-deb.sh
+
+# Create output directory for packages
+RUN mkdir -p /packages
+
+# Volume mount points
+VOLUME ["/workspace", "/packages"]
+
+# Default command
+CMD ["/usr/local/bin/build-python-deb.sh"]
+
+# Usage:
+# Build for Ubuntu 22.04:
+#   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=ubuntu --build-arg TARGET_VERSION=22.04 -t liblpm-python-deb:u22.04 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:u22.04
+#
+# Build for Ubuntu 24.04:
+#   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=ubuntu --build-arg TARGET_VERSION=24.04 -t liblpm-python-deb:u24.04 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:u24.04
+#
+# Build for Debian 12:
+#   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=debian --build-arg TARGET_VERSION=12 -t liblpm-python-deb:d12 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:d12

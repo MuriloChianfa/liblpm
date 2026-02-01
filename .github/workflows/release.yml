@@ -379,9 +379,9 @@ jobs:
           \) | while read f; do
             echo "Signing: $f"
             if [ -n "$GPG_PASSPHRASE" ]; then
-              echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --armor --detach-sign "$f"
+              echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --default-key "$FINGERPRINT" --armor --detach-sign "$f"
             else
-              gpg --batch --yes --armor --detach-sign "$f"
+              gpg --batch --yes --default-key "$FINGERPRINT" --armor --detach-sign "$f"
             fi
             SIGN_COUNT=$((SIGN_COUNT + 1))
           done

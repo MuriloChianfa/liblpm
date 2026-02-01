@@ -336,7 +336,7 @@ jobs:
 
           # If still no fingerprint, try the first key ID we can find
           if [ -z "$FINGERPRINT" ]; then
-            FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -oP '(?<=sec\s+)[^\s]+' | head -1 | cut -d/ -f2)
+            FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep "^sec" | head -1 | sed 's/^sec[[:space:]]\+//' | awk '{print $1}' | cut -d/ -f2)
           fi
           
           if [ -z "$FINGERPRINT" ]; then

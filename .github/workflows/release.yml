@@ -316,8 +316,12 @@ jobs:
           export GNUPGHOME="$(mktemp -d)"
           chmod 700 "$GNUPGHOME"
           
-          # Import the key
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1
+          # Import the key and capture the key ID from the import output
+          IMPORT_OUTPUT=$(echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1)
+          echo "$IMPORT_OUTPUT"
+          
+          # Extract the key ID from the import output
+          KEY_ID=$(echo "$IMPORT_OUTPUT" | grep -oP 'key \K[A-F0-9]{16}' | head -1)
 
           # Verify the import was successful by checking for any keys
           if ! gpg --list-keys >/dev/null 2>&1; then
@@ -350,6 +354,11 @@ jobs:
             FINGERPRINT=$(gpg --list-keys --fingerprint 2>/dev/null | grep -A1 "^pub" | grep -v "^pub" | grep -v "^uid" | tr -d ' ' | head -1)
           fi
           
+          # If we couldn't extract the fingerprint but got key ID from import, use that
+          if [ -z "$FINGERPRINT" ] && [ -n "$KEY_ID" ]; then
+            FINGERPRINT="$KEY_ID"
+          fi
+          
           if [ -z "$FINGERPRINT" ]; then
             echo "::error::Failed to extract GPG key fingerprint"
             echo "Debug: GPG output:"
@@ -359,6 +368,10 @@ jobs:
           fi
           
           echo "GPG key imported: $FINGERPRINT"
+          
+          # For signing, prefer the key ID from import output if available
+          SIGNING_KEY="${KEY_ID:-$FINGERPRINT}"
+          echo "Using key for signing: $SIGNING_KEY"
           echo "gpg_fingerprint=$FINGERPRINT" >> $GITHUB_OUTPUT
           
           # Configure GPG for non-interactive signing
@@ -379,9 +392,9 @@ jobs:
           \) | while read f; do
             echo "Signing: $f"
             if [ -n "$GPG_PASSPHRASE" ]; then
-              echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --default-key "$FINGERPRINT" --armor --detach-sign "$f"
+              echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --default-key "$SIGNING_KEY" --armor --detach-sign "$f"
             else
-              gpg --batch --yes --default-key "$FINGERPRINT" --armor --detach-sign "$f"
+              gpg --batch --yes --default-key "$SIGNING_KEY" --armor --detach-sign "$f"
             fi
             SIGN_COUNT=$((SIGN_COUNT + 1))
           done

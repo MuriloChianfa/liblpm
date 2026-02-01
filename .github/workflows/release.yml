@@ -319,28 +319,42 @@ jobs:
           # Import the key
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1
 
-          # Verify the import was successful
-          if ! gpg --list-secret-keys >/dev/null 2>&1; then
-            echo "::error::Failed to import GPG key - no secret keys found"
+          # Verify the import was successful by checking for any keys
+          if ! gpg --list-keys >/dev/null 2>&1; then
+            echo "::error::Failed to import GPG key - no keys found"
             exit 1
           fi
           
           # Get the key fingerprint for verification
-          # Try multiple methods to extract the fingerprint
-          FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -E "^sec" | head -1 | awk '{print $2}' | cut -d/ -f2)
+          # Use --with-colons format which is the most reliable machine-readable format
+          # Try secret keys first, but fall back to public keys if needed
+          FINGERPRINT=$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^fpr:/ {print $10; exit}')
 
-          # If that didn't work, try using --with-colons format
+          # If no secret keys listed, try public keys (happens with some GPG configurations)
           if [ -z "$FINGERPRINT" ]; then
-            FINGERPRINT=$(gpg --list-secret-keys --with-colons 2>/dev/null | grep "^fpr" | head -1 | cut -d: -f10)
+            FINGERPRINT=$(gpg --list-keys --with-colons 2>/dev/null | awk -F: '/^fpr:/ {print $10; exit}')
           fi
 
-          # If still no fingerprint, try the first key ID we can find
+          # Try getting the key ID from sec line
           if [ -z "$FINGERPRINT" ]; then
-            FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep "^sec" | head -1 | sed 's/^sec[[:space:]]\+//' | awk '{print $1}' | cut -d/ -f2)
+            FINGERPRINT=$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^sec:/ {print $5; exit}')
+          fi
+
+          # Try getting the key ID from pub line
+          if [ -z "$FINGERPRINT" ]; then
+            FINGERPRINT=$(gpg --list-keys --with-colons 2>/dev/null | awk -F: '/^pub:/ {print $5; exit}')
+          fi
+
+          # Last resort: extract from --fingerprint output
+          if [ -z "$FINGERPRINT" ]; then
+            FINGERPRINT=$(gpg --list-keys --fingerprint 2>/dev/null | grep -A1 "^pub" | grep -v "^pub" | grep -v "^uid" | tr -d ' ' | head -1)
           fi
           
           if [ -z "$FINGERPRINT" ]; then
             echo "::error::Failed to extract GPG key fingerprint"
+            echo "Debug: GPG output:"
+            gpg --list-keys --with-colons
+            gpg --list-keys --fingerprint
             exit 1
           fi
           

@@ -59,6 +59,16 @@ jobs:
             codename: trixie
 
     steps:
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: apt-${{ matrix.distro }}-${{ hashFiles('.github/workflows/packaging.yml') }}
+          restore-keys: |
+            apt-${{ matrix.distro }}-
+
       - name: Install dependencies
         run: |
           apt-get update
@@ -86,6 +96,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: cmake-deb-${{ matrix.distro }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'include/**') }}
+          restore-keys: |
+            cmake-deb-${{ matrix.distro }}-
 
       - name: Configure CMake
         run: |
@@ -129,6 +149,14 @@ jobs:
             family: el
 
     steps:
+      - name: Cache DNF packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/dnf
+          key: dnf-el${{ matrix.version }}-${{ hashFiles('.github/workflows/packaging.yml') }}
+          restore-keys: |
+            dnf-el${{ matrix.version }}-
+
       - name: Install dependencies
         run: |
           # Enable EPEL and PowerTools/CRB for additional packages
@@ -166,6 +194,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: cmake-rpm-el${{ matrix.version }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'include/**') }}
+          restore-keys: |
+            cmake-rpm-el${{ matrix.version }}-
 
       - name: Configure CMake
         run: |
@@ -225,6 +263,14 @@ jobs:
             family: fedora
 
     steps:
+      - name: Cache DNF packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/dnf
+          key: dnf-fedora${{ matrix.version }}-${{ hashFiles('.github/workflows/packaging.yml') }}
+          restore-keys: |
+            dnf-fedora${{ matrix.version }}-
+
       - name: Install dependencies
         run: |
           dnf install -y \
@@ -239,6 +285,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: cmake-rpm-fedora${{ matrix.version }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'include/**') }}
+          restore-keys: |
+            cmake-rpm-fedora${{ matrix.version }}-
 
       - name: Configure CMake
         run: |
@@ -368,7 +424,9 @@ jobs:
       
       - name: Build Python wheel
         run: |
-          docker build -f docker/Dockerfile.python -t liblpm-python .
+          docker build -f docker/Dockerfile.python -t liblpm-python \
+            --cache-from type=gha,scope=python-wheel \
+            --cache-to type=gha,mode=max,scope=python-wheel .
           mkdir -p packages/python
           docker run --rm -v "$PWD/packages/python:/artifacts" \
             --entrypoint bash \
@@ -417,6 +475,8 @@ jobs:
           docker build -f docker/Dockerfile.python.deb \
             --build-arg TARGET_DISTRO=${{ matrix.target_distro }} \
             --build-arg TARGET_VERSION=${{ matrix.target_version }} \
+            --cache-from type=gha,scope=python-deb-${{ matrix.distro }} \
+            --cache-to type=gha,mode=max,scope=python-deb-${{ matrix.distro }} \
             -t liblpm-python-deb:${{ matrix.distro }} .
           
           mkdir -p packages/python-deb
@@ -464,6 +524,8 @@ jobs:
           docker build -f docker/Dockerfile.python.rpm \
             --build-arg DISTRO=${{ matrix.rpm_distro }} \
             --build-arg VERSION=${{ matrix.rpm_version }} \
+            --cache-from type=gha,scope=python-rpm-${{ matrix.distro }} \
+            --cache-to type=gha,mode=max,scope=python-rpm-${{ matrix.distro }} \
             -t liblpm-python-rpm:${{ matrix.distro }} .
           
           mkdir -p packages/python-rpm
@@ -499,7 +561,9 @@ jobs:
       
       - name: Build PHP PECL package
         run: |
-          docker build -f docker/Dockerfile.php.pecl -t liblpm-php-pecl .
+          docker build -f docker/Dockerfile.php.pecl -t liblpm-php-pecl \
+            --cache-from type=gha,scope=php-pecl \
+            --cache-to type=gha,mode=max,scope=php-pecl .
           mkdir -p packages/php
           docker run --rm -v "$PWD/packages/php:/artifacts" liblpm-php-pecl
           ls -la packages/php/
@@ -549,6 +613,8 @@ jobs:
             --build-arg PHP_VERSION=${{ matrix.php_version }} \
             --build-arg TARGET_DISTRO=${{ matrix.target_distro }} \
             --build-arg TARGET_VERSION=${{ matrix.target_version }} \
+            --cache-from type=gha,scope=php-deb-${{ matrix.distro }} \
+            --cache-to type=gha,mode=max,scope=php-deb-${{ matrix.distro }} \
             -t liblpm-php-deb:${{ matrix.distro }} .
           
           mkdir -p packages/php-deb
@@ -597,6 +663,8 @@ jobs:
           docker build -f docker/Dockerfile.php.rpm \
             --build-arg DISTRO=${{ matrix.rpm_distro }} \
             --build-arg VERSION=${{ matrix.rpm_version }} \
+            --cache-from type=gha,scope=php-rpm-${{ matrix.distro }} \
+            --cache-to type=gha,mode=max,scope=php-rpm-${{ matrix.distro }} \
             -t liblpm-php-rpm:${{ matrix.distro }} .
           
           mkdir -p packages/php-rpm
@@ -648,6 +716,8 @@ jobs:
           docker build -f docker/Dockerfile.perl.deb \
             --build-arg TARGET_DISTRO=${{ matrix.target_distro }} \
             --build-arg TARGET_VERSION=${{ matrix.target_version }} \
+            --cache-from type=gha,scope=perl-deb-${{ matrix.distro }} \
+            --cache-to type=gha,mode=max,scope=perl-deb-${{ matrix.distro }} \
             -t liblpm-perl-deb:${{ matrix.distro }} .
           
           mkdir -p packages/perl-deb
@@ -696,6 +766,8 @@ jobs:
           docker build -f docker/Dockerfile.perl.rpm \
             --build-arg DISTRO=${{ matrix.rpm_distro }} \
             --build-arg VERSION=${{ matrix.rpm_version }} \
+            --cache-from type=gha,scope=perl-rpm-${{ matrix.distro }} \
+            --cache-to type=gha,mode=max,scope=perl-rpm-${{ matrix.distro }} \
             -t liblpm-perl-rpm:${{ matrix.distro }} .
           
           mkdir -p packages/perl-rpm
@@ -731,7 +803,9 @@ jobs:
       
       - name: Build Java JAR
         run: |
-          docker build -f docker/Dockerfile.java -t liblpm-java .
+          docker build -f docker/Dockerfile.java -t liblpm-java \
+            --cache-from type=gha,scope=java-jar \
+            --cache-to type=gha,mode=max,scope=java-jar .
           mkdir -p packages/java
           docker run --rm -v "$PWD/packages/java:/artifacts" \
             --entrypoint sh \
@@ -764,7 +838,9 @@ jobs:
       
       - name: Build C# NuGet package
         run: |
-          docker build -f docker/Dockerfile.csharp -t liblpm-csharp .
+          docker build -f docker/Dockerfile.csharp -t liblpm-csharp \
+            --cache-from type=gha,scope=csharp-nuget \
+            --cache-to type=gha,mode=max,scope=csharp-nuget .
           mkdir -p packages/csharp
           docker run --rm -v "$PWD/packages/csharp:/artifacts" \
             --entrypoint bash \
@@ -797,7 +873,9 @@ jobs:
       
       - name: Build Go tarball
         run: |
-          docker build -f docker/Dockerfile.go -t liblpm-go .
+          docker build -f docker/Dockerfile.go -t liblpm-go \
+            --cache-from type=gha,scope=go-tarball \
+            --cache-to type=gha,mode=max,scope=go-tarball .
           mkdir -p packages/go
           docker run --rm -v "$PWD/packages/go:/artifacts" \
             --entrypoint bash \
@@ -830,7 +908,9 @@ jobs:
       
       - name: Build Lua module
         run: |
-          docker build -f docker/Dockerfile.lua -t liblpm-lua .
+          docker build -f docker/Dockerfile.lua -t liblpm-lua \
+            --cache-from type=gha,scope=lua-module \
+            --cache-to type=gha,mode=max,scope=lua-module .
           mkdir -p packages/lua
           docker run --rm -v "$PWD/packages/lua:/artifacts" \
             --entrypoint sh \

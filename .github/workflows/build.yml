@@ -47,8 +47,8 @@ jobs:
           push: false
           load: true
           tags: liblpm-${{ matrix.image }}:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
           build-args: |
             VERSION=${{ github.ref_name }}
             GIT_SHA=${{ github.sha }}

@@ -317,13 +317,30 @@ jobs:
           chmod 700 "$GNUPGHOME"
           
           # Import the key
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1
+
+          # Verify the import was successful
+          if ! gpg --list-secret-keys >/dev/null 2>&1; then
+            echo "::error::Failed to import GPG key - no secret keys found"
+            exit 1
+          fi
           
           # Get the key fingerprint for verification
-          FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG | grep -E "^sec" | head -1 | awk '{print $2}' | cut -d/ -f2)
+          # Try multiple methods to extract the fingerprint
+          FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -E "^sec" | head -1 | awk '{print $2}' | cut -d/ -f2)
+
+          # If that didn't work, try using --with-colons format
+          if [ -z "$FINGERPRINT" ]; then
+            FINGERPRINT=$(gpg --list-secret-keys --with-colons 2>/dev/null | grep "^fpr" | head -1 | cut -d: -f10)
+          fi
+
+          # If still no fingerprint, try the first key ID we can find
+          if [ -z "$FINGERPRINT" ]; then
+            FINGERPRINT=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -oP '(?<=sec\s+)[^\s]+' | head -1 | cut -d/ -f2)
+          fi
           
           if [ -z "$FINGERPRINT" ]; then
-            echo "::error::Failed to import GPG key"
+            echo "::error::Failed to extract GPG key fingerprint"
             exit 1
           fi
           
@@ -390,7 +407,14 @@ jobs:
           # Re-import key for checksum signing (previous GNUPGHOME was cleaned up)
           export GNUPGHOME="$(mktemp -d)"
           chmod 700 "$GNUPGHOME"
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>&1
+
+          # Verify the import was successful
+          if ! gpg --list-secret-keys >/dev/null 2>&1; then
+            echo "::error::Failed to re-import GPG key"
+            exit 1
+          fi
+
           echo "allow-loopback-pinentry" >> "$GNUPGHOME/gpg-agent.conf"
           gpg-connect-agent reloadagent /bye 2>/dev/null || true
           

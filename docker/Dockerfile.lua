@@ -64,7 +64,7 @@ RUN cd build && ninja install && ldconfig
 # Create test script using heredoc
 # Note: Tests run with LD_PRELOAD to handle ifunc resolver issues when
 # loading the module via dlopen
-RUN cat > /build/run_lua_tests.sh << 'ENDSCRIPT'
+RUN cat > /build/run_lua_tests.sh <<'ENDSCRIPT' && chmod +x /build/run_lua_tests.sh
 #!/bin/bash
 set -e
 
@@ -108,7 +108,6 @@ echo "  - Basic example"
 echo "  - IPv6 example"
 echo "  - Batch example"
 ENDSCRIPT
-RUN chmod +x /build/run_lua_tests.sh
 
 # Export volume for built artifacts
 VOLUME ["/build/artifacts"]

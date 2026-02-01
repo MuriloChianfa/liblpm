@@ -1,16 +1,5 @@
 name: Create Release
 
-# =============================================================================
-# TRIGGER LOGIC:
-# 1. workflow_run: Automatically triggered after "Build Packages" completes
-#    - Only creates release if the triggering run was for a tag (v*)
-#    - Pushes to main, PRs, etc. trigger this but the job is skipped
-#
-# 2. workflow_dispatch: Manual trigger for re-releasing or testing
-#    - Requires explicit confirmation via 'confirm_release' input
-#    - Can specify a previous packaging run_id to use
-# =============================================================================
-
 on:
   workflow_run:
     workflows: ["Build Packages"]

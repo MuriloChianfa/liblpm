@@ -126,7 +126,7 @@ jobs:
           ls -la *.deb
 
       - name: Upload DEB artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deb-${{ matrix.codename }}
           path: build/*.deb
@@ -240,7 +240,7 @@ jobs:
           ls -la *.rpm
 
       - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rpm-el${{ matrix.version }}
           path: build/*.rpm
@@ -315,7 +315,7 @@ jobs:
           ls -la *.rpm
 
       - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rpm-fedora${{ matrix.version }}
           path: build/*.rpm
@@ -435,7 +435,7 @@ jobs:
           ls -la packages/python/
       
       - name: Upload Python wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-wheel
           path: packages/python/*.whl
@@ -488,7 +488,7 @@ jobs:
           ls -la packages/python-deb/
       
       - name: Upload Python DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-deb-${{ matrix.distro }}
           path: packages/python-deb/*.deb
@@ -537,7 +537,7 @@ jobs:
           ls -la packages/python-rpm/
       
       - name: Upload Python RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-rpm-${{ matrix.distro }}
           path: packages/python-rpm/*.rpm
@@ -569,7 +569,7 @@ jobs:
           ls -la packages/php/
       
       - name: Upload PHP PECL artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: php-pecl
           path: packages/php/*.tgz
@@ -626,7 +626,7 @@ jobs:
           ls -la packages/php-deb/
       
       - name: Upload PHP DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: php-deb-${{ matrix.distro }}
           path: packages/php-deb/*.deb
@@ -676,7 +676,7 @@ jobs:
           ls -la packages/php-rpm/
       
       - name: Upload PHP RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: php-rpm-${{ matrix.distro }}
           path: packages/php-rpm/*.rpm
@@ -729,7 +729,7 @@ jobs:
           ls -la packages/perl-deb/
       
       - name: Upload Perl DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perl-deb-${{ matrix.distro }}
           path: packages/perl-deb/*.deb
@@ -779,7 +779,7 @@ jobs:
           ls -la packages/perl-rpm/
       
       - name: Upload Perl RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perl-rpm-${{ matrix.distro }}
           path: packages/perl-rpm/*.rpm
@@ -814,7 +814,7 @@ jobs:
           ls -la packages/java/
       
       - name: Upload Java JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: java-jar
           path: packages/java/*.jar
@@ -849,7 +849,7 @@ jobs:
           ls -la packages/csharp/
       
       - name: Upload C# NuGet artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: csharp-nuget
           path: packages/csharp/*.nupkg
@@ -884,7 +884,7 @@ jobs:
           ls -la packages/go/
       
       - name: Upload Go tarball artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: go-tarball
           path: packages/go/*.tar.gz
@@ -919,7 +919,7 @@ jobs:
           ls -la packages/lua/
       
       - name: Upload Lua module artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lua-module
           path: packages/lua/*.so

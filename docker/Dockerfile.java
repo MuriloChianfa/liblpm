@@ -48,7 +48,7 @@ RUN git config --global --add safe.directory /build && \
 # ============================================================================
 # Stage 2: Build Java JNI bindings
 # ============================================================================
-FROM eclipse-temurin:17-jdk AS java-builder
+FROM eclipse-temurin:25-jdk AS java-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -152,7 +152,7 @@ echo "JAR file: $(ls -la build/libs/*.jar 2>/dev/null || echo "not found")"\n\
 # ============================================================================
 # Stage 3: Runtime (for testing)
 # ============================================================================
-FROM eclipse-temurin:17-jdk AS runtime
+FROM eclipse-temurin:25-jdk AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 

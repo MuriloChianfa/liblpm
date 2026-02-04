@@ -1,7 +1,7 @@
 # Dockerfile for C# bindings CI testing
 # Builds the native liblpm library and tests the C# bindings
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0
 
 # Install C build tools and GCC 13 for C23 support
 RUN apt-get update && apt-get install -y --no-install-recommends \

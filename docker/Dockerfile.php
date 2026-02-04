@@ -47,7 +47,7 @@ RUN git config --global --add safe.directory /build && \
 # ============================================================================
 # Stage 2: Build PHP extension
 # ============================================================================
-FROM php:8.3-cli AS php-builder
+FROM php:8.5-cli AS php-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -121,7 +121,7 @@ echo "All tests completed!"\n\
 # ============================================================================
 # Stage 3: Runtime
 # ============================================================================
-FROM php:8.3-cli AS runtime
+FROM php:8.5-cli AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libc6 \

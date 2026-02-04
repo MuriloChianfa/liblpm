@@ -1,7 +1,7 @@
 # Dockerfile for building PECL tarball package
 # Creates liblpm-{version}.tgz source package for PECL distribution
 
-FROM php:8.3-cli
+FROM php:8.5-cli
 
 ENV DEBIAN_FRONTEND=noninteractive
 

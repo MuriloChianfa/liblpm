@@ -51,7 +51,7 @@ RUN git config --global --add safe.directory /build && \
 # ============================================================================
 # Stage 2: Build Perl bindings
 # ============================================================================
-FROM perl:5.40-bookworm AS perl-builder
+FROM perl:5.42-bookworm AS perl-builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -108,7 +108,7 @@ echo "All tests passed!"\n\
 # ============================================================================
 # Stage 3: Runtime
 # ============================================================================
-FROM perl:5.40-slim-bookworm AS runtime
+FROM perl:5.42-slim-bookworm AS runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

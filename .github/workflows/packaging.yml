@@ -60,7 +60,7 @@ jobs:
 
     steps:
       - name: Cache APT packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /var/cache/apt/archives
@@ -98,7 +98,7 @@ jobs:
           submodules: recursive
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             build
@@ -150,7 +150,7 @@ jobs:
 
     steps:
       - name: Cache DNF packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/cache/dnf
           key: dnf-el${{ matrix.version }}-${{ hashFiles('.github/workflows/packaging.yml') }}
@@ -196,7 +196,7 @@ jobs:
           submodules: recursive
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             build
@@ -264,7 +264,7 @@ jobs:
 
     steps:
       - name: Cache DNF packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/cache/dnf
           key: dnf-fedora${{ matrix.version }}-${{ hashFiles('.github/workflows/packaging.yml') }}
@@ -287,7 +287,7 @@ jobs:
           submodules: recursive
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             build

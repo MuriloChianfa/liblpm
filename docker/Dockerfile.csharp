@@ -5,6 +5,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0
 
 # Install C build tools and GCC 13 for C23 support
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     cmake \
     ninja-build \

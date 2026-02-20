@@ -10,6 +10,7 @@ FROM ubuntu:25.10 AS liblpm-builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     gcc-15 \
     g++-15 \

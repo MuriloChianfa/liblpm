@@ -10,6 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install C++ development environment
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     # Core build tools
     build-essential \
     gcc-15 \

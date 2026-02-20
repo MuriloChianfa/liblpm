@@ -11,6 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install test dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     # Build essentials
     build-essential \
     gcc-15 \

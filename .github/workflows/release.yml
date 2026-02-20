@@ -143,7 +143,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -217,10 +217,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Download artifacts from packaging workflow
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           run-id: ${{ needs.prepare.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -471,7 +471,9 @@ jobs:
           GPG_FINGERPRINT="${{ steps.gpg_sign.outputs.gpg_fingerprint }}"
           
           cat > release_notes.md << 'RELEASE_NOTES_EOF'
-          ## Installation
+          A production-ready C library providing blazing-fast longest prefix match (LPM) operations for IPv4 and IPv6 routing tables. This release includes native packages, language bindings, and containerized environments.
+          
+          ### Installation
           
           Choose the installation method that best fits your environment.
           
@@ -486,7 +488,7 @@ jobs:
             if [ -f "$deb" ]; then
               filename=$(basename "$deb")
               distro=$(echo "$filename" | grep -oE '(jammy|noble|trixie)' || echo "deb")
-              echo "| ${distro^} | [${filename}](${RELEASE_URL}/native_deb_${filename}) | See -dev package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
+              echo "| ${distro^} | [${filename}](${RELEASE_URL}/${filename}) | See -dev package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
             fi
           done
           
@@ -496,12 +498,10 @@ jobs:
               filename=$(basename "$rpm")
               if [[ "$rpm" == *"/el/"* ]]; then
                 version=$(echo "$rpm" | grep -oE 'el/[0-9]+' | cut -d/ -f2)
-                flat_name=$(echo "${rpm#release/}" | tr '/' '_')
-                echo "| Rocky Linux ${version} | [${filename}](${RELEASE_URL}/${flat_name}) | See -devel package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
+                echo "| Rocky Linux ${version} | [${filename}](${RELEASE_URL}/${filename}) | See -devel package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
               elif [[ "$rpm" == *"/fedora/"* ]]; then
                 version=$(echo "$rpm" | grep -oE 'fedora/[0-9]+' | cut -d/ -f2)
-                flat_name=$(echo "${rpm#release/}" | tr '/' '_')
-                echo "| Fedora ${version} | [${filename}](${RELEASE_URL}/${flat_name}) | See -devel package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
+                echo "| Fedora ${version} | [${filename}](${RELEASE_URL}/${filename}) | See -devel package | [Install Guide](${REPO_URL}/blob/main/docs/PACKAGING.md) |" >> release_notes.md
               fi
             fi
           done
@@ -518,7 +518,7 @@ jobs:
           for whl in release/python/wheel/*.whl; do
             if [ -f "$whl" ]; then
               filename=$(basename "$whl")
-              echo "| Python | [${filename}](${RELEASE_URL}/python_wheel_${filename}) | PyPI / pip | [Python Guide](${REPO_URL}/blob/main/bindings/python/README.md) |" >> release_notes.md
+              echo "| Python | [${filename}](${RELEASE_URL}/${filename}) | PyPI / pip | [Python Guide](${REPO_URL}/blob/main/bindings/python/README.md) |" >> release_notes.md
             fi
           done
           
@@ -526,7 +526,7 @@ jobs:
           for deb in release/python/deb/*.deb; do
             if [ -f "$deb" ]; then
               filename=$(basename "$deb")
-              echo "| Python | [${filename}](${RELEASE_URL}/python_deb_${filename}) | Debian/Ubuntu | [Python Guide](${REPO_URL}/blob/main/bindings/python/README.md) |" >> release_notes.md
+              echo "| Python | [${filename}](${RELEASE_URL}/${filename}) | Debian/Ubuntu | [Python Guide](${REPO_URL}/blob/main/bindings/python/README.md) |" >> release_notes.md
             fi
           done
           
@@ -534,7 +534,7 @@ jobs:
           for tgz in release/php/pecl/*.tgz; do
             if [ -f "$tgz" ]; then
               filename=$(basename "$tgz")
-              echo "| PHP | [${filename}](${RELEASE_URL}/php_pecl_${filename}) | PECL | [PHP Guide](${REPO_URL}/blob/main/bindings/php/README.md) |" >> release_notes.md
+              echo "| PHP | [${filename}](${RELEASE_URL}/${filename}) | PECL | [PHP Guide](${REPO_URL}/blob/main/bindings/php/README.md) |" >> release_notes.md
             fi
           done
           
@@ -542,7 +542,7 @@ jobs:
           for deb in release/php/deb/*.deb; do
             if [ -f "$deb" ]; then
               filename=$(basename "$deb")
-              echo "| PHP | [${filename}](${RELEASE_URL}/php_deb_${filename}) | Debian/Ubuntu | [PHP Guide](${REPO_URL}/blob/main/bindings/php/README.md) |" >> release_notes.md
+              echo "| PHP | [${filename}](${RELEASE_URL}/${filename}) | Debian/Ubuntu | [PHP Guide](${REPO_URL}/blob/main/bindings/php/README.md) |" >> release_notes.md
             fi
           done
           
@@ -550,7 +550,7 @@ jobs:
           for deb in release/perl/deb/*.deb; do
             if [ -f "$deb" ]; then
               filename=$(basename "$deb")
-              echo "| Perl | [${filename}](${RELEASE_URL}/perl_deb_${filename}) | Debian/Ubuntu | [Perl Guide](${REPO_URL}/blob/main/bindings/perl/README.md) |" >> release_notes.md
+              echo "| Perl | [${filename}](${RELEASE_URL}/${filename}) | Debian/Ubuntu | [Perl Guide](${REPO_URL}/blob/main/bindings/perl/README.md) |" >> release_notes.md
             fi
           done
           
@@ -558,7 +558,7 @@ jobs:
           for jar in release/java/*.jar; do
             if [ -f "$jar" ]; then
               filename=$(basename "$jar")
-              echo "| Java | [${filename}](${RELEASE_URL}/java_${filename}) | JVM | [Java Guide](${REPO_URL}/blob/main/bindings/java/README.md) |" >> release_notes.md
+              echo "| Java | [${filename}](${RELEASE_URL}/${filename}) | JVM | [Java Guide](${REPO_URL}/blob/main/bindings/java/README.md) |" >> release_notes.md
             fi
           done
           
@@ -566,7 +566,7 @@ jobs:
           for nupkg in release/csharp/*.nupkg; do
             if [ -f "$nupkg" ]; then
               filename=$(basename "$nupkg")
-              echo "| C# | [${filename}](${RELEASE_URL}/csharp_${filename}) | .NET | [C# Guide](${REPO_URL}/blob/main/bindings/csharp/README.md) |" >> release_notes.md
+              echo "| C# | [${filename}](${RELEASE_URL}/${filename}) | .NET | [C# Guide](${REPO_URL}/blob/main/bindings/csharp/README.md) |" >> release_notes.md
             fi
           done
           
@@ -574,7 +574,7 @@ jobs:
           for tgz in release/go/*.tar.gz; do
             if [ -f "$tgz" ]; then
               filename=$(basename "$tgz")
-              echo "| Go | [${filename}](${RELEASE_URL}/go_${filename}) | Go modules | [Go Guide](${REPO_URL}/blob/main/bindings/go/README.md) |" >> release_notes.md
+              echo "| Go | [${filename}](${RELEASE_URL}/${filename}) | Go modules | [Go Guide](${REPO_URL}/blob/main/bindings/go/README.md) |" >> release_notes.md
             fi
           done
           
@@ -582,7 +582,7 @@ jobs:
           for so in release/lua/*.so; do
             if [ -f "$so" ]; then
               filename=$(basename "$so")
-              echo "| Lua | [${filename}](${RELEASE_URL}/lua_${filename}) | Lua 5.4 | [Lua Guide](${REPO_URL}/blob/main/bindings/lua/README.md) |" >> release_notes.md
+              echo "| Lua | [${filename}](${RELEASE_URL}/${filename}) | Lua 5.4 | [Lua Guide](${REPO_URL}/blob/main/bindings/lua/README.md) |" >> release_notes.md
             fi
           done
           
@@ -592,21 +592,21 @@ jobs:
           
           All container images are available on GitHub Container Registry and signed with Sigstore Cosign.
           
-          | Image | Description | Pull Command |
+          | Image | Description | Image Name |
           |-------|-------------|-------------|
-          | Runtime | Minimal runtime environment | \`docker pull ${GHCR_PREFIX}-base:${TAG}\` |
-          | Development | Full development environment | \`docker pull ${GHCR_PREFIX}-dev:${TAG}\` |
-          | Testing | Test environment | \`docker pull ${GHCR_PREFIX}-test:${TAG}\` |
-          | Fuzzing | AFL++ fuzzing environment | \`docker pull ${GHCR_PREFIX}-fuzz:${TAG}\` |
-          | C++ | C++ bindings | \`docker pull ${GHCR_PREFIX}-cpp:${TAG}\` |
-          | Go | Go bindings | \`docker pull ${GHCR_PREFIX}-go:${TAG}\` |
-          | Java | Java bindings | \`docker pull ${GHCR_PREFIX}-java:${TAG}\` |
-          | C# | C# bindings | \`docker pull ${GHCR_PREFIX}-csharp:${TAG}\` |
-          | Lua | Lua bindings | \`docker pull ${GHCR_PREFIX}-lua:${TAG}\` |
-          | Perl | Perl bindings | \`docker pull ${GHCR_PREFIX}-perl:${TAG}\` |
-          | PHP | PHP bindings | \`docker pull ${GHCR_PREFIX}-php:${TAG}\` |
-          | Python | Python bindings | \`docker pull ${GHCR_PREFIX}-python:${TAG}\` |
-          | Benchmark | Benchmarking tools | \`docker pull ${GHCR_PREFIX}-benchmark:${TAG}\` |
+          | Runtime | Min runtime | \`${GHCR_PREFIX}-base:${TAG}\` |
+          | Development | Development env | \`${GHCR_PREFIX}-dev:${TAG}\` |
+          | Testing | Test env | \`${GHCR_PREFIX}-test:${TAG}\` |
+          | Fuzzing | AFL++ fuzzing | \`${GHCR_PREFIX}-fuzz:${TAG}\` |
+          | C++ | C++ bindings | \`${GHCR_PREFIX}-cpp:${TAG}\` |
+          | Go | Go bindings | \`${GHCR_PREFIX}-go:${TAG}\` |
+          | Java | Java bindings | \`${GHCR_PREFIX}-java:${TAG}\` |
+          | C# | C# bindings | \`${GHCR_PREFIX}-csharp:${TAG}\` |
+          | Lua | Lua bindings | \`${GHCR_PREFIX}-lua:${TAG}\` |
+          | Perl | Perl bindings | \`${GHCR_PREFIX}-perl:${TAG}\` |
+          | PHP | PHP bindings | \`${GHCR_PREFIX}-php:${TAG}\` |
+          | Python | Python bindings | \`${GHCR_PREFIX}-python:${TAG}\` |
+          | Benchmark | Bench tools | \`${GHCR_PREFIX}-benchmark:${TAG}\` |
           
           ### Verification
           
@@ -670,12 +670,18 @@ jobs:
         run: |
           mkdir -p release_flat
           
-          # Copy all files with path prefixes to avoid naming conflicts
+          # Copy all files without prefixes (using just the filename)
+          # This creates cleaner artifact names in the release
           find release -type f | while read f; do
-            # Get relative path and replace / with _
-            rel_path="${f#release/}"
-            flat_name=$(echo "$rel_path" | tr '/' '_')
-            cp "$f" "release_flat/$flat_name"
+            filename=$(basename "$f")
+            
+            # Skip if file already exists (avoid conflicts from same filename in different dirs)
+            if [ -f "release_flat/$filename" ]; then
+              echo "Warning: Skipping duplicate filename: $filename"
+              continue
+            fi
+            
+            cp "$f" "release_flat/$filename"
           done
           
           echo "=== Flattened release files ==="
@@ -688,7 +694,7 @@ jobs:
           name: liblpm ${{ needs.prepare.outputs.version }}
           body_path: release_notes.md
           files: release_flat/*
-          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          draft: true
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -30,11 +30,13 @@ fi
 PKG_VERSION="2.0.0"
 PKG_RELEASE="1"
 
-# Package naming convention: python3-liblpm
+# Package naming convention: python3-liblpm (version-agnostic name for Debian policy)
+# But we install to version-specific directory to support multiple Python versions
 PKG_NAME="python3-liblpm"
 DEB_PKG_NAME="${PKG_NAME}_${PKG_VERSION}-${PKG_RELEASE}_${ARCH}.deb"
 
 echo "Building package: ${DEB_PKG_NAME}"
+echo "Python version: ${PYTHON_VERSION}"
 echo ""
 
 # Build directory
@@ -62,14 +64,15 @@ echo "Extracting wheel: ${WHEEL_FILE}"
 python3 -m pip install --target="${INSTALL_ROOT}/tmp-install" --no-deps "${WHEEL_FILE}"
 
 # Prepare DEB package structure
-# Get Python site-packages directory for this version
+# Install to version-specific dist-packages
+# This matches how Debian/Ubuntu handle Python packages
 PYTHON_SITEPACKAGES="usr/lib/python${PYTHON_VERSION}/dist-packages"
 
 mkdir -p "${INSTALL_ROOT}/${PYTHON_SITEPACKAGES}"
 mkdir -p "${INSTALL_ROOT}/DEBIAN"
 
 # Move installed package to proper location
-echo "Installing to package root..."
+echo "Installing to package root: ${PYTHON_SITEPACKAGES}"
 mv "${INSTALL_ROOT}/tmp-install/liblpm" "${INSTALL_ROOT}/${PYTHON_SITEPACKAGES}/"
 mv "${INSTALL_ROOT}/tmp-install/liblpm-${PKG_VERSION}.dist-info" "${INSTALL_ROOT}/${PYTHON_SITEPACKAGES}/"
 rm -rf "${INSTALL_ROOT}/tmp-install"
@@ -85,11 +88,16 @@ Version: ${PKG_VERSION}-${PKG_RELEASE}
 Section: python
 Priority: optional
 Architecture: ${ARCH}
-Depends: python3 (>= ${PYTHON_VERSION}), libc6 (>= 2.34), libnuma1
+Depends: python${PYTHON_VERSION} | python${PYTHON_VERSION}-minimal, libc6 (>= 2.34), libnuma1
+Provides: python${PYTHON_VERSION}-liblpm
+Conflicts: python3-liblpm (<< ${PKG_VERSION})
+Replaces: python3-liblpm (<< ${PKG_VERSION})
 Maintainer: Murilo Chianfa <murilo.chianfa@outlook.com>
-Description: High-performance Python bindings for longest prefix match (LPM)
+Description: High-performance Python ${PYTHON_VERSION} bindings for longest prefix match (LPM)
  Python bindings for liblpm providing high-performance longest prefix match
  (LPM) routing table operations for both IPv4 and IPv6.
+ .
+ This package is built for Python ${PYTHON_VERSION}.
  .
  Features:
   - High Performance: Direct C bindings via Cython with minimal overhead

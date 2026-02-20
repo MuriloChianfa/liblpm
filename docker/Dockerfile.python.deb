@@ -1,19 +1,26 @@
 # Dockerfile for building Python module DEB packages
 # Supports multiple Python versions and distributions
 # Builds python3-liblpm packages
-# Note: Uses Ubuntu 24.04 as build base for GCC 13+ (C23 support)
-
-ARG BUILD_BASE=ubuntu:24.04
-FROM ${BUILD_BASE}
-
-ENV DEBIAN_FRONTEND=noninteractive
+# Uses target distribution as build base to ensure proper Python version
 
 # Build arguments for target distro info
 ARG TARGET_DISTRO=ubuntu
 ARG TARGET_VERSION=24.04
 
+# Determine build base from target distribution
+# Ubuntu uses version numbers, Debian uses codenames
+ARG BUILD_BASE=${TARGET_DISTRO}:${TARGET_VERSION}
+FROM ${BUILD_BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Re-declare ARGs after FROM for use in subsequent layers
+ARG TARGET_DISTRO=ubuntu
+ARG TARGET_VERSION=24.04
+
 # Install basic build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     cmake \
     git \
@@ -22,8 +29,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fakeroot \
     pkg-config \
     libnuma-dev \
-    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
+
+# Install GCC 13+ on distros that ship older versions (C23 required)
+RUN if [ "${TARGET_DISTRO}" = "ubuntu" ] && [ "${TARGET_VERSION}" = "22.04" ]; then \
+        apt-get update && \
+        apt-get install -y software-properties-common && \
+        add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
+        apt-get update && \
+        apt-get install -y gcc-13 g++-13 && \
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 && \
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 && \
+        rm -rf /var/lib/apt/lists/*; \
+    elif [ "${TARGET_DISTRO}" = "debian" ] && [ "${TARGET_VERSION}" = "12" ]; then \
+        echo "deb http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list && \
+        apt-get update && \
+        apt-get install -y gcc-13 g++-13 && \
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 && \
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 && \
+        rm /etc/apt/sources.list.d/trixie.list && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # ============================================================================
 # Stage: Build liblpm C library
@@ -84,14 +110,18 @@ VOLUME ["/workspace", "/packages"]
 CMD ["/usr/local/bin/build-python-deb.sh"]
 
 # Usage:
-# Build for Ubuntu 22.04:
+# Build for Ubuntu 22.04 (Python 3.10):
 #   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=ubuntu --build-arg TARGET_VERSION=22.04 -t liblpm-python-deb:u22.04 .
 #   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:u22.04
 #
-# Build for Ubuntu 24.04:
+# Build for Ubuntu 24.04 (Python 3.12):
 #   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=ubuntu --build-arg TARGET_VERSION=24.04 -t liblpm-python-deb:u24.04 .
 #   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:u24.04
 #
-# Build for Debian 12:
+# Build for Debian 12 (Python 3.11):
 #   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=debian --build-arg TARGET_VERSION=12 -t liblpm-python-deb:d12 .
 #   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:d12
+#
+# Build for Debian 13 (Python 3.13):
+#   docker build -f docker/Dockerfile.python.deb --build-arg TARGET_DISTRO=debian --build-arg TARGET_VERSION=13 -t liblpm-python-deb:d13 .
+#   docker run --rm -v $(pwd):/workspace -v $(pwd)/packages/python:/packages liblpm-python-deb:d13

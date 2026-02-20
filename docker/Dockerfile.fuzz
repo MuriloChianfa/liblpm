@@ -11,6 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install AFL++ and build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     # AFL++ and dependencies
     afl++ \
     # Compilers for AFL instrumentation

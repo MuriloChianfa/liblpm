@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0
 
 # Install C build tools for native library compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     gcc \
     cmake \

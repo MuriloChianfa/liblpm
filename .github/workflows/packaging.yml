@@ -60,7 +60,7 @@ jobs:
 
     steps:
       - name: Cache APT packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /var/cache/apt/archives
@@ -93,12 +93,12 @@ jobs:
           gcc --version
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             build
@@ -126,7 +126,7 @@ jobs:
           ls -la *.deb
 
       - name: Upload DEB artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deb-${{ matrix.codename }}
           path: build/*.deb
@@ -150,7 +150,7 @@ jobs:
 
     steps:
       - name: Cache DNF packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/cache/dnf
           key: dnf-el${{ matrix.version }}-${{ hashFiles('.github/workflows/packaging.yml') }}
@@ -191,12 +191,12 @@ jobs:
           gcc --version
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             build
@@ -240,7 +240,7 @@ jobs:
           ls -la *.rpm
 
       - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rpm-el${{ matrix.version }}
           path: build/*.rpm
@@ -264,7 +264,7 @@ jobs:
 
     steps:
       - name: Cache DNF packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/cache/dnf
           key: dnf-fedora${{ matrix.version }}-${{ hashFiles('.github/workflows/packaging.yml') }}
@@ -282,12 +282,12 @@ jobs:
             make
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             build
@@ -315,7 +315,7 @@ jobs:
           ls -la *.rpm
 
       - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rpm-fedora${{ matrix.version }}
           path: build/*.rpm
@@ -345,7 +345,7 @@ jobs:
 
     steps:
       - name: Download DEB artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: deb-${{ matrix.codename }}
           path: packages
@@ -383,7 +383,7 @@ jobs:
 
     steps:
       - name: Download RPM artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: rpm-el${{ matrix.version }}
           path: packages
@@ -415,7 +415,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -435,7 +435,7 @@ jobs:
           ls -la packages/python/
       
       - name: Upload Python wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-wheel
           path: packages/python/*.whl
@@ -451,19 +451,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - distro: ubuntu-22.04
-            target_distro: ubuntu
-            target_version: "22.04"
           - distro: ubuntu-24.04
             target_distro: ubuntu
             target_version: "24.04"
           - distro: debian-12
             target_distro: debian
             target_version: "12"
+          - distro: debian-13
+            target_distro: debian
+            target_version: "13"
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -488,7 +488,7 @@ jobs:
           ls -la packages/python-deb/
       
       - name: Upload Python DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-deb-${{ matrix.distro }}
           path: packages/python-deb/*.deb
@@ -512,7 +512,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -537,7 +537,7 @@ jobs:
           ls -la packages/python-rpm/
       
       - name: Upload Python RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-rpm-${{ matrix.distro }}
           path: packages/python-rpm/*.rpm
@@ -552,7 +552,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -569,7 +569,7 @@ jobs:
           ls -la packages/php/
       
       - name: Upload PHP PECL artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: php-pecl
           path: packages/php/*.tgz
@@ -600,7 +600,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -626,7 +626,7 @@ jobs:
           ls -la packages/php-deb/
       
       - name: Upload PHP DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: php-deb-${{ matrix.distro }}
           path: packages/php-deb/*.deb
@@ -651,7 +651,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -676,7 +676,7 @@ jobs:
           ls -la packages/php-rpm/
       
       - name: Upload PHP RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: php-rpm-${{ matrix.distro }}
           path: packages/php-rpm/*.rpm
@@ -704,7 +704,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -729,7 +729,7 @@ jobs:
           ls -la packages/perl-deb/
       
       - name: Upload Perl DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perl-deb-${{ matrix.distro }}
           path: packages/perl-deb/*.deb
@@ -754,7 +754,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -779,7 +779,7 @@ jobs:
           ls -la packages/perl-rpm/
       
       - name: Upload Perl RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perl-rpm-${{ matrix.distro }}
           path: packages/perl-rpm/*.rpm
@@ -794,7 +794,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -814,7 +814,7 @@ jobs:
           ls -la packages/java/
       
       - name: Upload Java JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: java-jar
           path: packages/java/*.jar
@@ -829,7 +829,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -849,7 +849,7 @@ jobs:
           ls -la packages/csharp/
       
       - name: Upload C# NuGet artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: csharp-nuget
           path: packages/csharp/*.nupkg
@@ -864,7 +864,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -884,7 +884,7 @@ jobs:
           ls -la packages/go/
       
       - name: Upload Go tarball artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: go-tarball
           path: packages/go/*.tar.gz
@@ -899,7 +899,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       
@@ -919,7 +919,7 @@ jobs:
           ls -la packages/lua/
       
       - name: Upload Lua module artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lua-module
           path: packages/lua/*.so

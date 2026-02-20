@@ -27,6 +27,16 @@ pip install liblpm
 
 Native distribution packages are available for common Linux distributions:
 
+**Important**: Distribution packages are built for specific Python versions. The package must match your system's Python version:
+
+- Ubuntu 22.04: Python 3.10
+- Ubuntu 24.04: Python 3.12
+- Debian 12: Python 3.11
+- Debian 13: Python 3.13
+- Fedora 41: Python 3.13
+
+If you have a different Python version, use PyPI installation instead (`pip install liblpm`).
+
 #### Ubuntu/Debian
 
 ```bash

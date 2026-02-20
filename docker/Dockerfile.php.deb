@@ -15,6 +15,7 @@ ARG PHP_VERSION=8.3
 
 # Install basic build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     cmake \
     git \

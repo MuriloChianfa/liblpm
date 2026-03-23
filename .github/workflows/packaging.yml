@@ -420,7 +420,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Python wheel
         run: |
@@ -468,7 +468,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Python DEB package
         run: |
@@ -517,7 +517,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Python RPM package
         run: |
@@ -557,7 +557,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build PHP PECL package
         run: |
@@ -605,7 +605,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build PHP DEB package
         run: |
@@ -656,7 +656,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build PHP RPM package
         run: |
@@ -709,7 +709,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Perl DEB package
         run: |
@@ -759,7 +759,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Perl RPM package
         run: |
@@ -799,7 +799,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Java JAR
         run: |
@@ -834,7 +834,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build C# NuGet package
         run: |
@@ -869,7 +869,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Go tarball
         run: |
@@ -904,7 +904,7 @@ jobs:
           submodules: recursive
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Build Lua module
         run: |

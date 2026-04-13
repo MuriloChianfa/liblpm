@@ -688,7 +688,7 @@ jobs:
           ls -la release_flat/
       
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: liblpm ${{ needs.prepare.outputs.version }}

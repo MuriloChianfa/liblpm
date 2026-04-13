@@ -32,7 +32,7 @@ void lpm_lookup_batch_ipv4_8stride_scalar(const lpm_trie_t *trie, const uint8_t 
         for (uint8_t d = 0; d < 4 && N; d++) {
             const struct lpm_entry *e = &P[N].entries[addr[d]];
             uint32_t cv = e->child_and_valid;
-            if (cv & LPM_VALID_FLAG) R = e->next_hop;
+            if (cv & LPM_VALID_FLAG) { R = e->next_hop; }
             N = cv & LPM_CHILD_MASK;
         }
         
@@ -61,37 +61,37 @@ void lpm_lookup_batch_ipv4_8stride_sse2(const lpm_trie_t *trie, const uint8_t **
         
         for (uint8_t d = 0; d < 4; d++) {
             /* Prefetch next level for all 4 */
-            if (n0) _mm_prefetch((const char*)&P[n0].entries[a0[d]], _MM_HINT_T0);
-            if (n1) _mm_prefetch((const char*)&P[n1].entries[a1[d]], _MM_HINT_T0);
-            if (n2) _mm_prefetch((const char*)&P[n2].entries[a2[d]], _MM_HINT_T0);
-            if (n3) _mm_prefetch((const char*)&P[n3].entries[a3[d]], _MM_HINT_T0);
+            if (n0) { _mm_prefetch((const char*)&P[n0].entries[a0[d]], _MM_HINT_T0); }
+            if (n1) { _mm_prefetch((const char*)&P[n1].entries[a1[d]], _MM_HINT_T0); }
+            if (n2) { _mm_prefetch((const char*)&P[n2].entries[a2[d]], _MM_HINT_T0); }
+            if (n3) { _mm_prefetch((const char*)&P[n3].entries[a3[d]], _MM_HINT_T0); }
             
             if (n0) {
                 const struct lpm_entry *e = &P[n0].entries[a0[d]];
                 uint32_t cv = e->child_and_valid;
-                if (cv & LPM_VALID_FLAG) r0 = e->next_hop;
+                if (cv & LPM_VALID_FLAG) { r0 = e->next_hop; }
                 n0 = cv & LPM_CHILD_MASK;
             }
             if (n1) {
                 const struct lpm_entry *e = &P[n1].entries[a1[d]];
                 uint32_t cv = e->child_and_valid;
-                if (cv & LPM_VALID_FLAG) r1 = e->next_hop;
+                if (cv & LPM_VALID_FLAG) { r1 = e->next_hop; }
                 n1 = cv & LPM_CHILD_MASK;
             }
             if (n2) {
                 const struct lpm_entry *e = &P[n2].entries[a2[d]];
                 uint32_t cv = e->child_and_valid;
-                if (cv & LPM_VALID_FLAG) r2 = e->next_hop;
+                if (cv & LPM_VALID_FLAG) { r2 = e->next_hop; }
                 n2 = cv & LPM_CHILD_MASK;
             }
             if (n3) {
                 const struct lpm_entry *e = &P[n3].entries[a3[d]];
                 uint32_t cv = e->child_and_valid;
-                if (cv & LPM_VALID_FLAG) r3 = e->next_hop;
+                if (cv & LPM_VALID_FLAG) { r3 = e->next_hop; }
                 n3 = cv & LPM_CHILD_MASK;
             }
             
-            if (!n0 && !n1 && !n2 && !n3) break;
+            if (!n0 && !n1 && !n2 && !n3) { break; }
         }
         
         next_hops[i]   = (r0 != LPM_INVALID_NEXT_HOP) ? r0 : def;
@@ -154,11 +154,11 @@ void lpm_lookup_batch_ipv4_8stride_avx(const lpm_trie_t *trie, const uint8_t **a
                 if (n[j]) {
                     const struct lpm_entry *e = &P[n[j]].entries[a[j][d]];
                     uint32_t cv = e->child_and_valid;
-                    if (cv & LPM_VALID_FLAG) r[j] = e->next_hop;
+                    if (cv & LPM_VALID_FLAG) { r[j] = e->next_hop; }
                     n[j] = cv & LPM_CHILD_MASK;
                 }
             }
-            if (!active) break;
+            if (!active) { break; }
         }
         
         for (int j = 0; j < 8; j++) {
@@ -196,7 +196,7 @@ void lpm_lookup_batch_ipv4_8stride_avx2(const lpm_trie_t *trie, const uint8_t **
         
         for (uint8_t d = 0; d < 4; d++) {
             for (int j = 0; j < 8; j++) {
-                if (n[j]) _mm_prefetch((const char*)&P[n[j]].entries[a[j][d]], _MM_HINT_T0);
+                if (n[j]) { _mm_prefetch((const char*)&P[n[j]].entries[a[j][d]], _MM_HINT_T0); }
             }
             
             int active = 0;
@@ -204,12 +204,12 @@ void lpm_lookup_batch_ipv4_8stride_avx2(const lpm_trie_t *trie, const uint8_t **
                 if (n[j]) {
                     const struct lpm_entry *e = &P[n[j]].entries[a[j][d]];
                     uint32_t cv = e->child_and_valid;
-                    if (cv & LPM_VALID_FLAG) r[j] = e->next_hop;
+                    if (cv & LPM_VALID_FLAG) { r[j] = e->next_hop; }
                     n[j] = cv & LPM_CHILD_MASK;
-                    if (n[j]) active++;
+                    if (n[j]) { active++; }
                 }
             }
-            if (!active) break;
+            if (!active) { break; }
         }
         
         for (int j = 0; j < 8; j++) {
@@ -247,7 +247,7 @@ void lpm_lookup_batch_ipv4_8stride_avx512(const lpm_trie_t *trie, const uint8_t 
         
         for (uint8_t d = 0; d < 4; d++) {
             for (int j = 0; j < 16; j++) {
-                if (n[j]) _mm_prefetch((const char*)&P[n[j]].entries[a[j][d]], _MM_HINT_T0);
+                if (n[j]) { _mm_prefetch((const char*)&P[n[j]].entries[a[j][d]], _MM_HINT_T0); }
             }
             
             int active = 0;
@@ -255,12 +255,12 @@ void lpm_lookup_batch_ipv4_8stride_avx512(const lpm_trie_t *trie, const uint8_t 
                 if (n[j]) {
                     const struct lpm_entry *e = &P[n[j]].entries[a[j][d]];
                     uint32_t cv = e->child_and_valid;
-                    if (cv & LPM_VALID_FLAG) r[j] = e->next_hop;
+                    if (cv & LPM_VALID_FLAG) { r[j] = e->next_hop; }
                     n[j] = cv & LPM_CHILD_MASK;
-                    if (n[j]) active++;
+                    if (n[j]) { active++; }
                 }
             }
-            if (!active) break;
+            if (!active) { break; }
         }
         
         for (int j = 0; j < 16; j++) {
@@ -309,7 +309,7 @@ void lpm_lookup_batch_ipv4_8stride_bytes(const lpm_trie_t *trie, const uint8_t *
 void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *trie, const uint32_t *addrs,
                                     uint32_t *next_hops, size_t count)
 {
-    if (!trie || !addrs || !next_hops || count == 0) return;
+    if (!trie || !addrs || !next_hops || count == 0) { return; }
     
     /* Stack allocation for small batches, heap for large */
     uint8_t stack_bytes[256 * 4];
@@ -326,7 +326,7 @@ void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *trie, const uint32_t *addrs
         ptrs = (const uint8_t**)malloc(count * sizeof(uint8_t*));
         if (!bytes || !ptrs) {
             free(bytes);
-            free(ptrs);
+            free((void *)ptrs);
             return;
         }
     }
@@ -346,6 +346,6 @@ void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *trie, const uint32_t *addrs
     
     if (count > 256) {
         free(bytes);
-        free(ptrs);
+        free((void *)ptrs);
     }
 }

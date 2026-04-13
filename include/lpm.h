@@ -1,5 +1,5 @@
-#ifndef _LPM_H_
-#define _LPM_H_
+#ifndef LPM_H_
+#define LPM_H_
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -294,4 +294,4 @@ void lpm_print_stats(const lpm_trie_t *trie);
 #ifdef __cplusplus
 }
 #endif
-#endif /* _LPM_H_ */
+#endif /* LPM_H_ */

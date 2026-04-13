@@ -27,26 +27,26 @@ static inline uint32_t lookup_ipv4_unrolled(const lpm_node_t * restrict P,
     e = &P[N].entries[addr[0]]; cv = e->child_and_valid;
     R = (cv & LPM_VALID_FLAG) ? e->next_hop : R;
     N = cv & LPM_CHILD_MASK;
-    if (!N) return R;
+    if (!N) { return R; }
     __builtin_prefetch(&P[N].entries[addr[1]], 0, 3);
     
     /* Level 1 */
     e = &P[N].entries[addr[1]]; cv = e->child_and_valid;
     R = (cv & LPM_VALID_FLAG) ? e->next_hop : R;
     N = cv & LPM_CHILD_MASK;
-    if (!N) return R;
+    if (!N) { return R; }
     __builtin_prefetch(&P[N].entries[addr[2]], 0, 3);
     
     /* Level 2 */
     e = &P[N].entries[addr[2]]; cv = e->child_and_valid;
     R = (cv & LPM_VALID_FLAG) ? e->next_hop : R;
     N = cv & LPM_CHILD_MASK;
-    if (!N) return R;
+    if (!N) { return R; }
     __builtin_prefetch(&P[N].entries[addr[3]], 0, 3);
     
     /* Level 3 */
     e = &P[N].entries[addr[3]]; cv = e->child_and_valid;
-    if (cv & LPM_VALID_FLAG) R = e->next_hop;
+    if (cv & LPM_VALID_FLAG) { R = e->next_hop; }
     
     return R;
 }
@@ -63,8 +63,10 @@ uint32_t lpm_lookup_ipv4_8stride_scalar(const lpm_trie_t *trie, const uint8_t *a
     
     uint32_t R = lookup_ipv4_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot))
@@ -75,8 +77,10 @@ uint32_t lpm_lookup_ipv4_8stride_sse2(const lpm_trie_t *trie, const uint8_t *add
     
     uint32_t R = lookup_ipv4_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("sse4.2")))
@@ -87,8 +91,10 @@ uint32_t lpm_lookup_ipv4_8stride_sse42(const lpm_trie_t *trie, const uint8_t *ad
     
     uint32_t R = lookup_ipv4_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("avx")))
@@ -99,8 +105,10 @@ uint32_t lpm_lookup_ipv4_8stride_avx(const lpm_trie_t *trie, const uint8_t *addr
     
     uint32_t R = lookup_ipv4_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("avx2")))
@@ -111,8 +119,10 @@ uint32_t lpm_lookup_ipv4_8stride_avx2(const lpm_trie_t *trie, const uint8_t *add
     
     uint32_t R = lookup_ipv4_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("avx512f")))
@@ -123,8 +133,10 @@ uint32_t lpm_lookup_ipv4_8stride_avx512(const lpm_trie_t *trie, const uint8_t *a
     
     uint32_t R = lookup_ipv4_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 /* ============================================================================
@@ -161,7 +173,7 @@ uint32_t lpm_lookup_ipv4_8stride_bytes(const lpm_trie_t *trie, const uint8_t *ad
 /* Public API wrapper for uint32_t address */
 uint32_t lpm_lookup_ipv4_8stride(const lpm_trie_t *trie, uint32_t addr)
 {
-    if (!trie || trie->max_depth != LPM_IPV4_MAX_DEPTH) return LPM_INVALID_NEXT_HOP;
+    if (!trie || trie->max_depth != LPM_IPV4_MAX_DEPTH) { return LPM_INVALID_NEXT_HOP; }
     
     uint8_t bytes[4] = {
         (addr >> 24) & 0xFF,

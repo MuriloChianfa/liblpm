@@ -83,6 +83,7 @@ cppcheck_output/
 compiler_comparison_results.txt
 packages/
 build-pkg*
+compile_commands.json
 
 # CodeQL
 .codeql-databases/

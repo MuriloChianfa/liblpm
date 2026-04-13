@@ -3,7 +3,7 @@
  * Create, Add, Delete operations for IPv6 with 8-bit stride trie
  */
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE // NOLINT(bugprone-reserved-identifier)
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -17,7 +17,7 @@
 lpm_trie_t *lpm_create_ipv6_8stride(void)
 {
     lpm_trie_t *t = (lpm_trie_t *)aligned_alloc(LPM_CACHE_LINE_SIZE, sizeof(lpm_trie_t));
-    if (!t) return NULL;
+    if (!t) { return NULL; }
     memset(t, 0, sizeof(lpm_trie_t));
     
     t->max_depth = LPM_IPV6_MAX_DEPTH;
@@ -61,7 +61,7 @@ lpm_trie_t *lpm_create_ipv6_8stride(void)
 
 int lpm_add_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop)
 {
-    if (!trie || !prefix || prefix_len > LPM_IPV6_MAX_DEPTH) return -1;
+    if (!trie || !prefix || prefix_len > LPM_IPV6_MAX_DEPTH) { return -1; }
     
     /* Invalidate cache */
     if (trie->hot_cache) {
@@ -97,7 +97,7 @@ int lpm_add_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix
         
         if (child_idx == LPM_INVALID_INDEX) {
             child_idx = node_alloc(trie);
-            if (child_idx == LPM_INVALID_INDEX) return -1;
+            if (child_idx == LPM_INVALID_INDEX) { return -1; }
             node = &((struct lpm_node *)trie->node_pool)[node_idx];
             node->entries[index].child_and_valid =
                 (node->entries[index].child_and_valid & LPM_VALID_FLAG) | child_idx;
@@ -135,7 +135,7 @@ int lpm_add_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix
 
 int lpm_delete_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len)
 {
-    if (!trie || !prefix || prefix_len > LPM_IPV6_MAX_DEPTH) return -1;
+    if (!trie || !prefix || prefix_len > LPM_IPV6_MAX_DEPTH) { return -1; }
     
     if (trie->hot_cache) {
         memset(trie->hot_cache, 0, LPM_HOT_CACHE_SIZE * sizeof(struct lpm_cache_entry));
@@ -144,7 +144,7 @@ int lpm_delete_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t pre
     if (prefix_len == 0) {
         trie->has_default_route = false;
         trie->default_next_hop = LPM_INVALID_NEXT_HOP;
-        if (trie->num_prefixes > 0) trie->num_prefixes--;
+        if (trie->num_prefixes > 0) { trie->num_prefixes--; }
         return 0;
     }
     
@@ -159,12 +159,12 @@ int lpm_delete_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t pre
         if (depth + 8 == prefix_len) {
             node->entries[index].child_and_valid &= ~LPM_VALID_FLAG;
             node->entries[index].next_hop = LPM_INVALID_NEXT_HOP;
-            if (trie->num_prefixes > 0) trie->num_prefixes--;
+            if (trie->num_prefixes > 0) { trie->num_prefixes--; }
             return 0;
         }
         
         uint32_t child_idx = node->entries[index].child_and_valid & LPM_CHILD_MASK;
-        if (child_idx == LPM_INVALID_INDEX) return -1;
+        if (child_idx == LPM_INVALID_INDEX) { return -1; }
         
         node_idx = child_idx;
         depth += 8;
@@ -187,6 +187,6 @@ int lpm_delete_ipv6_8stride(lpm_trie_t *trie, const uint8_t *prefix, uint8_t pre
         }
     }
     
-    if (trie->num_prefixes > 0) trie->num_prefixes--;
+    if (trie->num_prefixes > 0) { trie->num_prefixes--; }
     return 0;
 }

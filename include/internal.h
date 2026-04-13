@@ -2,8 +2,8 @@
  * liblpm Internal Header
  * Shared declarations for algorithm implementations
  */
-#ifndef _LPM_INTERNAL_H_
-#define _LPM_INTERNAL_H_
+#ifndef LPM_INTERNAL_H_
+#define LPM_INTERNAL_H_
 
 #include "lpm.h"
 #include <dynemit/core.h>
@@ -86,7 +86,9 @@ static inline uint32_t lpm_cache_probe(const lpm_trie_t *trie, const uint8_t *ad
 static inline void lpm_cache_store(lpm_trie_t *trie, const uint8_t *addr,
                                    uint8_t len, uint32_t next_hop)
 {
-    if (!trie->hot_cache) return;
+    if (!trie->hot_cache) {
+        return;
+    }
     uint64_t h = lpm_fast_hash(addr, len);
     uint32_t idx = h & (LPM_HOT_CACHE_SIZE - 1);
     trie->hot_cache[idx].addr_hash = h;
@@ -97,4 +99,4 @@ static inline void lpm_cache_store(lpm_trie_t *trie, const uint8_t *addr,
 }
 #endif
 
-#endif /* _LPM_INTERNAL_H_ */
+#endif /* LPM_INTERNAL_H_ */

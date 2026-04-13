@@ -20,7 +20,7 @@ assignees: ''
 <!-- e.g., GCC 11.4.0, Clang 14.0.0 -->
 
 **liblpm Version:**
-<!-- e.g., 2.0.0, or commit hash if building from source -->
+<!-- e.g., 2.1.0, or commit hash if building from source -->
 
 **CPU Architecture:**
 <!-- e.g., Intel Core i7-12700K, AMD Ryzen 9 5900X, ARM -->

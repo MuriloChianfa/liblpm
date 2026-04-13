@@ -25,13 +25,13 @@ static uint32_t lookup_wide16_internal(const lpm_trie_t *trie, const uint8_t *ad
     /* First 3 levels: 16-bit wide stride (48 bits total) */
     bool is_wide_node = true;
     for (level = 0; level < LPM_IPV6_WIDE_STRIDE_LEVELS && level < 3; level++) {
-        if (!is_wide_node && node_idx == LPM_INVALID_INDEX) break;
-        if (!is_wide_node) break;  /* Transitioned to 8-bit nodes */
+        if (!is_wide_node && node_idx == LPM_INVALID_INDEX) { break; }
+        if (!is_wide_node) { break; }  /* Transitioned to 8-bit nodes */
         
         struct lpm_node_16 *wide_node = &((struct lpm_node_16 *)trie->wide_nodes_pool)[node_idx];
         
         /* Extract 16-bit index from address */
-        uint16_t index = ((uint16_t)addr[level * 2] << 8) | addr[level * 2 + 1];
+        uint16_t index = ((uint16_t)addr[(size_t)level * 2] << 8) | addr[((size_t)level * 2) + 1];
         
         struct lpm_entry *entry = &wide_node->entries[index];
         
@@ -54,7 +54,7 @@ static uint32_t lookup_wide16_internal(const lpm_trie_t *trie, const uint8_t *ad
     
     /* Remaining levels: 8-bit stride (bytes 2-15 after first 16-bit level, 112 bits) */
     for (uint8_t byte_idx = 2; byte_idx < 16; byte_idx++) {
-        if (node_idx == LPM_INVALID_INDEX) break;
+        if (node_idx == LPM_INVALID_INDEX) { break; }
         
         struct lpm_node *node = &((struct lpm_node *)trie->node_pool)[node_idx];
         uint8_t index = addr[byte_idx];

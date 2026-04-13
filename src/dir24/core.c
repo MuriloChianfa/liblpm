@@ -8,7 +8,7 @@
  * - Total: 1-2 memory accesses for any lookup!
  */
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE // NOLINT(bugprone-reserved-identifier)
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -26,7 +26,7 @@
 lpm_trie_t *lpm_create_ipv4_dir24(void)
 {
     lpm_trie_t *t = (lpm_trie_t *)aligned_alloc(LPM_CACHE_LINE_SIZE, sizeof(lpm_trie_t));
-    if (!t) return NULL;
+    if (!t) { return NULL; }
     memset(t, 0, sizeof(lpm_trie_t));
     
     t->max_depth = LPM_IPV4_MAX_DEPTH;
@@ -49,7 +49,7 @@ lpm_trie_t *lpm_create_ipv4_dir24(void)
     /* Allocate tbl8 groups (for /25-/32 prefixes) */
     t->tbl8_num_groups = LPM_TBL8_DEFAULT_GROUPS;
     t->tbl8_groups_used = 0;
-    size_t tbl8_size = t->tbl8_num_groups * LPM_TBL8_GROUP_ENTRIES * sizeof(struct lpm_tbl8_entry);
+    size_t tbl8_size = (size_t)t->tbl8_num_groups * LPM_TBL8_GROUP_ENTRIES * sizeof(struct lpm_tbl8_entry);
     t->tbl8_groups = (struct lpm_tbl8_entry *)aligned_alloc(LPM_CACHE_LINE_SIZE, tbl8_size);
     if (!t->tbl8_groups) {
         free(t->dir24_table);
@@ -78,18 +78,18 @@ static int32_t tbl8_group_alloc(lpm_trie_t *trie)
         /* Need to grow the tbl8 array */
         uint32_t new_groups = trie->tbl8_num_groups * 2;
         struct lpm_tbl8_entry *new_tbl8 = realloc(trie->tbl8_groups,
-            new_groups * LPM_TBL8_GROUP_ENTRIES * sizeof(struct lpm_tbl8_entry));
-        if (!new_tbl8) return -1;
+            (size_t)new_groups * LPM_TBL8_GROUP_ENTRIES * sizeof(struct lpm_tbl8_entry));
+        if (!new_tbl8) { return -1; }
         
         /* Initialize new groups */
-        memset(&new_tbl8[trie->tbl8_num_groups * LPM_TBL8_GROUP_ENTRIES], 0,
-               (new_groups - trie->tbl8_num_groups) * LPM_TBL8_GROUP_ENTRIES * sizeof(struct lpm_tbl8_entry));
+        memset(&new_tbl8[(size_t)trie->tbl8_num_groups * LPM_TBL8_GROUP_ENTRIES], 0,
+               (size_t)(new_groups - trie->tbl8_num_groups) * LPM_TBL8_GROUP_ENTRIES * sizeof(struct lpm_tbl8_entry));
         
         trie->tbl8_groups = new_tbl8;
         trie->tbl8_num_groups = new_groups;
     }
     
-    return trie->tbl8_groups_used++;
+    return (int32_t)trie->tbl8_groups_used++;
 }
 
 /* ============================================================================
@@ -98,8 +98,8 @@ static int32_t tbl8_group_alloc(lpm_trie_t *trie)
 
 int lpm_add_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len, uint32_t next_hop)
 {
-    if (!trie || !prefix || prefix_len > 32 || !trie->dir24_table) return -1;
-    if (next_hop & 0xC0000000) return -1;  /* Next hop must fit in 30 bits */
+    if (!trie || !prefix || prefix_len > 32 || !trie->dir24_table) { return -1; }
+    if (next_hop & 0xC0000000) { return -1; }  /* Next hop must fit in 30 bits */
     
     /* Handle default route */
     if (prefix_len == 0) {
@@ -150,11 +150,11 @@ int lpm_add_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_l
     if (!(dir_entry->data & LPM_DIR24_EXT_FLAG)) {
         /* Allocate new tbl8 group */
         int32_t new_group = tbl8_group_alloc(trie);
-        if (new_group < 0) return -1;
+        if (new_group < 0) { return -1; }
         tbl8_group = new_group;
         
         /* If dir24 entry had a valid next hop, copy it to all tbl8 entries */
-        struct lpm_tbl8_entry *tbl8 = &trie->tbl8_groups[tbl8_group * LPM_TBL8_GROUP_ENTRIES];
+        struct lpm_tbl8_entry *tbl8 = &trie->tbl8_groups[(size_t)tbl8_group * LPM_TBL8_GROUP_ENTRIES];
         if (dir_entry->data & LPM_DIR24_VALID_FLAG) {
             uint32_t parent_nh = dir_entry->data & LPM_DIR24_NH_MASK;
             for (int i = 0; i < LPM_TBL8_GROUP_ENTRIES; i++) {
@@ -169,7 +169,7 @@ int lpm_add_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_l
     }
     
     /* Add route to tbl8 */
-    struct lpm_tbl8_entry *tbl8 = &trie->tbl8_groups[tbl8_group * LPM_TBL8_GROUP_ENTRIES];
+    struct lpm_tbl8_entry *tbl8 = &trie->tbl8_groups[(size_t)tbl8_group * LPM_TBL8_GROUP_ENTRIES];
     uint8_t last_byte = prefix[3];
     uint8_t remaining_bits = prefix_len - 24;  /* 1-8 bits */
     
@@ -198,13 +198,13 @@ int lpm_add_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_l
 
 int lpm_delete_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefix_len)
 {
-    if (!trie || !prefix || prefix_len > 32 || !trie->dir24_table) return -1;
+    if (!trie || !prefix || prefix_len > 32 || !trie->dir24_table) { return -1; }
     
     /* Handle default route */
     if (prefix_len == 0) {
         trie->has_default_route = false;
         trie->default_next_hop = LPM_INVALID_NEXT_HOP;
-        if (trie->num_prefixes > 0) trie->num_prefixes--;
+        if (trie->num_prefixes > 0) { trie->num_prefixes--; }
         return 0;
     }
     
@@ -235,7 +235,7 @@ int lpm_delete_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefi
             }
         }
         
-        if (trie->num_prefixes > 0) trie->num_prefixes--;
+        if (trie->num_prefixes > 0) { trie->num_prefixes--; }
         return 0;
     }
     
@@ -247,12 +247,12 @@ int lpm_delete_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefi
     if (!(dir_entry->data & LPM_DIR24_EXT_FLAG)) {
         /* No tbl8 group - just clear the dir24 entry */
         dir_entry->data = 0;
-        if (trie->num_prefixes > 0) trie->num_prefixes--;
+        if (trie->num_prefixes > 0) { trie->num_prefixes--; }
         return 0;
     }
     
     uint32_t tbl8_group = dir_entry->data & LPM_DIR24_NH_MASK;
-    struct lpm_tbl8_entry *tbl8 = &trie->tbl8_groups[tbl8_group * LPM_TBL8_GROUP_ENTRIES];
+    struct lpm_tbl8_entry *tbl8 = &trie->tbl8_groups[(size_t)tbl8_group * LPM_TBL8_GROUP_ENTRIES];
     
     uint8_t last_byte = prefix[3];
     uint8_t remaining_bits = prefix_len - 24;  /* 1-8 bits */
@@ -272,6 +272,6 @@ int lpm_delete_ipv4_dir24(lpm_trie_t *trie, const uint8_t *prefix, uint8_t prefi
         }
     }
     
-    if (trie->num_prefixes > 0) trie->num_prefixes--;
+    if (trie->num_prefixes > 0) { trie->num_prefixes--; }
     return 0;
 }

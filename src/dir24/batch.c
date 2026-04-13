@@ -139,8 +139,8 @@ void lpm_lookup_batch_ipv4_dir24_avx2(const lpm_trie_t *trie, const uint32_t *ip
     const __m256i valid_mask = _mm256_set1_epi32(LPM_DIR24_VALID_FLAG);
     const __m256i ext_mask = _mm256_set1_epi32(LPM_DIR24_EXT_FLAG);
     const __m256i nh_mask = _mm256_set1_epi32(LPM_DIR24_NH_MASK);
-    const __m256i invalid_nh_vec = _mm256_set1_epi32(LPM_INVALID_NEXT_HOP);
-    const __m256i default_vec = _mm256_set1_epi32(default_nh);
+    const __m256i invalid_nh_vec = _mm256_set1_epi32((int)LPM_INVALID_NEXT_HOP);
+    const __m256i default_vec = _mm256_set1_epi32((int)default_nh);
     const __m256i byte_mask = _mm256_set1_epi32(0xFF);
     
     size_t i = 0;
@@ -236,8 +236,8 @@ void lpm_lookup_batch_ipv4_dir24_avx512(const lpm_trie_t *trie, const uint32_t *
     const __m512i valid_mask = _mm512_set1_epi32(LPM_DIR24_VALID_FLAG);
     const __m512i ext_mask = _mm512_set1_epi32(LPM_DIR24_EXT_FLAG);
     const __m512i nh_mask = _mm512_set1_epi32(LPM_DIR24_NH_MASK);
-    const __m512i invalid_nh_vec = _mm512_set1_epi32(LPM_INVALID_NEXT_HOP);
-    const __m512i default_vec = _mm512_set1_epi32(default_nh);
+    const __m512i invalid_nh_vec = _mm512_set1_epi32((int)LPM_INVALID_NEXT_HOP);
+    const __m512i default_vec = _mm512_set1_epi32((int)default_nh);
     const __m512i byte_mask = _mm512_set1_epi32(0xFF);
     
     size_t i = 0;

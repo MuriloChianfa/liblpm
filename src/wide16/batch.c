@@ -14,9 +14,6 @@
 #include "../../include/lpm.h"
 #include "../../include/internal.h"
 
-/* Forward declaration for single lookup */
-extern uint32_t lpm_lookup_ipv6_wide16(const lpm_trie_t *trie, const uint8_t addr[16]);
-
 /* ============================================================================
  * Wide Stride Lookup Helper (inline for batch use)
  * ============================================================================ */
@@ -31,7 +28,7 @@ static inline uint32_t lookup_wide16_single(const lpm_trie_t *trie, const uint8_
     bool is_wide_node = true;
     for (uint8_t level = 0; level < LPM_IPV6_WIDE_STRIDE_LEVELS && is_wide_node; level++) {
         struct lpm_node_16 *wide_node = &((struct lpm_node_16 *)trie->wide_nodes_pool)[node_idx];
-        uint16_t index = ((uint16_t)addr[level * 2] << 8) | addr[level * 2 + 1];
+        uint16_t index = ((uint16_t)addr[(size_t)level * 2] << 8) | addr[((size_t)level * 2) + 1];
         
         struct lpm_entry *entry = &wide_node->entries[index];
         
@@ -52,7 +49,7 @@ static inline uint32_t lookup_wide16_single(const lpm_trie_t *trie, const uint8_
     
     /* Remaining levels: 8-bit stride */
     for (uint8_t byte_idx = 2; byte_idx < 16; byte_idx++) {
-        if (node_idx == LPM_INVALID_INDEX) break;
+        if (node_idx == LPM_INVALID_INDEX) { break; }
         
         struct lpm_node *node = &((struct lpm_node *)trie->node_pool)[node_idx];
         struct lpm_entry *entry = &node->entries[addr[byte_idx]];
@@ -118,7 +115,7 @@ void lpm_lookup_batch_ipv6_wide16_sse2(const lpm_trie_t *trie, const uint8_t **a
             for (int j = 0; j < 4; j++) {
                 if (wide[j]) {
                     struct lpm_node_16 *wn = &((struct lpm_node_16 *)wide_pool)[n[j]];
-                    uint16_t idx = ((uint16_t)a[j][level * 2] << 8) | a[j][level * 2 + 1];
+                    uint16_t idx = ((uint16_t)a[j][(size_t)level * 2] << 8) | a[j][((size_t)level * 2) + 1];
                     
                     _mm_prefetch((const char*)&wn->entries[idx], _MM_HINT_T0);
                 }
@@ -127,7 +124,7 @@ void lpm_lookup_batch_ipv6_wide16_sse2(const lpm_trie_t *trie, const uint8_t **a
             for (int j = 0; j < 4; j++) {
                 if (wide[j]) {
                     struct lpm_node_16 *wn = &((struct lpm_node_16 *)wide_pool)[n[j]];
-                    uint16_t idx = ((uint16_t)a[j][level * 2] << 8) | a[j][level * 2 + 1];
+                    uint16_t idx = ((uint16_t)a[j][(size_t)level * 2] << 8) | a[j][((size_t)level * 2) + 1];
                     struct lpm_entry *e = &wn->entries[idx];
                     
                     if (e->child_and_valid & LPM_VALID_FLAG) {
@@ -161,7 +158,7 @@ void lpm_lookup_batch_ipv6_wide16_sse2(const lpm_trie_t *trie, const uint8_t **a
                 }
             }
             
-            if (!any_active) break;
+            if (!any_active) { break; }
             
             for (int j = 0; j < 4; j++) {
                 if (n[j] != LPM_INVALID_INDEX && !wide[j]) {
@@ -221,7 +218,7 @@ void lpm_lookup_batch_ipv6_wide16_avx2(const lpm_trie_t *trie, const uint8_t **a
             for (int j = 0; j < 8; j++) {
                 if (wide[j]) {
                     struct lpm_node_16 *wn = &((struct lpm_node_16 *)wide_pool)[n[j]];
-                    uint16_t idx = ((uint16_t)a[j][level * 2] << 8) | a[j][level * 2 + 1];
+                    uint16_t idx = ((uint16_t)a[j][(size_t)level * 2] << 8) | a[j][((size_t)level * 2) + 1];
                     _mm_prefetch((const char*)&wn->entries[idx], _MM_HINT_T0);
                 }
             }
@@ -229,7 +226,7 @@ void lpm_lookup_batch_ipv6_wide16_avx2(const lpm_trie_t *trie, const uint8_t **a
             for (int j = 0; j < 8; j++) {
                 if (wide[j]) {
                     struct lpm_node_16 *wn = &((struct lpm_node_16 *)wide_pool)[n[j]];
-                    uint16_t idx = ((uint16_t)a[j][level * 2] << 8) | a[j][level * 2 + 1];
+                    uint16_t idx = ((uint16_t)a[j][(size_t)level * 2] << 8) | a[j][((size_t)level * 2) + 1];
                     struct lpm_entry *e = &wn->entries[idx];
                     
                     if (e->child_and_valid & LPM_VALID_FLAG) {
@@ -263,7 +260,7 @@ void lpm_lookup_batch_ipv6_wide16_avx2(const lpm_trie_t *trie, const uint8_t **a
                 }
             }
             
-            if (!active) break;
+            if (!active) { break; }
             
             for (int j = 0; j < 8; j++) {
                 if (n[j] != LPM_INVALID_INDEX && !wide[j]) {
@@ -323,7 +320,7 @@ void lpm_lookup_batch_ipv6_wide16_avx512(const lpm_trie_t *trie, const uint8_t *
             for (int j = 0; j < 16; j++) {
                 if (wide[j]) {
                     struct lpm_node_16 *wn = &((struct lpm_node_16 *)wide_pool)[n[j]];
-                    uint16_t idx = ((uint16_t)a[j][level * 2] << 8) | a[j][level * 2 + 1];
+                    uint16_t idx = ((uint16_t)a[j][(size_t)level * 2] << 8) | a[j][((size_t)level * 2) + 1];
                     _mm_prefetch((const char*)&wn->entries[idx], _MM_HINT_T0);
                 }
             }
@@ -331,7 +328,7 @@ void lpm_lookup_batch_ipv6_wide16_avx512(const lpm_trie_t *trie, const uint8_t *
             for (int j = 0; j < 16; j++) {
                 if (wide[j]) {
                     struct lpm_node_16 *wn = &((struct lpm_node_16 *)wide_pool)[n[j]];
-                    uint16_t idx = ((uint16_t)a[j][level * 2] << 8) | a[j][level * 2 + 1];
+                    uint16_t idx = ((uint16_t)a[j][(size_t)level * 2] << 8) | a[j][((size_t)level * 2) + 1];
                     struct lpm_entry *e = &wn->entries[idx];
                     
                     if (e->child_and_valid & LPM_VALID_FLAG) {
@@ -365,7 +362,7 @@ void lpm_lookup_batch_ipv6_wide16_avx512(const lpm_trie_t *trie, const uint8_t *
                 }
             }
             
-            if (!active) break;
+            if (!active) { break; }
             
             for (int j = 0; j < 16; j++) {
                 if (n[j] != LPM_INVALID_INDEX && !wide[j]) {
@@ -432,8 +429,8 @@ static void lpm_lookup_batch_ipv6_wide16_internal(const lpm_trie_t *trie, const 
 void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *trie, const uint8_t (*addrs)[16],
                                    uint32_t *next_hops, size_t count)
 {
-    if (!trie || !addrs || !next_hops || count == 0) return;
-    if (!trie->use_ipv6_wide_stride) return;
+    if (!trie || !addrs || !next_hops || count == 0) { return; }
+    if (!trie->use_ipv6_wide_stride) { return; }
     
     const uint8_t *stack_ptrs[256];
     const uint8_t **ptrs;
@@ -442,7 +439,7 @@ void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *trie, const uint8_t (*addrs)
         ptrs = stack_ptrs;
     } else {
         ptrs = (const uint8_t**)malloc(count * sizeof(uint8_t*));
-        if (!ptrs) return;
+        if (!ptrs) { return; }
     }
     
     for (size_t i = 0; i < count; i++) {
@@ -452,6 +449,6 @@ void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *trie, const uint8_t (*addrs)
     lpm_lookup_batch_ipv6_wide16_internal(trie, ptrs, next_hops, count);
     
     if (count > 256) {
-        free(ptrs);
+        free((void *)ptrs);
     }
 }

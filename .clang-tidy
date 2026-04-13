@@ -1,0 +1,25 @@
+---
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  misc-*,
+  performance-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -cert-dcl37-c,
+  -cert-dcl51-cpp,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -readability-magic-numbers,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-isolate-declaration,
+  -readability-implicit-bool-conversion,
+  -readability-avoid-unsigned-bitwise-expression,
+  -misc-include-cleaner,
+
+WarningsAsErrors: '*'
+
+HeaderFilterRegex: 'include/.*\.h$'
+...

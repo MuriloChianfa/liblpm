@@ -1,6 +1,6 @@
 # High-Performance Longest Prefix Match Library
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/MuriloChianfa/liblpm/releases)
+[![Version](https://img.shields.io/badge/version-2.1.1-blue.svg)](https://github.com/MuriloChianfa/liblpm/releases)
 [![License: Boost](https://img.shields.io/badge/License-Boost_1.0-lightblue.svg)](https://www.boost.org/LICENSE_1_0.txt)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue.svg)](https://github.com/MuriloChianfa/liblpm)
 [![Code Coverage](https://codecov.io/gh/MuriloChianfa/liblpm/branch/main/graph/badge.svg)](https://codecov.io/gh/MuriloChianfa/liblpm)

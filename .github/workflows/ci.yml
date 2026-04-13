@@ -356,6 +356,17 @@ jobs:
         "
       continue-on-error: true
     
+    - name: Run clang-tidy
+      run: |
+        docker run --rm liblpm-dev:ci bash -c "
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_C_COMPILER=clang-21 \
+                   -DCMAKE_BUILD_TYPE=Debug \
+                   -DLPM_ENABLE_CLANG_TIDY=ON \
+                   -DBUILD_TESTS=OFF
+          cmake --build . 2>&1
+        "
+
     - name: Check formatting (clang-format)
       run: |
         docker run --rm liblpm-dev:ci bash -c "

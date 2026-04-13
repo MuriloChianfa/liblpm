@@ -10,7 +10,7 @@ authors:
 repository-code: "https://github.com/MuriloChianfa/liblpm"
 url: "https://github.com/MuriloChianfa/liblpm"
 license: BSL-1.0
-version: 2.0.0
+version: 2.1.1
 date-released: 2025-01-10
 keywords:
   - longest-prefix-match
@@ -35,4 +35,4 @@ preferred-citation:
       email: "murilo.chianfa@outlook.com"
   year: 2025
   url: "https://github.com/MuriloChianfa/liblpm"
-  version: 2.0.0
+  version: 2.1.1

@@ -5,18 +5,31 @@ if(NOT DEFINED CMAKE_C_COMPILER)
     set(CMAKE_C_COMPILER "gcc" CACHE STRING "C compiler" FORCE)
 endif()
 
-project(liblpm VERSION 2.0.0 LANGUAGES C)
-
-# Add libdynemit submodule for SIMD detection and ifunc support (required)
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/external/libdynemit/CMakeLists.txt")
-    message(FATAL_ERROR "libdynemit submodule not found. Run: git submodule update --init --recursive")
-endif()
-add_subdirectory(external/libdynemit)
+project(liblpm VERSION 2.1.1 LANGUAGES C)
 
 # Set C standard
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
+
+# Generate compile_commands.json for tooling (clang-tidy, clangd, IDEs)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Static analysis
+option(LPM_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+include(cmake/StaticAnalysis.cmake)
+
+# Add libdynemit submodule for SIMD detection and ifunc support (required)
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/external/libdynemit/CMakeLists.txt")
+    message(FATAL_ERROR "libdynemit submodule not found. Run: git submodule update --init --recursive")
+endif()
+
+# Disable clang-tidy for the vendored libdynemit submodule
+set(_saved_c_clang_tidy "${CMAKE_C_CLANG_TIDY}")
+set(CMAKE_C_CLANG_TIDY "")
+add_subdirectory(external/libdynemit)
+set(CMAKE_C_CLANG_TIDY "${_saved_c_clang_tidy}")
+unset(_saved_c_clang_tidy)
 
 # ============================================================================
 # Algorithm Selection Options

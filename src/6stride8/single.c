@@ -26,7 +26,7 @@ static inline uint32_t lookup_ipv6_unrolled(const lpm_node_t * restrict P,
     uint32_t cv = e->child_and_valid; \
     R = (cv & LPM_VALID_FLAG) ? e->next_hop : R; \
     N = cv & LPM_CHILD_MASK; \
-    if (!N) return R; \
+    if (!N) { return R; } \
 } while(0)
     
     S(0); S(1); S(2); S(3);
@@ -37,7 +37,7 @@ static inline uint32_t lookup_ipv6_unrolled(const lpm_node_t * restrict P,
     /* Last byte */
     const struct lpm_entry *e = &P[N].entries[addr[15]];
     uint32_t cv = e->child_and_valid;
-    if (cv & LPM_VALID_FLAG) R = e->next_hop;
+    if (cv & LPM_VALID_FLAG) { R = e->next_hop; }
     
 #undef S
     return R;
@@ -55,8 +55,10 @@ uint32_t lpm_lookup_ipv6_8stride_scalar(const lpm_trie_t *trie, const uint8_t *a
     
     uint32_t R = lookup_ipv6_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot))
@@ -67,8 +69,10 @@ uint32_t lpm_lookup_ipv6_8stride_sse2(const lpm_trie_t *trie, const uint8_t *add
     
     uint32_t R = lookup_ipv6_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("sse4.2")))
@@ -79,8 +83,10 @@ uint32_t lpm_lookup_ipv6_8stride_sse42(const lpm_trie_t *trie, const uint8_t *ad
     
     uint32_t R = lookup_ipv6_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("avx")))
@@ -91,8 +97,10 @@ uint32_t lpm_lookup_ipv6_8stride_avx(const lpm_trie_t *trie, const uint8_t *addr
     
     uint32_t R = lookup_ipv6_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("avx2")))
@@ -103,8 +111,10 @@ uint32_t lpm_lookup_ipv6_8stride_avx2(const lpm_trie_t *trie, const uint8_t *add
     
     uint32_t R = lookup_ipv6_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 __attribute__((hot, target("avx512f")))
@@ -115,8 +125,10 @@ uint32_t lpm_lookup_ipv6_8stride_avx512(const lpm_trie_t *trie, const uint8_t *a
     
     uint32_t R = lookup_ipv6_unrolled(P, N, addr);
     
-    return (R != LPM_INVALID_NEXT_HOP) ? R :
-           (trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP);
+    if (R != LPM_INVALID_NEXT_HOP) {
+        return R;
+    }
+    return trie->has_default_route ? trie->default_next_hop : LPM_INVALID_NEXT_HOP;
 }
 
 /* ============================================================================
@@ -153,6 +165,6 @@ static uint32_t lpm_lookup_ipv6_8stride_internal(const lpm_trie_t *trie, const u
 /* Public API */
 uint32_t lpm_lookup_ipv6_8stride(const lpm_trie_t *trie, const uint8_t addr[16])
 {
-    if (!trie || !addr || trie->max_depth != LPM_IPV6_MAX_DEPTH) return LPM_INVALID_NEXT_HOP;
+    if (!trie || !addr || trie->max_depth != LPM_IPV6_MAX_DEPTH) { return LPM_INVALID_NEXT_HOP; }
     return lpm_lookup_ipv6_8stride_internal(trie, addr);
 }

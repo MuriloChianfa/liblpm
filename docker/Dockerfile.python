@@ -1,7 +1,7 @@
 # Python bindings container for liblpm
 # Builds and tests Python bindings with multiple Python versions
 
-FROM ubuntu:24.04
+FROM ubuntu:25.10
 
 LABEL maintainer="Murilo Chianfa <murilo.chianfa@outlook.com>"
 LABEL description="liblpm Python bindings"

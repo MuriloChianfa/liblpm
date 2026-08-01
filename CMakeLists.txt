@@ -27,6 +27,8 @@ endif()
 # Disable clang-tidy for the vendored libdynemit submodule
 set(_saved_c_clang_tidy "${CMAKE_C_CLANG_TIDY}")
 set(CMAKE_C_CLANG_TIDY "")
+set(DYNEMIT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(DYNEMIT_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/libdynemit)
 set(CMAKE_C_CLANG_TIDY "${_saved_c_clang_tidy}")
 unset(_saved_c_clang_tidy)

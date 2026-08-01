@@ -401,22 +401,23 @@ void lpm_lookup_batch_ipv6_wide16_avx512(const lpm_trie_t *trie, const uint8_t *
 
 typedef void (*lpm_wide16_batch_func_t)(const lpm_trie_t *, const uint8_t **, uint32_t *, size_t);
 
-EXPLICIT_RUNTIME_RESOLVER(lpm_wide16_batch_resolver)
+EXPLICIT_RUNTIME_RESOLVER(lpm_wide16_batch_resolver, lpm_wide16_batch_func_t)
 {
     simd_level_t level = LPM_DETECT_SIMD();
-    
+
     switch (level) {
+    case SIMD_AVX512_VBMI2:
     case SIMD_AVX512F:
-        return (void*)lpm_lookup_batch_ipv6_wide16_avx512;
+        return lpm_lookup_batch_ipv6_wide16_avx512;
     case SIMD_AVX2:
     case SIMD_AVX:
-        return (void*)lpm_lookup_batch_ipv6_wide16_avx2;
+        return lpm_lookup_batch_ipv6_wide16_avx2;
     case SIMD_SSE4_2:
     case SIMD_SSE2:
-        return (void*)lpm_lookup_batch_ipv6_wide16_sse2;
+        return lpm_lookup_batch_ipv6_wide16_sse2;
     case SIMD_SCALAR:
     default:
-        return (void*)lpm_lookup_batch_ipv6_wide16_scalar;
+        return lpm_lookup_batch_ipv6_wide16_scalar;
     }
 }
 

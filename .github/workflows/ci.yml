@@ -276,7 +276,7 @@ jobs:
         submodules: recursive
     
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     
@@ -290,7 +290,7 @@ jobs:
     - name: Build liblpm
       run: |
         mkdir -p build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DLPM_TS_RESOLVERS=ON
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DLPM_TS_RESOLVERS=ON -DLPM_NO_IFUNC=ON
         make -j$(nproc)
         sudo make install
         sudo ldconfig
@@ -310,7 +310,7 @@ jobs:
     
     - name: Upload coverage
       if: matrix.python-version == '3.11'
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       with:
         file: bindings/python/coverage.xml
         flags: python

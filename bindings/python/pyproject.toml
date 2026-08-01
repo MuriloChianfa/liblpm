@@ -76,9 +76,9 @@ Changelog = "https://github.com/MuriloChianfa/liblpm/releases"
 
 [tool.scikit-build]
 # CMake configuration
-cmake.minimum-version = "3.16"
+cmake.version = ">=3.16"
 cmake.build-type = "Release"
-cmake.verbose = false
+build.verbose = false
 
 # Wheel configuration
 wheel.packages = ["src/liblpm"]

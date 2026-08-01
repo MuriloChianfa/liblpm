@@ -130,9 +130,11 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_wide16_single_resolver, lpm_wide16_single_func_t)
     }
 }
 
-/* Internal ifunc-dispatched lookup */
-static uint32_t lpm_lookup_ipv6_wide16_internal(const lpm_trie_t *trie, const uint8_t *addr)
-    __attribute__((ifunc("lpm_wide16_single_resolver")));
+/* Internal dispatched lookup */
+LPM_DEFINE_DISPATCHED_STATIC(uint32_t, lpm_lookup_ipv6_wide16_internal,
+                             (const lpm_trie_t *trie, const uint8_t *addr),
+                             (trie, addr),
+                             lpm_wide16_single_resolver);
 
 /* Public API */
 uint32_t lpm_lookup_ipv6_wide16(const lpm_trie_t *trie, const uint8_t addr[16])

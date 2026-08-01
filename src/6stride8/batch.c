@@ -300,10 +300,12 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_ipv6_8stride_batch_resolver, lpm_ipv6_8stride_batc
     }
 }
 
-/* Internal ifunc-dispatched batch lookup for pointer array */
-static void lpm_lookup_batch_ipv6_8stride_internal(const lpm_trie_t *trie, const uint8_t **addrs,
-                                                    uint32_t *next_hops, size_t count)
-    __attribute__((ifunc("lpm_ipv6_8stride_batch_resolver")));
+/* Internal dispatched batch lookup for pointer array */
+LPM_DEFINE_DISPATCHED_STATIC_VOID(lpm_lookup_batch_ipv6_8stride_internal,
+                                  (const lpm_trie_t *trie, const uint8_t **addrs,
+                                   uint32_t *next_hops, size_t count),
+                                  (trie, addrs, next_hops, count),
+                                  lpm_ipv6_8stride_batch_resolver);
 
 /* Public API for 2D array */
 void lpm_lookup_batch_ipv6_8stride(const lpm_trie_t *trie, const uint8_t (*addrs)[16],

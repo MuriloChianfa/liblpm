@@ -301,10 +301,12 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_ipv4_8stride_batch_resolver, lpm_ipv4_8stride_batc
     }
 }
 
-/* ifunc-dispatched batch lookup for pointer array */
-void lpm_lookup_batch_ipv4_8stride_bytes(const lpm_trie_t *trie, const uint8_t **addrs,
-                                          uint32_t *next_hops, size_t count)
-    __attribute__((ifunc("lpm_ipv4_8stride_batch_resolver")));
+/* Dispatched batch lookup for pointer array */
+LPM_DEFINE_DISPATCHED_VOID(lpm_lookup_batch_ipv4_8stride_bytes,
+                           (const lpm_trie_t *trie, const uint8_t **addrs,
+                            uint32_t *next_hops, size_t count),
+                           (trie, addrs, next_hops, count),
+                           lpm_ipv4_8stride_batch_resolver);
 
 /* Public API wrapper for uint32_t address array */
 void lpm_lookup_batch_ipv4_8stride(const lpm_trie_t *trie, const uint32_t *addrs,

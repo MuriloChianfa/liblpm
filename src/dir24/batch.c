@@ -352,9 +352,11 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_dir24_batch_resolver, lpm_dir24_batch_func_t)
 }
 
 /* Main batch lookup for uint32_t IPs */
-void lpm_lookup_batch_ipv4_dir24(const lpm_trie_t *trie, const uint32_t *addrs,
-                                  uint32_t *next_hops, size_t count)
-    __attribute__((ifunc("lpm_dir24_batch_resolver")));
+LPM_DEFINE_DISPATCHED_VOID(lpm_lookup_batch_ipv4_dir24,
+                           (const lpm_trie_t *trie, const uint32_t *addrs,
+                            uint32_t *next_hops, size_t count),
+                           (trie, addrs, next_hops, count),
+                           lpm_dir24_batch_resolver);
 
 /* ============================================================================
  * Pointer-based Batch Lookup (for compatibility)
@@ -382,9 +384,11 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_dir24_ptrs_resolver, lpm_dir24_ptrs_func_t)
     return lpm_lookup_batch_dir24_ptrs_scalar;
 }
 
-void lpm_lookup_batch_ipv4_dir24_ptrs(const lpm_trie_t *trie, const uint8_t **addrs,
-                                       uint32_t *next_hops, size_t count)
-    __attribute__((ifunc("lpm_dir24_ptrs_resolver")));
+LPM_DEFINE_DISPATCHED_VOID(lpm_lookup_batch_ipv4_dir24_ptrs,
+                           (const lpm_trie_t *trie, const uint8_t **addrs,
+                            uint32_t *next_hops, size_t count),
+                           (trie, addrs, next_hops, count),
+                           lpm_dir24_ptrs_resolver);
 
 /* Batch lookup for byte array input */
 void lpm_lookup_batch_ipv4_dir24_bytes(const lpm_trie_t *trie, const uint8_t (*addrs)[4],

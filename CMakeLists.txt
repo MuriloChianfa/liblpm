@@ -83,6 +83,7 @@ option(BUILD_PERL_WRAPPER "Build Perl wrapper and bindings" OFF)
 option(BUILD_PHP_WRAPPER "Build PHP wrapper and bindings" OFF)
 option(BUILD_PYTHON_WRAPPER "Build Python wrapper and bindings" OFF)
 option(LPM_TS_RESOLVERS "Enable thread-safe resolvers (for dlopen contexts)" OFF)
+option(LPM_NO_IFUNC "Disable GNU ifunc; use constructor-time dispatch (AFL/sanitizers)" OFF)
 
 # Thread-safe resolver configuration
 if(LPM_TS_RESOLVERS)
@@ -90,6 +91,11 @@ if(LPM_TS_RESOLVERS)
     message(STATUS "Thread-safe resolvers: ENABLED (for dlopen contexts)")
 else()
     message(STATUS "Thread-safe resolvers: DISABLED (standard C library)")
+endif()
+
+if(LPM_NO_IFUNC)
+    add_compile_definitions(LPM_NO_IFUNC=1)
+    message(STATUS "ifunc dispatch: DISABLED (constructor-time resolvers)")
 endif()
 
 # External LPM libraries directory

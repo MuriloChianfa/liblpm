@@ -97,6 +97,26 @@ __pycache__/
 dist/
 *.egg
 
+# PHP extension phpize/autotools artifacts
+bindings/php/autom4te.cache/
+bindings/php/build/
+bindings/php/modules/
+bindings/php/.libs/
+bindings/php/configure
+bindings/php/config.h
+bindings/php/config.h.in~
+bindings/php/config.log
+bindings/php/config.nice
+bindings/php/config.status
+bindings/php/libtool
+bindings/php/*.lo
+bindings/php/*.la
+bindings/php/*.dep
+bindings/php/run-tests.php
+bindings/php/Makefile
+bindings/php/Makefile.fragments
+bindings/php/Makefile.objects
+
 # Go
 vendor/
 go.sum

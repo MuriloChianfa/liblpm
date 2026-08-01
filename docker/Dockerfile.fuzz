@@ -64,6 +64,8 @@ RUN mkdir -p build_afl && cd build_afl && \
         -DBUILD_TESTS=ON \
         -DBUILD_BENCHMARKS=OFF \
         -DENABLE_NATIVE_ARCH=OFF \
+        -DLPM_TS_RESOLVERS=ON \
+        -DLPM_NO_IFUNC=ON \
         -GNinja \
         .. && \
     ninja

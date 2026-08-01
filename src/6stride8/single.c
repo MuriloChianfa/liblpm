@@ -159,9 +159,11 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_ipv6_8stride_single_resolver, lpm_ipv6_8stride_sin
     }
 }
 
-/* Internal ifunc-dispatched lookup */
-static uint32_t lpm_lookup_ipv6_8stride_internal(const lpm_trie_t *trie, const uint8_t *addr)
-    __attribute__((ifunc("lpm_ipv6_8stride_single_resolver")));
+/* Internal dispatched lookup */
+LPM_DEFINE_DISPATCHED_STATIC(uint32_t, lpm_lookup_ipv6_8stride_internal,
+                             (const lpm_trie_t *trie, const uint8_t *addr),
+                             (trie, addr),
+                             lpm_ipv6_8stride_single_resolver);
 
 /* Public API */
 uint32_t lpm_lookup_ipv6_8stride(const lpm_trie_t *trie, const uint8_t addr[16])

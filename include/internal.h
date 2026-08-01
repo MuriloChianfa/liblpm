@@ -18,6 +18,63 @@
     #define LPM_DETECT_SIMD() detect_simd_level()
 #endif
 
+/*
+ * Dispatched API entry points.
+ * Default: GNU ifunc (zero-overhead). With LPM_NO_IFUNC (AFL/sanitizers),
+ * use constructor-time resolution instead — ifunc runs before tool init.
+ */
+#if defined(LPM_NO_IFUNC)
+#  define LPM_DEFINE_DISPATCHED(ret, name, params, args, resolver)            \
+    static ret (*name##_fn) params;                                           \
+    __attribute__((constructor)) static void name##_lpm_init(void)            \
+    {                                                                         \
+        name##_fn = (resolver)();                                             \
+    }                                                                         \
+    ret name params                                                           \
+    {                                                                         \
+        return name##_fn args;                                                \
+    }
+#  define LPM_DEFINE_DISPATCHED_VOID(name, params, args, resolver)            \
+    static void (*name##_fn) params;                                          \
+    __attribute__((constructor)) static void name##_lpm_init(void)            \
+    {                                                                         \
+        name##_fn = (resolver)();                                             \
+    }                                                                         \
+    void name params                                                          \
+    {                                                                         \
+        name##_fn args;                                                       \
+    }
+#  define LPM_DEFINE_DISPATCHED_STATIC(ret, name, params, args, resolver)     \
+    static ret (*name##_fn) params;                                           \
+    __attribute__((constructor)) static void name##_lpm_init(void)            \
+    {                                                                         \
+        name##_fn = (resolver)();                                             \
+    }                                                                         \
+    static ret name params                                                    \
+    {                                                                         \
+        return name##_fn args;                                                \
+    }
+#  define LPM_DEFINE_DISPATCHED_STATIC_VOID(name, params, args, resolver)     \
+    static void (*name##_fn) params;                                          \
+    __attribute__((constructor)) static void name##_lpm_init(void)            \
+    {                                                                         \
+        name##_fn = (resolver)();                                             \
+    }                                                                         \
+    static void name params                                                   \
+    {                                                                         \
+        name##_fn args;                                                       \
+    }
+#else
+#  define LPM_DEFINE_DISPATCHED(ret, name, params, args, resolver)            \
+    ret name params __attribute__((ifunc(#resolver)))
+#  define LPM_DEFINE_DISPATCHED_VOID(name, params, args, resolver)            \
+    void name params __attribute__((ifunc(#resolver)))
+#  define LPM_DEFINE_DISPATCHED_STATIC(ret, name, params, args, resolver)     \
+    static ret name params __attribute__((ifunc(#resolver)))
+#  define LPM_DEFINE_DISPATCHED_STATIC_VOID(name, params, args, resolver)     \
+    static void name params __attribute__((ifunc(#resolver)))
+#endif
+
 /* Algorithm-specific headers */
 #include "algo/4stride8.h"
 #include "algo/6stride8.h"

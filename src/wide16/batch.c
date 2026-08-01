@@ -421,10 +421,12 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_wide16_batch_resolver, lpm_wide16_batch_func_t)
     }
 }
 
-/* Internal ifunc-dispatched batch lookup for pointer array */
-static void lpm_lookup_batch_ipv6_wide16_internal(const lpm_trie_t *trie, const uint8_t **addrs,
-                                                   uint32_t *next_hops, size_t count)
-    __attribute__((ifunc("lpm_wide16_batch_resolver")));
+/* Internal dispatched batch lookup for pointer array */
+LPM_DEFINE_DISPATCHED_STATIC_VOID(lpm_lookup_batch_ipv6_wide16_internal,
+                                  (const lpm_trie_t *trie, const uint8_t **addrs,
+                                   uint32_t *next_hops, size_t count),
+                                  (trie, addrs, next_hops, count),
+                                  lpm_wide16_batch_resolver);
 
 /* Public API for 2D array */
 void lpm_lookup_batch_ipv6_wide16(const lpm_trie_t *trie, const uint8_t (*addrs)[16],

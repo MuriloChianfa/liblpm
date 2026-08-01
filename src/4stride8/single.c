@@ -167,9 +167,11 @@ EXPLICIT_RUNTIME_RESOLVER(lpm_ipv4_8stride_single_resolver, lpm_ipv4_8stride_sin
     }
 }
 
-/* ifunc-dispatched lookup for byte array input */
-uint32_t lpm_lookup_ipv4_8stride_bytes(const lpm_trie_t *trie, const uint8_t *addr)
-    __attribute__((ifunc("lpm_ipv4_8stride_single_resolver")));
+/* Dispatched lookup for byte array input */
+LPM_DEFINE_DISPATCHED(uint32_t, lpm_lookup_ipv4_8stride_bytes,
+                      (const lpm_trie_t *trie, const uint8_t *addr),
+                      (trie, addr),
+                      lpm_ipv4_8stride_single_resolver);
 
 /* Public API wrapper for uint32_t address */
 uint32_t lpm_lookup_ipv4_8stride(const lpm_trie_t *trie, uint32_t addr)

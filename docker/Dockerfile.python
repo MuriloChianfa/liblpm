@@ -45,6 +45,8 @@ RUN mkdir -p build && cd build && \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTS=OFF \
         -DENABLE_NATIVE_ARCH=OFF \
+        -DLPM_TS_RESOLVERS=ON \
+        -DLPM_NO_IFUNC=ON \
         -GNinja \
         .. && \
     ninja && \
@@ -54,10 +56,6 @@ RUN mkdir -p build && cd build && \
 # Create Python virtual environment and install dependencies
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
-# Set LD_PRELOAD to work around IFUNC/dlopen issue
-# This forces early relocation of IFUNC resolvers before Python's dlopen
-ENV LD_PRELOAD=/usr/local/lib/liblpm.so.1
 
 # Install Python build dependencies
 RUN pip install --upgrade pip && \
@@ -73,38 +71,37 @@ RUN pip install --upgrade pip && \
 WORKDIR /build/bindings/python
 RUN pip install -e ".[dev]"
 
-# Test script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-echo "=== liblpm Python Bindings Test Suite ==="\n\
-echo "Python version: $(python --version)"\n\
-echo ""\n\
-\n\
-# Clear Python cache to avoid stale bytecode\n\
-echo "=== Clearing Python cache ==="\n\
-cd /build/bindings/python\n\
-rm -rf __pycache__ .pytest_cache tests/__pycache__ src/liblpm/__pycache__\n\
-find . -name "*.pyc" -delete\n\
-\n\
-# Run unit tests\n\
-echo ""\n\
-echo "=== Running Unit Tests ==="\n\
-pytest tests/ -v --tb=short\n\
-\n\
-echo ""\n\
-echo "=== Running Examples ==="\n\
-python examples/basic_example.py\n\
-python examples/algorithms.py\n\
-\n\
-echo ""\n\
-echo "=== Type Checking ==="\n\
-mypy src/liblpm/ --ignore-missing-imports || echo "Type checking completed (warnings may exist)"\n\
-\n\
-echo ""\n\
-echo "=== Python Bindings Test Summary ==="\n\
-echo "All tests passed!"\n\
-' > /build/run_python_tests.sh && chmod +x /build/run_python_tests.sh
+# Test script (no global LD_PRELOAD — that SIGSEGVs bash under Ubuntu 25.10)
+RUN cat > /build/run_python_tests.sh <<'EOF' && chmod +x /build/run_python_tests.sh
+#!/bin/bash
+set -e
+
+echo "=== liblpm Python Bindings Test Suite ==="
+echo "Python version: $(python --version)"
+echo ""
+
+echo "=== Clearing Python cache ==="
+cd /build/bindings/python
+rm -rf __pycache__ .pytest_cache tests/__pycache__ src/liblpm/__pycache__
+find . -name "*.pyc" -delete
+
+echo ""
+echo "=== Running Unit Tests ==="
+pytest tests/ -v --tb=short
+
+echo ""
+echo "=== Running Examples ==="
+python examples/basic_example.py
+python examples/algorithms.py
+
+echo ""
+echo "=== Type Checking ==="
+mypy src/liblpm/ --ignore-missing-imports || echo "Type checking completed (warnings may exist)"
+
+echo ""
+echo "=== Python Bindings Test Summary ==="
+echo "All tests passed!"
+EOF
 
 WORKDIR /build
 
